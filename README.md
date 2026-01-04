@@ -17,7 +17,8 @@
 It generates **pronounceable, neutral names** intended to act purely as labels.  
 Any narrative, cultural, or semantic meaning is deliberately left to downstream systems.
 
-This project is designed to stand on its own and can be used independently of Pipeworks in games, simulations, world-building tools, or other generative systems.
+This project is designed to stand on its own and can be used independently of Pipeworks in
+games, simulations, world-building tools, or other generative systems.
 
 ---
 
@@ -96,7 +97,8 @@ print(names)
 # ['Borkragmar', 'Kragso', 'Thrakrain', 'Alisra', ...]
 ```
 
-**Key Feature:** Determinism is guaranteed. The same seed will always produce the same name, making this ideal for games where entity IDs need consistent names across sessions.
+**Key Feature:** Determinism is guaranteed. The same seed will always produce the same name,
+making this ideal for games where entity IDs need consistent names across sessions.
 
 ---
 

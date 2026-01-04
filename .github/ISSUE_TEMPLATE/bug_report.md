@@ -40,7 +40,7 @@ Steps to reproduce the behavior:
 
 ## Error Messages / Logs
 
-```
+```text
 Paste any relevant error messages or logs here
 ```
 

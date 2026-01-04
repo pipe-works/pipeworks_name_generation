@@ -133,7 +133,7 @@ assert batch1 == batch2
 
 ### Test Organization
 
-```
+```text
 tests/
 ├── test_minimal_generation.py    # Core generation tests
 ├── test_syllable_extractor.py    # Build tool tests
@@ -224,7 +224,7 @@ The project uses pre-commit.ci for automated PR fixes:
 
 Use clear, descriptive commit messages:
 
-```
+```text
 feat: Add phonotactic constraint validation
 fix: Ensure deterministic syllable selection
 docs: Update API documentation for NameGenerator

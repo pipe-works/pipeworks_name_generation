@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`pipeworks_name_generation` is a phonetic name generator that produces pronounceable, neutral names without imposing semantic meaning. The system is designed to be context-free, deterministic, and lightweight.
+`pipeworks_name_generation` is a phonetic name generator that produces pronounceable, neutral
+names without imposing semantic meaning. The system is designed to be context-free,
+deterministic, and lightweight.
 
-**Critical Design Principle**: Determinism is paramount. The same seed must always produce the same name. This is essential for games where entity IDs need to map to consistent names across sessions.
+**Critical Design Principle**: Determinism is paramount. The same seed must always produce
+the same name. This is essential for games where entity IDs need to map to consistent names
+across sessions.
 
 ## Development Commands
 
@@ -86,7 +90,7 @@ git commit --no-verify
 python examples/minimal_proof_of_concept.py
 ```
 
-### Build Tools
+### Build Tool Commands
 
 ```bash
 # Extract syllables from text (build-time tool, interactive)
@@ -160,11 +164,12 @@ rng = random.Random(seed)  # Creates isolated RNG instance
 4. Phonotactic constraints
 5. CLI interface
 
-**Important**: Natural language toolkits (NLTK, etc.) are **build-time only**. They should never be runtime dependencies. The runtime generator must remain fast and lightweight.
+**Important**: Natural language toolkits (NLTK, etc.) are **build-time only**. They should
+never be runtime dependencies. The runtime generator must remain fast and lightweight.
 
 ## Directory Structure
 
-```
+```text
 pipeworks_name_generation/    # Core library code
 tests/                         # pytest test suite
 examples/                      # Usage examples
@@ -181,7 +186,8 @@ _working/                      # Local scratch workspace (not committed)
 
 ### Syllable Extractor (`build_tools/syllable_extractor.py`)
 
-A build-time tool for extracting syllables from text files using dictionary-based hyphenation via pyphen. This tool is used to generate syllable lists for pattern development.
+A build-time tool for extracting syllables from text files using dictionary-based hyphenation
+via pyphen. This tool is used to generate syllable lists for pattern development.
 
 **Key Features:**
 
@@ -353,7 +359,7 @@ assert batch1 == batch2
 - Checks for outdated dependencies
 - Creates GitHub issues with update recommendations
 
-### Pre-commit Hooks
+### CI Pre-commit Hooks
 
 The project uses pre-commit hooks for automated code quality enforcement:
 
