@@ -5,19 +5,6 @@ pipeworks_name_generation
 
 A lightweight, deterministic name generator that produces pronounceable names without imposing semantic meaning.
 
-.. note::
-
-   **User Guides and Project Documentation**
-
-   For user guides, build tool documentation, and project guidelines, see the ``_working/guides/`` directory in the project root:
-
-   * ``_working/guides/syllable_extractor_guide.md`` - Complete guide to the syllable extractor
-   * ``_working/guides/syllable_extractor_fix_notes.md`` - Technical implementation notes
-   * ``_working/guides/tab_completion_guide.md`` - Tab completion usage guide
-   * ``_working/guides/README_DOCS.md`` - Documentation system overview
-   * ``README.md`` - Main project README
-   * ``CLAUDE.md`` - Project guidelines for Claude Code
-
 .. toctree::
    :maxdepth: 2
    :caption: Project Information
