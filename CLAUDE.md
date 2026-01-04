@@ -59,9 +59,18 @@ black pipeworks_name_generation/ tests/
 python examples/minimal_proof_of_concept.py
 ```
 
+### Build Tools
+```bash
+# Extract syllables from text (build-time tool)
+python -m build_tools.syllable_extractor
+
+# Run syllable extraction example
+python examples/syllable_extraction_example.py
+```
+
 ### Documentation
 ```bash
-# Build documentation locally
+# Build documentation (fully automated from code docstrings)
 cd docs
 make html
 
@@ -71,6 +80,8 @@ open build/html/index.html
 # Clean and rebuild
 make clean && make html
 
+# Documentation is automatically generated from code using sphinx-autoapi
+# No manual .rst files needed - just write good docstrings!
 # The docs are also built automatically on ReadTheDocs when pushed to GitHub
 ```
 
@@ -108,7 +119,7 @@ rng = random.Random(seed)  # Creates isolated RNG instance
 **Phase 2+** will add:
 1. YAML pattern loading from `data/` directory
 2. Multiple pattern sets beyond "simple"
-3. Build tools in `build_tools/` for syllable extraction from corpora
+3. Additional build tools in `build_tools/` (syllable extractor already implemented)
 4. Phonotactic constraints
 5. CLI interface
 
@@ -121,9 +132,11 @@ pipeworks_name_generation/    # Core library code
 tests/                         # pytest test suite
 examples/                      # Usage examples
 data/                          # Pattern files (future: YAML configs)
-build_tools/                   # Build-time corpus analysis tools (future)
+build_tools/                   # Build-time corpus analysis tools
+  syllable_extractor.py        # Syllable extraction using pyphen (build-time only)
 scripts/                       # Utility scripts
 docs/                          # Documentation
+_working/                      # Local scratch workspace (not committed)
 ```
 
 ## Design Philosophy

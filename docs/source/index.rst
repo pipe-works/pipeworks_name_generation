@@ -3,50 +3,77 @@ pipeworks_name_generation
 
 **Phonetically-grounded name generation for games and procedural systems**
 
-A deterministic, context-free name generator that produces pronounceable, neutral names
-without imposing semantic meaning. Designed for games where entity IDs need to map to
-consistent names across sessions.
+A lightweight, deterministic name generator that produces pronounceable names without imposing semantic meaning.
+
+.. note::
+
+   **User Guides and Project Documentation**
+
+   For user guides, build tool documentation, and project guidelines, see the ``_working/guides/`` directory in the project root:
+
+   * ``_working/guides/syllable_extractor_guide.md`` - Complete guide to the syllable extractor
+   * ``_working/guides/syllable_extractor_fix_notes.md`` - Technical implementation notes
+   * ``_working/guides/tab_completion_guide.md`` - Tab completion usage guide
+   * ``_working/guides/README_DOCS.md`` - Documentation system overview
+   * ``README.md`` - Main project README
+   * ``CLAUDE.md`` - Project guidelines for Claude Code
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Project Information
 
-   installation
-   quickstart
-   user_guide
-   api_reference
-   development
-   changelog
+   Changelog <changelog>
 
-Features
---------
+.. toctree::
+   :maxdepth: 3
+   :caption: API Reference
 
-* **Deterministic**: Same seed always produces the same name
-* **Phonetically plausible**: Names are pronounceable and natural-sounding
-* **Context-free**: No cultural, historical, or semantic affiliations
+   autoapi/index
+
+Key Features
+------------
+
+* **Deterministic**: Same seed always produces same name
+* **Phonetically plausible**: Uses syllable-based generation
+* **Context-free**: No semantic meaning imposed
 * **Lightweight**: Zero runtime dependencies
-* **Well-tested**: Comprehensive test suite with >80% coverage
+* **Type-safe**: Full type hint support
 
-Quick Example
--------------
+Quick Start
+-----------
+
+Installation:
+
+.. code-block:: bash
+
+   pip install pipeworks-name-generation
+
+Basic usage:
 
 .. code-block:: python
 
-    from pipeworks_name_generation import NameGenerator
+   from pipeworks_name_generation import NameGenerator
 
-    # Create a generator
-    gen = NameGenerator(pattern="simple")
+   gen = NameGenerator(pattern="simple")
+   name = gen.generate(seed=42)
+   print(name)  # Always produces same name for seed=42
 
-    # Generate a name deterministically
-    name = gen.generate(seed=42)
-    print(name)  # "Kawyn"
+Batch generation:
 
-    # Same seed = same name (always!)
-    assert gen.generate(seed=42) == name
+.. code-block:: python
 
-    # Generate multiple names
-    names = gen.generate_batch(count=10, base_seed=1000, unique=True)
-    print(names)
+   names = gen.generate_batch(count=10, base_seed=1000, unique=True)
+
+Build Tools
+-----------
+
+Extract syllables from text corpora:
+
+.. code-block:: bash
+
+   python -m build_tools.syllable_extractor
+
+Features tab completion for paths and supports 50+ languages via pyphen.
 
 Indices and tables
 ==================

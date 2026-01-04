@@ -34,7 +34,9 @@ dev = [
     "sphinx>=8.0",
     "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=3.5",
+    "sphinx-autoapi>=3.0",
     "myst-parser>=4.0",
+    "pyphen>=0.14.0",
 ]
 
 # Documentation dependencies (for ReadTheDocs)
@@ -42,6 +44,7 @@ docs = [
     "sphinx>=8.0",
     "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=3.5",
+    "sphinx-autoapi>=3.0",
     "myst-parser>=4.0",
 ]
 
@@ -67,8 +70,8 @@ ignore = ["E501"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pipeworks_name_generation*"]
-exclude = ["tests*", "docs*", "examples*", "build_tools*", "data*", "scripts*"]
+include = ["pipeworks_name_generation*", "build_tools*"]
+exclude = ["tests*", "docs*", "examples*", "data*", "scripts*"]
 
 [tool.mypy]
 python_version = "3.12"
