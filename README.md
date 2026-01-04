@@ -102,6 +102,73 @@ making this ideal for games where entity IDs need consistent names across sessio
 
 ---
 
+## Build Tools
+
+The project includes build-time tools for analyzing and extracting phonetic patterns from text.
+
+### Syllable Extractor
+
+The syllable extractor uses dictionary-based hyphenation to extract syllables from text files.
+This is a **build-time tool only** - not used during runtime name generation.
+
+#### Interactive CLI Usage
+
+Run the interactive syllable extractor:
+
+```bash
+python -m build_tools.syllable_extractor
+```
+
+The CLI will guide you through:
+
+1. Selecting a language (40+ supported via pyphen)
+2. Configuring syllable length constraints
+3. Choosing an input text file
+4. Extracting and saving syllables with metadata
+
+Output files are saved to `_working/output/` with timestamped names:
+
+- `YYYYMMDD_HHMMSS.syllables.txt` - Unique syllables (one per line, sorted)
+- `YYYYMMDD_HHMMSS.meta.txt` - Extraction metadata and statistics
+
+#### Programmatic Usage
+
+Use the syllable extractor in your own scripts:
+
+```python
+from pathlib import Path
+from build_tools.syllable_extractor import SyllableExtractor
+
+# Initialize extractor for English (US)
+extractor = SyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
+
+# Extract syllables from text
+syllables = extractor.extract_syllables_from_text("Hello wonderful world")
+print(sorted(syllables))
+# ['der', 'ful', 'hel', 'lo', 'won', 'world']
+
+# Extract from a file
+syllables = extractor.extract_syllables_from_file(Path('input.txt'))
+
+# Save results
+extractor.save_syllables(syllables, Path('output.txt'))
+```
+
+#### Supported Languages
+
+The extractor supports 40+ languages through pyphen's LibreOffice dictionaries:
+
+```python
+from build_tools.syllable_extractor import SUPPORTED_LANGUAGES
+
+print(f"{len(SUPPORTED_LANGUAGES)} languages available")
+# English (US/UK), German, French, Spanish, Russian, and many more...
+```
+
+For a complete example, see `examples/syllable_extraction_example.py`.
+
+---
+
 ## Documentation
 
 Full documentation is available and includes:
