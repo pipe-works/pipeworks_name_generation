@@ -585,8 +585,12 @@ class TestErrorHandling:
         with pytest.raises(IOError, match="Error reading file"):
             extractor.extract_syllables_from_file(bad_file)
 
+    @pytest.mark.skipif(
+        __import__("sys").platform == "win32",
+        reason="Permission handling differs on Windows (uses ACLs, not Unix permissions)",
+    )
     def test_extract_from_file_permission_error(self, tmp_path):
-        """Test handling of file permission errors."""
+        """Test handling of file permission errors on Unix-like systems."""
         import os
         import stat
 
@@ -596,17 +600,15 @@ class TestErrorHandling:
         restricted_file = tmp_path / "restricted.txt"
         restricted_file.write_text("test content", encoding="utf-8")
 
-        # Only test on Unix-like systems
-        if hasattr(os, "chmod"):
-            try:
-                # Remove all permissions
-                os.chmod(restricted_file, 0o000)
+        try:
+            # Remove all permissions
+            os.chmod(restricted_file, 0o000)
 
-                with pytest.raises(IOError):
-                    extractor.extract_syllables_from_file(restricted_file)
-            finally:
-                # Restore permissions for cleanup
-                os.chmod(restricted_file, stat.S_IRUSR | stat.S_IWUSR)
+            with pytest.raises(IOError):
+                extractor.extract_syllables_from_file(restricted_file)
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(restricted_file, stat.S_IRUSR | stat.S_IWUSR)
 
 
 class TestHelperFunctions:
