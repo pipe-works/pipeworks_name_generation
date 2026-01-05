@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Set
 
 try:
-    import pyphen  # type: ignore[import-untyped]
+    import pyphen  # type: ignore[import-not-found, import-untyped]
 except ImportError:
     print("Error: pyphen is not installed.")
     print("Install it with: pip install pyphen")
