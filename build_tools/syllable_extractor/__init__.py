@@ -30,6 +30,15 @@ from .extractor import SyllableExtractor
 # File I/O operations
 from .file_io import DEFAULT_OUTPUT_DIR, generate_output_filename, save_metadata
 
+# Language detection (optional - requires langdetect)
+from .language_detection import (
+    detect_language_code,
+    get_alternative_locales,
+    get_default_locale,
+    is_detection_available,
+    list_supported_languages,
+)
+
 # Language configuration
 from .languages import (
     SUPPORTED_LANGUAGES,
@@ -50,6 +59,12 @@ __all__ = [
     "get_language_code",
     "get_language_name",
     "validate_language_code",
+    # Language detection (optional)
+    "detect_language_code",
+    "is_detection_available",
+    "get_alternative_locales",
+    "get_default_locale",
+    "list_supported_languages",
     # File I/O
     "DEFAULT_OUTPUT_DIR",
     "generate_output_filename",
