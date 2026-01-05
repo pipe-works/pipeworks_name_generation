@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .extractor import SyllableExtractor
 from .file_io import DEFAULT_OUTPUT_DIR, generate_output_filename, save_metadata
+from .language_detection import is_detection_available
 from .languages import SUPPORTED_LANGUAGES
 from .models import ExtractionResult
 
@@ -107,7 +108,8 @@ def select_language() -> str:
     Interactive prompt to select a language from supported options.
 
     Returns:
-        The pyphen language code for the selected language
+        The pyphen language code for the selected language, or "auto"
+        for automatic language detection
 
     Note:
         Exits the program if the user provides invalid input after
@@ -116,6 +118,12 @@ def select_language() -> str:
     print("\n" + "=" * 70)
     print("SYLLABLE EXTRACTOR - Language Selection")
     print("=" * 70)
+
+    # Check if auto-detection is available
+    auto_available = is_detection_available()
+    if auto_available:
+        print("\n💡 Auto-detection available! Type 'auto' to automatically detect language.")
+
     print("\nSupported Languages:")
     print("-" * 70)
 
@@ -129,6 +137,8 @@ def select_language() -> str:
     print("  - Number (e.g., '13' for English UK)")
     print("  - Language name (e.g., 'English (US)')")
     print("  - Language code (e.g., 'en_US')")
+    if auto_available:
+        print("  - Type 'auto' for automatic language detection")
     print("  - Type 'quit' to exit")
     print("=" * 70)
 
@@ -138,6 +148,17 @@ def select_language() -> str:
         if selection.lower() == "quit":
             print("Exiting.")
             sys.exit(0)
+
+        # Check for auto-detection
+        if selection.lower() == "auto":
+            if not auto_available:
+                print(
+                    "Error: Auto-detection not available. "
+                    "Install langdetect: pip install langdetect"
+                )
+                continue
+            print("\n✓ Selected: Automatic language detection")
+            return "auto"
 
         # Try to match by number
         if selection.isdigit():
@@ -173,13 +194,19 @@ def main():
     Main entry point for the syllable extractor CLI.
 
     Workflow:
-        1. Prompt user to select a language
+        1. Prompt user to select a language (or 'auto' for automatic detection)
         2. Configure extraction parameters (min/max syllable length)
         3. Prompt for input file path
-        4. Extract syllables from input file
+        4. Extract syllables from input file (with optional auto-detection)
         5. Generate timestamped output filenames
         6. Save syllables and metadata to separate files
         7. Display summary to console
+
+    Language Detection:
+        - If 'auto' is selected and langdetect is installed, the tool will
+          automatically detect the language of the input text
+        - Detection requires at least 20-50 characters for reliable results
+        - Falls back to English (en_US) if detection fails
 
     Output Files:
         - YYYYMMDD_HHMMSS.syllables.txt: One syllable per line, sorted
@@ -234,13 +261,14 @@ def main():
 
     print(f"\n✓ Settings: syllables between {min_len}-{max_len} characters")
 
-    # Step 3: Initialize extractor
-    try:
-        extractor = SyllableExtractor(language_code, min_len, max_len)
-        print(f"✓ Hyphenation dictionary loaded for: {language_code}")
-    except ValueError as e:
-        print(f"\nError: {e}")
-        sys.exit(1)
+    # Step 3: Initialize extractor (skip if using auto-detection)
+    if language_code != "auto":
+        try:
+            extractor = SyllableExtractor(language_code, min_len, max_len)
+            print(f"✓ Hyphenation dictionary loaded for: {language_code}")
+        except ValueError as e:
+            print(f"\nError: {e}")
+            sys.exit(1)
 
     # Step 4: Get input file path
     print("\n" + "-" * 70)
@@ -276,8 +304,21 @@ def main():
     # Step 5: Extract syllables
     print(f"\n⏳ Processing {input_path}...")
     try:
-        syllables, stats = extractor.extract_syllables_from_file(input_path)
-        print(f"✓ Extracted {len(syllables)} unique syllables")
+        if language_code == "auto":
+            # Use auto-detection
+            syllables, stats, detected_language = SyllableExtractor.extract_file_with_auto_language(
+                input_path,
+                min_syllable_length=min_len,
+                max_syllable_length=max_len,
+                suppress_warnings=True,
+            )
+            language_code = detected_language  # Update for metadata
+            print(f"✓ Detected language: {detected_language}")
+            print(f"✓ Extracted {len(syllables)} unique syllables")
+        else:
+            # Use manual language selection
+            syllables, stats = extractor.extract_syllables_from_file(input_path)
+            print(f"✓ Extracted {len(syllables)} unique syllables")
     except Exception as e:
         print(f"\nError during extraction: {e}")
         sys.exit(1)
