@@ -326,7 +326,7 @@ def main():
         sys.exit(1)
 
     # Step 6: Generate output filenames and create result object
-    syllables_path, metadata_path = generate_output_filename()
+    syllables_path, metadata_path = generate_output_filename(language_code=language_code)
 
     result = ExtractionResult(
         syllables=syllables,

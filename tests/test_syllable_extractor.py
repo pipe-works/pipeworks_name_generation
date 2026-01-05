@@ -374,6 +374,77 @@ class TestOutputFileGeneration:
         assert nonexistent_dir.exists()
         assert nonexistent_dir.is_dir()
 
+    def test_generate_output_filename_with_language_code(self, tmp_path):
+        """Test generating output filenames with language code."""
+        output_dir = tmp_path / "output"
+
+        syllables_path, metadata_path = generate_output_filename(output_dir, language_code="en_US")
+
+        # Check that both paths are in the specified directory
+        assert syllables_path.parent == output_dir
+        assert metadata_path.parent == output_dir
+
+        # Check filename format includes language code
+        assert syllables_path.name.endswith(".syllables.en_US.txt")
+        assert metadata_path.name.endswith(".meta.en_US.txt")
+
+        # Check that both have the same timestamp base
+        # Format: YYYYMMDD_HHMMSS.syllables.en_US.txt
+        syllables_parts = syllables_path.stem.split(".")
+        metadata_parts = metadata_path.stem.split(".")
+
+        # Should have format: [timestamp, 'syllables', 'en_US']
+        assert len(syllables_parts) == 3
+        assert syllables_parts[1] == "syllables"
+        assert syllables_parts[2] == "en_US"
+
+        # Should have format: [timestamp, 'meta', 'en_US']
+        assert len(metadata_parts) == 3
+        assert metadata_parts[1] == "meta"
+        assert metadata_parts[2] == "en_US"
+
+        # Timestamps should match
+        assert syllables_parts[0] == metadata_parts[0]
+
+    def test_generate_output_filename_with_different_language_codes(self):
+        """Test generating filenames with various language codes."""
+        test_codes = ["de_DE", "fr", "es", "pt_BR", "ru_RU", "zh_CN"]
+
+        for lang_code in test_codes:
+            syllables_path, metadata_path = generate_output_filename(language_code=lang_code)
+
+            # Check that language code is in the filename
+            assert lang_code in syllables_path.name
+            assert lang_code in metadata_path.name
+            assert syllables_path.name.endswith(f".syllables.{lang_code}.txt")
+            assert metadata_path.name.endswith(f".meta.{lang_code}.txt")
+
+    def test_generate_output_filename_without_language_code_backward_compatible(self):
+        """Test that omitting language code maintains backward compatibility."""
+        syllables_path, metadata_path = generate_output_filename()
+
+        # Should not have language code in filename
+        assert syllables_path.name.endswith(".syllables.txt")
+        assert metadata_path.name.endswith(".meta.txt")
+
+        # Should NOT have extra dots (no language code)
+        # Format should be: YYYYMMDD_HHMMSS.syllables.txt (2 parts before extension)
+        syllables_stem_parts = syllables_path.stem.split(".")
+        assert len(syllables_stem_parts) == 2  # timestamp and 'syllables'
+        assert syllables_stem_parts[1] == "syllables"
+
+    def test_generate_output_filename_language_code_with_underscore(self):
+        """Test handling of language codes with underscores (e.g., en_US, de_CH)."""
+        syllables_path, metadata_path = generate_output_filename(language_code="en_US")
+
+        # Verify underscore in language code is preserved
+        assert "en_US" in syllables_path.name
+        assert "en_US" in metadata_path.name
+
+        # Verify correct filename structure
+        assert ".syllables.en_US.txt" in str(syllables_path)
+        assert ".meta.en_US.txt" in str(metadata_path)
+
     def test_save_metadata(self, tmp_path):
         """Test saving metadata to a file."""
         test_syllables = {"hello", "world"}
