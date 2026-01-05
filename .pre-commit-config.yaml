@@ -41,7 +41,7 @@ repos:
   hooks:
   - id: isort
     name: isort (python)
-    args: [--profile, black, --line-length, '100']
+    args: [--profile, black, --line-length, '100', --check-diff]
 
   # Python code formatting with Black
 - repo: https://github.com/psf/black
@@ -49,7 +49,7 @@ repos:
   hooks:
   - id: black
     language_version: python3.12
-    args: [--line-length, '100']
+    args: [--line-length, '100', --check, --diff]
 
   # Python linting with Ruff (fast alternative to flake8/pylint)
 - repo: https://github.com/astral-sh/ruff-pre-commit
