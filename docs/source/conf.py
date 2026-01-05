@@ -42,7 +42,7 @@ autoapi_options = [
     "undoc-members",
     "show-inheritance",
     "show-module-summary",
-    "imported-members",
+    # "imported-members" removed to prevent duplicate documentation of re-exported items
 ]
 autoapi_ignore = [
     "*/__pycache__/*",
@@ -116,10 +116,9 @@ suppress_warnings = [
     "myst.header",  # MyST parser header warnings
 ]
 
-# Note: The build produces 9 harmless warnings about duplicate object descriptions
-# for ExtractionResult dataclass attributes. This is a known limitation of
-# sphinx-autoapi with Python dataclasses. The documentation output is correct;
-# these warnings can be safely ignored. See:
-# https://github.com/readthedocs/sphinx-autoapi/issues/366
+# Note: We've disabled "imported-members" in autoapi_options to prevent duplicate
+# documentation of re-exported items (e.g., ExtractionResult imported in __init__.py).
+# This means re-exported items are only documented in their original module location.
+# See: https://github.com/readthedocs/sphinx-autoapi/issues/366
 
 nitpicky = False  # Set to True to enable strict type checking
