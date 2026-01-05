@@ -315,6 +315,8 @@ def main():
             language_code = detected_language  # Update for metadata
             print(f"✓ Detected language: {detected_language}")
             print(f"✓ Extracted {len(syllables)} unique syllables")
+            # Create extractor instance with detected language for saving
+            extractor = SyllableExtractor(language_code, min_len, max_len)
         else:
             # Use manual language selection
             syllables, stats = extractor.extract_syllables_from_file(input_path)
