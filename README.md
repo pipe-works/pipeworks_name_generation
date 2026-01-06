@@ -741,6 +741,64 @@ from build_tools.syllable_feature_annotator import (
 )
 ```
 
+#### Random Sampling Tool
+
+The syllable feature annotator includes a random sampling utility for quality assurance and inspection
+of annotated syllables. This tool helps you examine random samples of the annotation output.
+
+**Basic Usage:**
+
+```bash
+# Sample 100 syllables (default)
+python -m build_tools.syllable_feature_annotator.random_sampler
+
+# Sample specific number of syllables
+python -m build_tools.syllable_feature_annotator.random_sampler --samples 50
+
+# Use custom input/output paths
+python -m build_tools.syllable_feature_annotator.random_sampler \
+    --input data/annotated/syllables_annotated.json \
+    --output _working/my_samples.json \
+    --samples 200
+
+# Use a specific seed for reproducibility
+python -m build_tools.syllable_feature_annotator.random_sampler --samples 50 --seed 42
+```
+
+**Options:**
+
+- `--input PATH` - Path to annotated syllables JSON (default: `data/annotated/syllables_annotated.json`)
+- `--output PATH` - Path for output samples JSON (default: `_working/random_samples.json`)
+- `--samples N` - Number of syllables to sample (default: 100)
+- `--seed N` - Random seed for reproducibility (default: None, uses system randomness)
+
+**Programmatic Usage:**
+
+```python
+from pathlib import Path
+from build_tools.syllable_feature_annotator.random_sampler import (
+    load_annotated_syllables,
+    sample_syllables,
+    save_samples
+)
+
+# Load annotated syllables
+records = load_annotated_syllables(Path("data/annotated/syllables_annotated.json"))
+
+# Sample with deterministic seed
+samples = sample_syllables(records, sample_count=50, seed=42)
+
+# Save samples
+save_samples(samples, Path("_working/samples.json"))
+```
+
+**Features:**
+
+- Deterministic sampling with optional seed (reproducibility)
+- Validates input and provides clear error messages
+- Progress feedback during execution
+- Outputs properly formatted JSON for easy inspection
+
 #### Pipeline Integration
 
 The feature annotator sits between the normaliser and pattern development:
