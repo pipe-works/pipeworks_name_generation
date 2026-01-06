@@ -246,3 +246,9 @@ $RECYCLE.BIN/
 # --------------------------------------------------
 _working/*
 !_working/.gitkeep
+
+# --------------------------------------------------
+# Build tool outputs (regenerable)
+# --------------------------------------------------
+data/annotated/
+data/normalized/

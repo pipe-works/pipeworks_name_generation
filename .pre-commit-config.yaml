@@ -4,7 +4,8 @@
 # Update hooks: pre-commit autoupdate
 
 # Global exclusions (apply to all hooks)
-exclude: ^data/normalized/
+# Exclude build tool outputs (can be regenerated)
+exclude: ^data/(normalized|annotated)/
 
 repos:
   # General file formatting and checks
