@@ -38,6 +38,10 @@ dev = [
     "build>=1.0",
     "pyphen>=0.14.0",
     "langdetect>=1.0.9",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.7.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
     "sphinx>=8.0",
     "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=3.5",
@@ -45,10 +49,14 @@ dev = [
     "myst-parser>=4.0",
 ]
 
-# Build-time tools (for syllable extraction with auto-detection)
+# Build-time tools (for syllable extraction, normalization, annotation, and analysis)
 build-tools = [
     "pyphen>=0.14.0",
     "langdetect>=1.0.9",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.7.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
 ]
 
 # Documentation dependencies (for ReadTheDocs)

@@ -46,6 +46,7 @@ games, simulations, world-building tools, or other generative systems.
   - [Syllable Normaliser](#syllable-normaliser)
   - [Syllable Feature Annotator](#syllable-feature-annotator)
   - [Feature Signature Analysis](#feature-signature-analysis)
+  - [t-SNE Visualization](#t-sne-visualization)
 - [Documentation](#documentation)
 - [Non-Goals](#non-goals)
 - [Architecture Overview](#architecture-overview)
@@ -1017,6 +1018,210 @@ print(report)
 - Results help inform pattern generation and syllable selection strategies
 - Processing is fast: typically <1 second for 20,000+ syllables
 - Reports are saved to `_working/analysis/feature_signatures/` by default
+
+### t-SNE Visualization
+
+The t-SNE (t-distributed Stochastic Neighbor Embedding) visualization tool creates 2D visualizations of the
+high-dimensional feature signature space. This helps identify clustering patterns, syllable similarity, and
+natural groupings in the annotated syllable corpus.
+
+t-SNE is a dimensionality reduction technique that projects 12-dimensional feature vectors into 2D space while
+preserving local structure. The visualization uses:
+
+- **Position (x, y)**: t-SNE projection coordinates
+- **Size**: Syllable frequency (larger points = more common)
+- **Color**: Syllable frequency (warmer colors = more common)
+
+This visualization helps answer questions like:
+
+- Are there natural clusters in the feature space?
+- Which syllables are similar based on phonetic features?
+- Are there outliers or unique feature combinations?
+- How does frequency relate to feature patterns?
+
+#### Running the Visualizer
+
+Generate a t-SNE visualization with default settings:
+
+```bash
+# Basic usage with default paths
+python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer
+
+# Custom input/output paths
+python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+  --input data/annotated/syllables_annotated.json \
+  --output _working/analysis/tsne/
+
+# Adjust t-SNE parameters
+python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+  --perplexity 50 \
+  --random-state 123
+
+# High-resolution output
+python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+  --dpi 600
+
+# Verbose output
+python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer --verbose
+```
+
+#### Visualization Options
+
+**Input options:**
+
+- `--input PATH` - Path to syllables_annotated.json (default: `data/annotated/syllables_annotated.json`)
+
+**Output options:**
+
+- `--output PATH` - Output directory for visualizations (default: `_working/analysis/tsne/`)
+- `--dpi N` - Output resolution in DPI (default: 300)
+
+**Algorithm parameters:**
+
+- `--perplexity N` - t-SNE perplexity parameter (default: 30, range: 5-50)
+- `--random-state N` - Random seed for reproducibility (default: 42)
+
+**Display options:**
+
+- `--verbose` - Show detailed progress information
+
+#### Visualization Output Files
+
+The visualizer generates timestamped files in the output directory:
+
+1. **`YYYYMMDD_HHMMSS.tsne_visualization.png`** - High-resolution visualization (PNG)
+2. **`YYYYMMDD_HHMMSS.tsne_metadata.txt`** - Detailed metadata and interpretation guide
+
+Example output files:
+
+- `20260106_143022.tsne_visualization.png`
+- `20260106_143022.tsne_metadata.txt`
+
+The metadata file includes:
+
+- Algorithm parameters (method, dimensions, distance metric, features)
+- Visualization encoding (axis meanings, point size/color)
+- Interpretation guide (how to read the visualization)
+- Technical details (perplexity, random seed, DPI)
+
+#### Visualization API Reference
+
+**Full Pipeline:**
+
+```python
+from pathlib import Path
+from build_tools.syllable_feature_annotator.analysis import run_tsne_visualization
+
+# Run complete visualization pipeline
+result = run_tsne_visualization(
+    input_path=Path("data/annotated/syllables_annotated.json"),
+    output_dir=Path("_working/analysis/tsne/"),
+    perplexity=30,
+    random_state=42,
+    dpi=300,
+    verbose=True
+)
+
+# Access results
+print(f"Visualized {result['syllable_count']:,} syllables")
+print(f"Projected {result['feature_count']} features into 2D")
+print(f"Visualization saved to: {result['output_path']}")
+print(f"Metadata saved to: {result['metadata_path']}")
+
+# Access t-SNE coordinates
+coords = result['tsne_coordinates']  # numpy array (n_syllables, 2)
+```
+
+**Working with Individual Functions:**
+
+```python
+from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+    load_annotated_data,
+    extract_feature_matrix,
+    create_tsne_visualization,
+    save_visualization
+)
+
+# Load data
+records = load_annotated_data(Path("data/annotated/syllables_annotated.json"))
+
+# Extract feature matrix
+feature_matrix, frequencies = extract_feature_matrix(records)
+print(f"Feature matrix shape: {feature_matrix.shape}")  # (n_syllables, 12)
+
+# Create visualization
+fig, tsne_coords = create_tsne_visualization(
+    feature_matrix,
+    frequencies,
+    perplexity=30,
+    random_state=42
+)
+
+# Save outputs
+viz_path, meta_path = save_visualization(fig, Path("_working/tsne/"), dpi=300)
+print(f"Saved to: {viz_path}")
+```
+
+#### Understanding t-SNE Parameters
+
+**Perplexity** (default: 30):
+
+- Balances attention between local and global structure
+- Typical range: 5-50
+- Lower values: emphasize local clusters
+- Higher values: preserve global structure
+- Rule of thumb: should be less than number of syllables
+- Default of 30 works well for most corpus sizes (100-10,000 syllables)
+
+**Random State** (default: 42):
+
+- Controls random initialization of t-SNE
+- Same value = reproducible visualizations
+- Different values = different (but valid) layouts
+- Use fixed value (e.g., 42) for consistent results
+
+**Distance Metric**:
+
+- Uses Hamming distance (optimal for binary feature vectors)
+- Automatically configured for 12-dimensional binary features
+- Not configurable via command-line (intentional design choice)
+
+#### Visualization Features
+
+- **Deterministic**: Same input + same seed = same visualization
+- **High Resolution**: Default 300 DPI for publication quality
+- **Reproducible**: Fixed random seeds for consistent results
+- **Fast Processing**: Typically <10 seconds for 1,000-10,000 syllables
+- **Comprehensive Metadata**: Detailed interpretation guide included
+- **Integration**: Works seamlessly with syllable feature annotator output
+
+#### Visualization Notes
+
+- This is a **build-time analysis tool** - not used during runtime name generation
+- Requires scikit-learn, matplotlib, numpy, and pandas (install with `pip install -e ".[build-tools]"`)
+- t-SNE is non-deterministic by default, but we use fixed random seeds for reproducibility
+- Processing time scales roughly O(n²) with corpus size
+- For very large datasets (>50,000 syllables), consider sampling first
+- Visualizations are saved as PNG files for easy sharing and embedding
+
+#### Interpreting the Visualization
+
+**What to look for:**
+
+- **Nearby points**: Syllables with similar phonetic features
+- **Clusters**: Natural groupings in the feature space
+- **Large/bright points**: High-frequency syllables (common patterns)
+- **Small/dark points**: Low-frequency syllables (rare patterns)
+- **Isolated points**: Unique or rare feature combinations
+- **Dense regions**: Common feature patterns
+- **Sparse regions**: Less common feature patterns
+
+**Example insights:**
+
+- Vowel-initial syllables might cluster together
+- Heavy consonant clusters might form distinct groups
+- Frequency might correlate with certain feature patterns
+- Outliers might indicate unusual phonetic combinations
 
 [↑ Back to Table of Contents](#table-of-contents)
 
