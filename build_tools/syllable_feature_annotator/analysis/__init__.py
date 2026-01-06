@@ -83,17 +83,37 @@ from build_tools.syllable_feature_annotator.analysis.random_sampler import (
     parse_arguments as parse_random_sampler_arguments,
 )
 
-# t-SNE visualizer exports
-from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-    create_tsne_visualization,
-    extract_feature_matrix,
-    load_annotated_data,
-    run_tsne_visualization,
-    save_visualization,
-)
-from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-    parse_args as parse_tsne_visualizer_args,
-)
+# t-SNE visualizer exports (optional - requires matplotlib, numpy, pandas, scikit-learn)
+try:
+    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+        create_tsne_visualization,
+        extract_feature_matrix,
+        load_annotated_data,
+        run_tsne_visualization,
+        save_visualization,
+    )
+    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+        parse_args as parse_tsne_visualizer_args,
+    )
+
+    _TSNE_AVAILABLE = True
+except ImportError:
+    # t-SNE visualizer dependencies not installed
+    _TSNE_AVAILABLE = False
+
+    # Provide stub implementations that raise helpful errors
+    def _tsne_not_available(*args, **kwargs):
+        raise ImportError(
+            "t-SNE visualization requires additional dependencies. "
+            "Install with: pip install -e '.[build-tools]'"
+        )
+
+    create_tsne_visualization = _tsne_not_available
+    extract_feature_matrix = _tsne_not_available
+    load_annotated_data = _tsne_not_available
+    run_tsne_visualization = _tsne_not_available
+    save_visualization = _tsne_not_available
+    parse_tsne_visualizer_args = _tsne_not_available
 
 __all__ = [
     # Random sampler
@@ -108,7 +128,8 @@ __all__ = [
     "run_analysis",
     "save_report",
     "parse_feature_signatures_args",
-    # t-SNE visualizer
+    # t-SNE visualizer (optional)
+    "_TSNE_AVAILABLE",
     "load_annotated_data",
     "extract_feature_matrix",
     "create_tsne_visualization",

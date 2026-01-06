@@ -15,18 +15,29 @@ import json
 from pathlib import Path
 from unittest import mock
 
-import numpy as np  # type: ignore[import-not-found]
 import pytest
 
-from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-    ALL_FEATURES,
-    create_tsne_visualization,
-    extract_feature_matrix,
-    load_annotated_data,
-    parse_args,
-    run_tsne_visualization,
-    save_visualization,
-)
+# Check if optional dependencies are available
+np = pytest.importorskip("numpy", reason="numpy not installed")
+
+# Import will only work if dependencies are available
+try:
+    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+        ALL_FEATURES,
+        create_tsne_visualization,
+        extract_feature_matrix,
+        load_annotated_data,
+        parse_args,
+        run_tsne_visualization,
+        save_visualization,
+    )
+
+    _IMPORTS_AVAILABLE = True
+except ImportError:
+    _IMPORTS_AVAILABLE = False
+    pytestmark = pytest.mark.skip(
+        reason="t-SNE visualizer dependencies not installed (matplotlib, numpy, scikit-learn)"
+    )
 
 # ============================================================================
 # Fixtures
