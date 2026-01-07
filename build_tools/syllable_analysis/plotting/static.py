@@ -10,7 +10,7 @@ Usage Example
 
     import numpy as np
     from pathlib import Path
-    from build_tools.syllable_feature_annotator.analysis.plotting.static import (
+    from build_tools.syllable_analysis.plotting.static import (
         create_tsne_scatter,
         save_static_plot,
         create_metadata_text

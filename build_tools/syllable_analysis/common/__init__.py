@@ -17,7 +17,7 @@ Quick Start
 -----------
 Import commonly used utilities::
 
-    from build_tools.syllable_feature_annotator.analysis.common import (
+    from build_tools.syllable_analysis.common import (
         default_paths,
         load_annotated_syllables,
         save_json_output,
@@ -32,7 +32,7 @@ Path management::
     output_dir = default_paths.analysis_output_dir("tsne")
 
     # Use custom root (for testing)
-    from build_tools.syllable_feature_annotator.analysis.common.paths import AnalysisPathConfig
+    from build_tools.syllable_analysis.common.paths import AnalysisPathConfig
     custom_paths = AnalysisPathConfig(root=Path("/custom/root"))
 
 Data I/O::
@@ -63,7 +63,7 @@ Examples
 --------
 Typical analysis tool workflow::
 
-    from build_tools.syllable_feature_annotator.analysis.common import (
+    from build_tools.syllable_analysis.common import (
         default_paths,
         load_annotated_syllables,
         ensure_output_dir,
@@ -86,24 +86,21 @@ Typical analysis tool workflow::
 """
 
 # Data I/O exports
-from build_tools.syllable_feature_annotator.analysis.common.data_io import (
+from build_tools.syllable_analysis.common.data_io import (
     load_annotated_syllables,
     load_frequency_data,
     save_json_output,
 )
 
 # Output management exports
-from build_tools.syllable_feature_annotator.analysis.common.output import (
+from build_tools.syllable_analysis.common.output import (
     ensure_output_dir,
     generate_output_pair,
     generate_timestamped_path,
 )
 
 # Path management exports
-from build_tools.syllable_feature_annotator.analysis.common.paths import (
-    AnalysisPathConfig,
-    default_paths,
-)
+from build_tools.syllable_analysis.common.paths import AnalysisPathConfig, default_paths
 
 __all__ = [
     # Path management

@@ -15,14 +15,14 @@ Usage
 -----
 Ensure output directory exists::
 
-    from build_tools.syllable_feature_annotator.analysis.common import ensure_output_dir
+    from build_tools.syllable_analysis.common import ensure_output_dir
     from pathlib import Path
 
     output_dir = ensure_output_dir(Path("_working/analysis/tsne/"))
 
 Generate timestamped output path::
 
-    from build_tools.syllable_feature_annotator.analysis.common import generate_timestamped_path
+    from build_tools.syllable_analysis.common import generate_timestamped_path
 
     viz_path = generate_timestamped_path(
         output_dir=Path("_working/analysis/tsne/"),
@@ -33,7 +33,7 @@ Generate timestamped output path::
 
 Generate paired output paths::
 
-    from build_tools.syllable_feature_annotator.analysis.common import generate_output_pair
+    from build_tools.syllable_analysis.common import generate_output_pair
 
     viz_path, meta_path = generate_output_pair(
         output_dir=Path("_working/analysis/tsne/"),

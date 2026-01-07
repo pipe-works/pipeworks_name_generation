@@ -19,7 +19,7 @@ pytest.importorskip("sklearn", reason="scikit-learn required for dimensionality 
 
 import numpy as np  # noqa: E402
 
-from build_tools.syllable_feature_annotator.analysis.dimensionality import (  # noqa: E402
+from build_tools.syllable_analysis.dimensionality import (  # noqa: E402
     ALL_FEATURES,
     apply_tsne,
     calculate_optimal_perplexity,

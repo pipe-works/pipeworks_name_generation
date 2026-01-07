@@ -778,19 +778,19 @@ of annotated syllables. This tool helps you examine random samples of the annota
 
 ```bash
 # Sample 100 syllables (default)
-python -m build_tools.syllable_feature_annotator.analysis.random_sampler
+python -m build_tools.syllable_analysis.random_sampler
 
 # Sample specific number of syllables
-python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50
+python -m build_tools.syllable_analysis.random_sampler --samples 50
 
 # Use custom input/output paths
-python -m build_tools.syllable_feature_annotator.analysis.random_sampler \
+python -m build_tools.syllable_analysis.random_sampler \
     --input data/annotated/syllables_annotated.json \
     --output _working/my_samples.json \
     --samples 200
 
 # Use a specific seed for reproducibility
-python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50 --seed 42
+python -m build_tools.syllable_analysis.random_sampler --samples 50 --seed 42
 ```
 
 **Options:**
@@ -804,7 +804,7 @@ python -m build_tools.syllable_feature_annotator.analysis.random_sampler --sampl
 
 ```python
 from pathlib import Path
-from build_tools.syllable_feature_annotator.analysis.random_sampler import (
+from build_tools.syllable_analysis.random_sampler import (
     load_annotated_syllables,
     sample_syllables,
     save_samples
@@ -884,13 +884,13 @@ This analysis answers questions like:
 
 ```bash
 # Analyze with default paths (uses data/annotated/syllables_annotated.json)
-python -m build_tools.syllable_feature_annotator.analysis.feature_signatures
+python -m build_tools.syllable_analysis.feature_signatures
 
 # Show only top 20 signatures
-python -m build_tools.syllable_feature_annotator.analysis.feature_signatures --limit 20
+python -m build_tools.syllable_analysis.feature_signatures --limit 20
 
 # Custom input/output paths
-python -m build_tools.syllable_feature_annotator.analysis.feature_signatures \
+python -m build_tools.syllable_analysis.feature_signatures \
   --input data/annotated/syllables_annotated.json \
   --output _working/my_analysis/
 ```
@@ -956,7 +956,7 @@ The report includes:
 
 ```python
 from pathlib import Path
-from build_tools.syllable_feature_annotator.analysis.feature_signatures import run_analysis
+from build_tools.syllable_analysis.feature_signatures import run_analysis
 
 # Run full analysis
 result = run_analysis(
@@ -978,7 +978,7 @@ for signature, count in result['signature_counter'].most_common(10):
 **Working with Individual Functions:**
 
 ```python
-from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
+from build_tools.syllable_analysis.feature_signatures import (
     extract_signature,
     analyze_feature_signatures,
     format_signature_report
@@ -1050,33 +1050,33 @@ Generate a t-SNE visualization with default settings:
 
 ```bash
 # Basic usage with default paths (static PNG only)
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer
+python -m build_tools.syllable_analysis.tsne_visualizer
 
 # Generate both static PNG and interactive HTML
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+python -m build_tools.syllable_analysis.tsne_visualizer \
   --interactive \
   --save-mapping
 
 # Custom input/output paths with interactive visualization
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+python -m build_tools.syllable_analysis.tsne_visualizer \
   --input data/annotated/syllables_annotated.json \
   --output _working/analysis/tsne/ \
   --interactive
 
 # Adjust t-SNE parameters with interactive output
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+python -m build_tools.syllable_analysis.tsne_visualizer \
   --perplexity 50 \
   --random-state 123 \
   --interactive
 
 # High-resolution output with interactive HTML
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+python -m build_tools.syllable_analysis.tsne_visualizer \
   --dpi 600 \
   --interactive \
   --save-mapping
 
 # Verbose output
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer --verbose
+python -m build_tools.syllable_analysis.tsne_visualizer --verbose
 ```
 
 #### Visualization Options
@@ -1145,7 +1145,7 @@ The mapping file (optional) contains:
 
 ```python
 from pathlib import Path
-from build_tools.syllable_feature_annotator.analysis import run_tsne_visualization
+from build_tools.syllable_analysis import run_tsne_visualization
 
 # Run complete visualization pipeline with interactive output
 result = run_tsne_visualization(
@@ -1181,7 +1181,7 @@ coords = result['tsne_coordinates']  # numpy array (n_syllables, 2)
 
 ```python
 from pathlib import Path
-from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+from build_tools.syllable_analysis.tsne_visualizer import (
     load_annotated_data,
     extract_feature_matrix,
     create_tsne_visualization,

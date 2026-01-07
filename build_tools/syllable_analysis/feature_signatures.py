@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Counter as CounterType
 from typing import Dict, List, Optional, Tuple
 
-from build_tools.syllable_feature_annotator.analysis.common import (
+from build_tools.syllable_analysis.common import (
     default_paths,
     ensure_output_dir,
     generate_timestamped_path,
@@ -217,13 +217,13 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   # Analyze with default paths
-  python -m build_tools.syllable_feature_annotator.analysis.feature_signatures
+  python -m build_tools.syllable_analysis.feature_signatures
 
   # Show only top 50 signatures
-  python -m build_tools.syllable_feature_annotator.analysis.feature_signatures --limit 50
+  python -m build_tools.syllable_analysis.feature_signatures --limit 50
 
   # Custom input/output paths
-  python -m build_tools.syllable_feature_annotator.analysis.feature_signatures \\
+  python -m build_tools.syllable_analysis.feature_signatures \\
     --input data/annotated/syllables_annotated.json \\
     --output _working/my_analysis/
         """,

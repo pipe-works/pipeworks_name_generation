@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List
 
-from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
+from build_tools.syllable_analysis.feature_signatures import (
     analyze_feature_signatures,
     extract_signature,
     format_signature_report,

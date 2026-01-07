@@ -16,20 +16,20 @@ Usage
 -----
 Loading annotated syllables::
 
-    from build_tools.syllable_feature_annotator.analysis.common import load_annotated_syllables
+    from build_tools.syllable_analysis.common import load_annotated_syllables
     from pathlib import Path
 
     records = load_annotated_syllables(Path("data/annotated/syllables_annotated.json"))
 
 Loading frequency data::
 
-    from build_tools.syllable_feature_annotator.analysis.common import load_frequency_data
+    from build_tools.syllable_analysis.common import load_frequency_data
 
     frequencies = load_frequency_data(Path("data/normalized/syllables_frequencies.json"))
 
 Saving JSON output::
 
-    from build_tools.syllable_feature_annotator.analysis.common import save_json_output
+    from build_tools.syllable_analysis.common import save_json_output
 
     data = {"results": [...]}
     save_json_output(data, Path("output.json"))

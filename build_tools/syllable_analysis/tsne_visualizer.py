@@ -25,34 +25,34 @@ Output Formats:
 
 Usage:
     # Generate static PNG visualization with default paths
-    python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer
+    python -m build_tools.syllable_analysis.tsne_visualizer
 
     # Generate both static PNG and interactive HTML
-    python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+    python -m build_tools.syllable_analysis.tsne_visualizer \\
         --interactive \\
         --save-mapping
 
     # Custom input/output paths
-    python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+    python -m build_tools.syllable_analysis.tsne_visualizer \\
         --input data/annotated/syllables_annotated.json \\
         --output _working/analysis/tsne/ \\
         --interactive
 
     # Adjust t-SNE parameters
-    python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+    python -m build_tools.syllable_analysis.tsne_visualizer \\
         --perplexity 50 \\
         --random-state 123 \\
         --interactive
 
     # High-resolution output with interactive HTML
-    python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+    python -m build_tools.syllable_analysis.tsne_visualizer \\
         --dpi 600 \\
         --interactive \\
         --save-mapping
 
 Programmatic Usage:
     >>> from pathlib import Path
-    >>> from build_tools.syllable_feature_annotator.analysis import (
+    >>> from build_tools.syllable_analysis import (
     ...     run_tsne_visualization,
     ...     extract_feature_matrix
     ... )
@@ -91,19 +91,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 
 # Import from refactored modules
-from build_tools.syllable_feature_annotator.analysis.common import (
+from build_tools.syllable_analysis.common import (
     default_paths,
     ensure_output_dir,
     load_annotated_syllables,
 )
-from build_tools.syllable_feature_annotator.analysis.dimensionality import (
+from build_tools.syllable_analysis.dimensionality import (
     ALL_FEATURES,
     apply_tsne,
     create_tsne_mapping,
     extract_feature_matrix,
     save_tsne_mapping,
 )
-from build_tools.syllable_feature_annotator.analysis.plotting import (
+from build_tools.syllable_analysis.plotting import (
     PLOTLY_AVAILABLE,
     create_metadata_text,
     create_tsne_scatter,
@@ -112,7 +112,7 @@ from build_tools.syllable_feature_annotator.analysis.plotting import (
 
 # Conditional import for interactive plotting
 if PLOTLY_AVAILABLE:
-    from build_tools.syllable_feature_annotator.analysis.plotting import (
+    from build_tools.syllable_analysis.plotting import (
         create_interactive_scatter,
         save_interactive_html,
     )
@@ -284,24 +284,24 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   # Generate visualization with default settings
-  python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer
+  python -m build_tools.syllable_analysis.tsne_visualizer
 
   # Custom input/output paths
-  python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+  python -m build_tools.syllable_analysis.tsne_visualizer \\
     --input data/annotated/syllables_annotated.json \\
     --output _working/analysis/tsne/
 
   # Adjust t-SNE parameters
-  python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+  python -m build_tools.syllable_analysis.tsne_visualizer \\
     --perplexity 50 \\
     --random-state 123
 
   # High-resolution output
-  python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \\
+  python -m build_tools.syllable_analysis.tsne_visualizer \\
     --dpi 600
 
   # Verbose output
-  python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer --verbose
+  python -m build_tools.syllable_analysis.tsne_visualizer --verbose
         """,
     )
 

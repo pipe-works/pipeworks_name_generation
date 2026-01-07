@@ -46,7 +46,7 @@ def apply_tsne(
 
     Example:
         >>> import numpy as np
-        >>> from build_tools.syllable_feature_annotator.analysis.dimensionality import apply_tsne
+        >>> from build_tools.syllable_analysis.dimensionality import apply_tsne
         >>> # Create sample binary feature matrix (100 samples, 12 features)
         >>> feature_matrix = np.random.randint(0, 2, size=(100, 12))
         >>> # Apply t-SNE to reduce to 2D

@@ -259,6 +259,7 @@ __description__ = "Deterministic phonetic feature annotation for syllables"
 
 
 # Backward compatibility imports for analysis tools (DEPRECATED)
+# Analysis tools have been moved to build_tools.syllable_analysis
 # These will be removed in a future version
 import warnings as _warnings
 
@@ -280,31 +281,25 @@ def __getattr__(name: str):
     if name == "sample_syllables":
         _deprecated_import_warning(
             "build_tools.syllable_feature_annotator.random_sampler",
-            "build_tools.syllable_feature_annotator.analysis.random_sampler",
+            "build_tools.syllable_analysis.random_sampler",
         )
-        from build_tools.syllable_feature_annotator.analysis.random_sampler import (  # noqa: F401
-            sample_syllables,
-        )
+        from build_tools.syllable_analysis.random_sampler import sample_syllables  # noqa: F401
 
         return locals()[name]
 
-    # Functions moved to analysis.common during refactoring
+    # Functions moved to syllable_analysis.common during refactoring
     if name in ("load_annotated_syllables", "save_samples"):
         _deprecated_import_warning(
             "build_tools.syllable_feature_annotator",
-            "build_tools.syllable_feature_annotator.analysis.common",
+            "build_tools.syllable_analysis.common",
         )
         if name == "load_annotated_syllables":
-            from build_tools.syllable_feature_annotator.analysis.common import (  # noqa: F401
-                load_annotated_syllables,
-            )
+            from build_tools.syllable_analysis.common import load_annotated_syllables  # noqa: F401
 
             return load_annotated_syllables
         elif name == "save_samples":
             # save_samples was renamed to save_json_output
-            from build_tools.syllable_feature_annotator.analysis.common import (  # noqa: F401
-                save_json_output,
-            )
+            from build_tools.syllable_analysis.common import save_json_output  # noqa: F401
 
             return save_json_output
 
@@ -318,9 +313,9 @@ def __getattr__(name: str):
     ):
         _deprecated_import_warning(
             "build_tools.syllable_feature_annotator.feature_signatures",
-            "build_tools.syllable_feature_annotator.analysis.feature_signatures",
+            "build_tools.syllable_analysis.feature_signatures",
         )
-        from build_tools.syllable_feature_annotator.analysis.feature_signatures import (  # noqa: F401
+        from build_tools.syllable_analysis.feature_signatures import (  # noqa: F401
             analyze_feature_signatures,
             extract_signature,
             format_signature_report,

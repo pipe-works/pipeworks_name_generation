@@ -16,22 +16,19 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_feature_annotator.analysis.common.data_io import (
+from build_tools.syllable_analysis.common.data_io import (
     load_annotated_syllables,
     load_frequency_data,
     save_json_output,
 )
-from build_tools.syllable_feature_annotator.analysis.common.output import (
+from build_tools.syllable_analysis.common.output import (
     ensure_output_dir,
     generate_output_pair,
     generate_timestamped_path,
 )
 
 # Import modules under test
-from build_tools.syllable_feature_annotator.analysis.common.paths import (
-    AnalysisPathConfig,
-    default_paths,
-)
+from build_tools.syllable_analysis.common.paths import AnalysisPathConfig, default_paths
 
 # =============================================================================
 # Test Suite: paths.py - Path Management
@@ -194,9 +191,7 @@ class TestDefaultPaths:
     def test_default_paths_is_singleton(self):
         """Test that default_paths behaves as singleton across imports."""
         # Import default_paths again
-        from build_tools.syllable_feature_annotator.analysis.common.paths import (
-            default_paths as default_paths_2,
-        )
+        from build_tools.syllable_analysis.common.paths import default_paths as default_paths_2
 
         # Should be the same instance
         assert default_paths is default_paths_2

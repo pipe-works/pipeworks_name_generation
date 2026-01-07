@@ -19,21 +19,21 @@ Quick Start
 -----------
 Random sampling::
 
-    $ python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50
+    $ python -m build_tools.syllable_analysis.random_sampler --samples 50
 
 Feature signature analysis::
 
-    $ python -m build_tools.syllable_feature_annotator.analysis.feature_signatures
+    $ python -m build_tools.syllable_analysis.feature_signatures
 
 t-SNE visualization::
 
-    $ python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer
+    $ python -m build_tools.syllable_analysis.tsne_visualizer
 
 Programmatic Usage
 ------------------
 Using common utilities::
 
-    >>> from build_tools.syllable_feature_annotator.analysis import (
+    >>> from build_tools.syllable_analysis import (
     ...     default_paths,
     ...     load_annotated_syllables,
     ...     ensure_output_dir,
@@ -45,7 +45,7 @@ Using common utilities::
 
 Random sampling::
 
-    >>> from build_tools.syllable_feature_annotator.analysis import (
+    >>> from build_tools.syllable_analysis import (
     ...     load_annotated_syllables,
     ...     sample_syllables,
     ...     save_json_output
@@ -56,7 +56,7 @@ Random sampling::
 
 Feature signature analysis::
 
-    >>> from build_tools.syllable_feature_annotator.analysis import (
+    >>> from build_tools.syllable_analysis import (
     ...     run_analysis,
     ...     extract_signature,
     ...     analyze_feature_signatures
@@ -69,7 +69,7 @@ Feature signature analysis::
 
 t-SNE visualization::
 
-    >>> from build_tools.syllable_feature_annotator.analysis import (
+    >>> from build_tools.syllable_analysis import (
     ...     run_tsne_visualization,
     ...     extract_feature_matrix
     ... )
@@ -80,7 +80,7 @@ t-SNE visualization::
 """
 
 # Common utilities (NEW - Phase 1 refactoring)
-from build_tools.syllable_feature_annotator.analysis.common import (
+from build_tools.syllable_analysis.common import (
     AnalysisPathConfig,
     default_paths,
     ensure_output_dir,
@@ -94,7 +94,7 @@ from build_tools.syllable_feature_annotator.analysis.common import (
 # Dimensionality reduction utilities (NEW - Phase 4 refactoring)
 # Optional - requires numpy and scikit-learn
 try:
-    from build_tools.syllable_feature_annotator.analysis.dimensionality import (
+    from build_tools.syllable_analysis.dimensionality import (
         ALL_FEATURES,
         apply_tsne,
         calculate_optimal_perplexity,
@@ -128,7 +128,7 @@ except ImportError:
 
 # Plotting utilities (NEW - Phase 5 refactoring)
 # Static plotting always available (matplotlib is required dependency)
-from build_tools.syllable_feature_annotator.analysis.plotting import (
+from build_tools.syllable_analysis.plotting import (
     PLOTLY_AVAILABLE,
     create_metadata_text,
     create_tsne_scatter,
@@ -137,7 +137,7 @@ from build_tools.syllable_feature_annotator.analysis.plotting import (
 
 # Interactive plotting (optional - requires Plotly)
 if PLOTLY_AVAILABLE:
-    from build_tools.syllable_feature_annotator.analysis.plotting import (
+    from build_tools.syllable_analysis.plotting import (
         build_hover_text,
         create_interactive_scatter,
         create_metadata_footer,
@@ -158,32 +158,30 @@ else:
     save_interactive_html = _plotly_not_available
 
 # Feature signatures exports
-from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
+from build_tools.syllable_analysis.feature_signatures import (
     analyze_feature_signatures,
     extract_signature,
     format_signature_report,
     run_analysis,
     save_report,
 )
-from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
+from build_tools.syllable_analysis.feature_signatures import (
     parse_args as parse_feature_signatures_args,
 )
 
 # Random sampler exports
 # Note: load_annotated_syllables is now imported from common (above)
-from build_tools.syllable_feature_annotator.analysis.random_sampler import (
+from build_tools.syllable_analysis.random_sampler import (
     parse_arguments as parse_random_sampler_arguments,
 )
-from build_tools.syllable_feature_annotator.analysis.random_sampler import sample_syllables
+from build_tools.syllable_analysis.random_sampler import sample_syllables
 
 # t-SNE visualizer exports (optional - requires matplotlib, numpy, scikit-learn)
 try:
-    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+    from build_tools.syllable_analysis.tsne_visualizer import (
         parse_args as parse_tsne_visualizer_args,
     )
-    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-        run_tsne_visualization,
-    )
+    from build_tools.syllable_analysis.tsne_visualizer import run_tsne_visualization
 
     _TSNE_AVAILABLE = True
 except ImportError:

@@ -15,7 +15,7 @@ Usage
 -----
 Using the module-level singleton (recommended)::
 
-    from build_tools.syllable_feature_annotator.analysis.common import default_paths
+    from build_tools.syllable_analysis.common import default_paths
 
     # Access default input path
     input_path = default_paths.annotated_syllables
@@ -25,7 +25,7 @@ Using the module-level singleton (recommended)::
 
 Creating a custom instance::
 
-    from build_tools.syllable_feature_annotator.analysis.common.paths import AnalysisPathConfig
+    from build_tools.syllable_analysis.common.paths import AnalysisPathConfig
     from pathlib import Path
 
     # Use custom root
@@ -90,7 +90,7 @@ class AnalysisPathConfig:
     testing purposes.
 
     The auto-detection assumes this file is located at:
-    ``build_tools/syllable_feature_annotator/analysis/common/paths.py``
+    ``build_tools/syllable_analysis/common/paths.py``
 
     If the directory structure changes, the ``_detect_project_root()`` method
     must be updated accordingly.
@@ -123,7 +123,7 @@ class AnalysisPathConfig:
 
         This method calculates the project root by navigating up from this file's location.
         The calculation assumes this file is located at:
-        ``build_tools/syllable_feature_annotator/analysis/common/paths.py``
+        ``build_tools/syllable_analysis/common/paths.py``
 
         Returns
         -------
@@ -134,12 +134,11 @@ class AnalysisPathConfig:
         -----
         Directory structure assumed::
 
-            pipeworks_name_generation/          ← Root (5 levels up)
-            └── build_tools/                    ← 4 levels up
-                └── syllable_feature_annotator/ ← 3 levels up
-                    └── analysis/               ← 2 levels up
-                        └── common/             ← 1 level up
-                            └── paths.py        ← This file
+            pipeworks_name_generation/      ← Root (4 levels up)
+            └── build_tools/                ← 3 levels up
+                └── syllable_analysis/      ← 2 levels up
+                    └── common/             ← 1 level up
+                        └── paths.py        ← This file
 
         The method uses ``Path(__file__).resolve()`` to get the absolute path,
         ensuring it works regardless of how the module is imported.
@@ -152,9 +151,9 @@ class AnalysisPathConfig:
         >>> (root / "pyproject.toml").exists()
         True
         """
-        # This file is in: build_tools/syllable_feature_annotator/analysis/common/paths.py
-        # Navigate up 5 levels to reach project root
-        return Path(__file__).resolve().parent.parent.parent.parent.parent
+        # This file is in: build_tools/syllable_analysis/common/paths.py
+        # Navigate up 4 levels to reach project root
+        return Path(__file__).resolve().parent.parent.parent.parent
 
     @property
     def annotated_syllables(self) -> Path:
@@ -290,6 +289,6 @@ class AnalysisPathConfig:
 # across all tools.
 #
 # Examples:
-#     from build_tools.syllable_feature_annotator.analysis.common import default_paths
+#     from build_tools.syllable_analysis.common import default_paths
 #
 default_paths = AnalysisPathConfig()

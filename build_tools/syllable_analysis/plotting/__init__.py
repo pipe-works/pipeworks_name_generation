@@ -16,7 +16,7 @@ Usage Example
 -------------
 Static Visualization::
 
-    from build_tools.syllable_feature_annotator.analysis.plotting import (
+    from build_tools.syllable_analysis.plotting import (
         create_tsne_scatter,
         save_static_plot
     )
@@ -26,7 +26,7 @@ Static Visualization::
 
 Interactive Visualization::
 
-    from build_tools.syllable_feature_annotator.analysis.plotting import (
+    from build_tools.syllable_analysis.plotting import (
         PLOTLY_AVAILABLE,
         create_interactive_scatter,
         save_interactive_html

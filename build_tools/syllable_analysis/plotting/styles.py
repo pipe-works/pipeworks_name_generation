@@ -7,7 +7,7 @@ Usage Example
 -------------
 ::
 
-    from build_tools.syllable_feature_annotator.analysis.plotting.styles import (
+    from build_tools.syllable_analysis.plotting.styles import (
         DEFAULT_COLORMAP,
         DEFAULT_FIGURE_SIZE,
         DEFAULT_DPI

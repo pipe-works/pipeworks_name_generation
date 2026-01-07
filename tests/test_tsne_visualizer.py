@@ -17,9 +17,7 @@ pytest.importorskip("numpy", reason="numpy not installed")
 pytest.importorskip("sklearn", reason="scikit-learn not installed")
 pytest.importorskip("matplotlib", reason="matplotlib not installed")
 
-from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (  # noqa: E402
-    run_tsne_visualization,
-)
+from build_tools.syllable_analysis.tsne_visualizer import run_tsne_visualization  # noqa: E402
 
 # ============================================================================
 # Fixtures

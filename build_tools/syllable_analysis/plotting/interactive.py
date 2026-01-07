@@ -13,7 +13,7 @@ Usage Example
 
     import numpy as np
     from pathlib import Path
-    from build_tools.syllable_feature_annotator.analysis.plotting.interactive import (
+    from build_tools.syllable_analysis.plotting.interactive import (
         create_interactive_scatter,
         save_interactive_html,
         PLOTLY_AVAILABLE

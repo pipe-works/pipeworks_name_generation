@@ -19,13 +19,13 @@ import numpy as np
 import pytest
 
 # Import plotting modules
-from build_tools.syllable_feature_annotator.analysis.plotting import (
+from build_tools.syllable_analysis.plotting import (
     PLOTLY_AVAILABLE,
     create_metadata_text,
     create_tsne_scatter,
     save_static_plot,
 )
-from build_tools.syllable_feature_annotator.analysis.plotting.styles import (
+from build_tools.syllable_analysis.plotting.styles import (
     DEFAULT_ALPHA,
     DEFAULT_COLORMAP,
     DEFAULT_DPI,
@@ -34,7 +34,7 @@ from build_tools.syllable_feature_annotator.analysis.plotting.styles import (
 
 # Conditional imports for Plotly
 if PLOTLY_AVAILABLE:
-    from build_tools.syllable_feature_annotator.analysis.plotting import (
+    from build_tools.syllable_analysis.plotting import (
         build_hover_text,
         create_interactive_scatter,
         create_metadata_footer,

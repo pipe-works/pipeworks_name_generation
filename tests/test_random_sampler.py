@@ -32,7 +32,7 @@ Run specific test class::
 
 Run with coverage::
 
-    $ pytest tests/test_random_sampler.py --cov=build_tools.syllable_feature_annotator.analysis.random_sampler
+    $ pytest tests/test_random_sampler.py --cov=build_tools.syllable_analysis.random_sampler
 """
 
 import json
@@ -41,15 +41,8 @@ from unittest.mock import patch
 import pytest
 
 # Import functions from updated locations (Phase 2 refactoring)
-from build_tools.syllable_feature_annotator.analysis.common import (
-    load_annotated_syllables,
-    save_json_output,
-)
-from build_tools.syllable_feature_annotator.analysis.random_sampler import (
-    main,
-    parse_arguments,
-    sample_syllables,
-)
+from build_tools.syllable_analysis.common import load_annotated_syllables, save_json_output
+from build_tools.syllable_analysis.random_sampler import main, parse_arguments, sample_syllables
 
 # =========================================================================
 # Test Fixtures

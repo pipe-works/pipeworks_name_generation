@@ -9,19 +9,19 @@ analysis.common package, eliminating code duplication.
 
 Usage:
     # Sample 100 syllables (default)
-    python -m build_tools.syllable_feature_annotator.analysis.random_sampler
+    python -m build_tools.syllable_analysis.random_sampler
 
     # Sample specific number of syllables
-    python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50
+    python -m build_tools.syllable_analysis.random_sampler --samples 50
 
     # Specify custom input/output paths
-    python -m build_tools.syllable_feature_annotator.analysis.random_sampler \
+    python -m build_tools.syllable_analysis.random_sampler \
         --input data/annotated/syllables_annotated.json \
         --output _working/samples.json \
         --samples 200
 
     # Use a specific random seed for reproducibility
-    python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50 --seed 42
+    python -m build_tools.syllable_analysis.random_sampler --samples 50 --seed 42
 """
 
 import argparse
@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 # Import common utilities (Phase 2 refactoring)
-from build_tools.syllable_feature_annotator.analysis.common import (
+from build_tools.syllable_analysis.common import (
     default_paths,
     load_annotated_syllables,
     save_json_output,
@@ -83,19 +83,19 @@ def parse_arguments() -> argparse.Namespace:
         epilog="""
 Examples:
   # Sample 100 syllables (default)
-  python -m build_tools.syllable_feature_annotator.analysis.random_sampler
+  python -m build_tools.syllable_analysis.random_sampler
 
   # Sample 50 syllables
-  python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50
+  python -m build_tools.syllable_analysis.random_sampler --samples 50
 
   # Use custom paths
-  python -m build_tools.syllable_feature_annotator.analysis.random_sampler \\
+  python -m build_tools.syllable_analysis.random_sampler \\
       --input data/annotated/syllables_annotated.json \\
       --output _working/my_samples.json \\
       --samples 200
 
   # Use a specific seed for reproducibility
-  python -m build_tools.syllable_feature_annotator.analysis.random_sampler --samples 50 --seed 42
+  python -m build_tools.syllable_analysis.random_sampler --samples 50 --seed 42
         """,
     )
 

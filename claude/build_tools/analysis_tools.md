@@ -40,7 +40,7 @@ build_tools/syllable_feature_annotator/analysis/
 Shared functionality used across all analysis tools:
 
 ```python
-from build_tools.syllable_feature_annotator.analysis.common import (
+from build_tools.syllable_analysis.common import (
     default_paths,              # Centralized path configuration
     load_annotated_syllables,   # Load syllables_annotated.json with validation
     load_frequency_data,         # Load syllables_frequencies.json
@@ -65,7 +65,7 @@ save_json_output(results, output_path)
 Extract feature matrices and apply dimensionality reduction algorithms:
 
 ```python
-from build_tools.syllable_feature_annotator.analysis.dimensionality import (
+from build_tools.syllable_analysis.dimensionality import (
     ALL_FEATURES,              # 12 canonical feature names
     extract_feature_matrix,    # Convert records to numpy matrix
     apply_tsne,                # Apply t-SNE dimensionality reduction
@@ -89,7 +89,7 @@ save_tsne_mapping(mapping, output_path)
 Create static (matplotlib) and interactive (Plotly) visualizations:
 
 ```python
-from build_tools.syllable_feature_annotator.analysis.plotting import (
+from build_tools.syllable_analysis.plotting import (
     # Static plotting (matplotlib)
     create_tsne_scatter,       # Create scatter plot
     save_static_plot,          # Save as PNG
@@ -123,7 +123,7 @@ if PLOTLY_AVAILABLE:
 Random sampling of annotated syllables for QA:
 
 ```bash
-python -m build_tools.syllable_feature_annotator.analysis.random_sampler \
+python -m build_tools.syllable_analysis.random_sampler \
   --samples 10 \
   --seed 42 \
   --output _working/analysis/random_sampler/
@@ -140,7 +140,7 @@ python -m build_tools.syllable_feature_annotator.analysis.random_sampler \
 Analyze frequency of feature combinations:
 
 ```bash
-python -m build_tools.syllable_feature_annotator.analysis.feature_signatures \
+python -m build_tools.syllable_analysis.feature_signatures \
   --input data/annotated/syllables_annotated.json \
   --output _working/analysis/feature_signatures/ \
   --limit 20
@@ -157,7 +157,7 @@ python -m build_tools.syllable_feature_annotator.analysis.feature_signatures \
 Dimensionality reduction visualization of feature space:
 
 ```bash
-python -m build_tools.syllable_feature_annotator.analysis.tsne_visualizer \
+python -m build_tools.syllable_analysis.tsne_visualizer \
   --input data/annotated/syllables_annotated.json \
   --output _working/analysis/tsne/ \
   --perplexity 30 \
