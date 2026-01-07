@@ -9,6 +9,8 @@ Tests cover:
 - Error handling and validation
 """
 
+# mypy: ignore-errors
+
 from pathlib import Path
 
 import matplotlib
@@ -188,7 +190,7 @@ class TestCreateTsneScatter:
     def test_empty_coordinates(self):
         """Test handling of empty coordinate array."""
         empty_coords = np.empty((0, 2))
-        empty_freqs = []
+        empty_freqs: list[int] = []
         fig = create_tsne_scatter(empty_coords, empty_freqs)
         assert isinstance(fig, plt.Figure)
         plt.close(fig)

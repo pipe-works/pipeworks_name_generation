@@ -1,5 +1,13 @@
 """Tests for t-SNE visualization tool.
 
+NOTE: These tests reference the old pre-refactoring API. The refactored code is now
+comprehensively tested in:
+- tests/test_analysis_common.py (data loading)
+- tests/test_dimensionality.py (feature extraction, t-SNE)
+- tests/test_plotting.py (visualization)
+
+This file is kept for backwards compatibility testing but may be deprecated in the future.
+
 This test suite covers:
 - Data loading and validation
 - Feature matrix extraction
@@ -10,6 +18,8 @@ This test suite covers:
 - Error handling
 - Determinism
 """
+
+# mypy: ignore-errors
 
 import json
 from pathlib import Path
@@ -22,14 +32,29 @@ np = pytest.importorskip("numpy", reason="numpy not installed")
 
 # Import will only work if dependencies are available
 try:
-    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
+    # Import from refactored modules
+    from build_tools.syllable_feature_annotator.analysis.common import (
+        load_annotated_syllables as load_annotated_data,  # Backward compatibility alias
+    )
+    from build_tools.syllable_feature_annotator.analysis.dimensionality import (
         ALL_FEATURES,
-        create_tsne_visualization,
         extract_feature_matrix,
-        load_annotated_data,
+    )
+    from build_tools.syllable_feature_annotator.analysis.plotting import (
+        create_tsne_scatter as create_tsne_visualization,  # Backward compatibility alias
+    )
+    from build_tools.syllable_feature_annotator.analysis.plotting import (
+        save_static_plot as save_visualization,  # Backward compatibility alias
+    )
+    from build_tools.syllable_feature_annotator.analysis.plotting.interactive import (  # noqa: F401
+        create_interactive_scatter as create_interactive_visualization,
+    )
+    from build_tools.syllable_feature_annotator.analysis.plotting.interactive import (  # noqa: F401
+        save_interactive_html as save_interactive_visualization,
+    )
+    from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
         parse_args,
         run_tsne_visualization,
-        save_visualization,
     )
 
     _IMPORTS_AVAILABLE = True

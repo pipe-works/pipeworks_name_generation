@@ -277,18 +277,36 @@ def _deprecated_import_warning(old_path: str, new_path: str) -> None:
 def __getattr__(name: str):
     """Lazy import with deprecation warning for moved analysis tools."""
     # Random sampler functions
-    if name in ("load_annotated_syllables", "sample_syllables", "save_samples"):
+    if name == "sample_syllables":
         _deprecated_import_warning(
             "build_tools.syllable_feature_annotator.random_sampler",
             "build_tools.syllable_feature_annotator.analysis.random_sampler",
         )
         from build_tools.syllable_feature_annotator.analysis.random_sampler import (  # noqa: F401
-            load_annotated_syllables,
             sample_syllables,
-            save_samples,
         )
 
         return locals()[name]
+
+    # Functions moved to analysis.common during refactoring
+    if name in ("load_annotated_syllables", "save_samples"):
+        _deprecated_import_warning(
+            "build_tools.syllable_feature_annotator",
+            "build_tools.syllable_feature_annotator.analysis.common",
+        )
+        if name == "load_annotated_syllables":
+            from build_tools.syllable_feature_annotator.analysis.common import (  # noqa: F401
+                load_annotated_syllables,
+            )
+
+            return load_annotated_syllables
+        elif name == "save_samples":
+            # save_samples was renamed to save_json_output
+            from build_tools.syllable_feature_annotator.analysis.common import (  # noqa: F401
+                save_json_output,
+            )
+
+            return save_json_output
 
     # Feature signatures functions
     if name in (

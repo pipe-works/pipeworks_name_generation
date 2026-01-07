@@ -6,6 +6,8 @@ Tests cover:
 - Coordinate mapping utilities
 """
 
+# mypy: ignore-errors
+
 import json
 
 import pytest

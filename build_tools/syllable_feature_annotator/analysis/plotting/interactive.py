@@ -39,7 +39,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 
 from .styles import (
     DEFAULT_COLORSCALE,
@@ -54,7 +54,7 @@ from .styles import (
 
 # Try to import Plotly - this is an optional dependency
 try:
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # type: ignore[import-not-found]
 
     PLOTLY_AVAILABLE = True
 except ImportError:

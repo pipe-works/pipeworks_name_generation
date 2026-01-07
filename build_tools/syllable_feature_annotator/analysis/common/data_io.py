@@ -43,7 +43,7 @@ Module Contents
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 
 def load_annotated_syllables(input_path: Path, validate: bool = True) -> List[Dict[str, Any]]:
@@ -173,7 +173,7 @@ def load_annotated_syllables(input_path: Path, validate: bool = True) -> List[Di
                 f"Found keys: {', '.join(actual_keys)}"
             )
 
-    return records
+    return cast(List[Dict[str, Any]], records)
 
 
 def load_frequency_data(frequencies_path: Path) -> Dict[str, int]:
@@ -270,7 +270,7 @@ def load_frequency_data(frequencies_path: Path) -> Dict[str, int]:
 
 
 def save_json_output(
-    data: Any, output_path: Path, indent: int = 2, ensure_ascii: bool = False
+    data: Any, output_path: Path, indent: int | None = 2, ensure_ascii: bool = False
 ) -> None:
     """Save data as formatted JSON file.
 
@@ -284,7 +284,7 @@ def save_json_output(
         Data to serialize as JSON (must be JSON-serializable)
     output_path : Path
         Output file path (parent directories will be created if needed)
-    indent : int, default=2
+    indent : int | None, default=2
         Number of spaces for JSON indentation. Use 2 for readability,
         None for compact output
     ensure_ascii : bool, default=False

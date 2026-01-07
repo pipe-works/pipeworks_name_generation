@@ -40,8 +40,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.pyplot as plt  # type: ignore[import-not-found]
+import numpy as np  # type: ignore[import-not-found]
 
 from .styles import (
     AXIS_LABEL_FONT_SIZE,
