@@ -91,16 +91,39 @@ from build_tools.syllable_feature_annotator.analysis.common import (
 )
 
 # Dimensionality reduction utilities (NEW - Phase 4 refactoring)
-from build_tools.syllable_feature_annotator.analysis.dimensionality import (
-    ALL_FEATURES,
-    apply_tsne,
-    calculate_optimal_perplexity,
-    create_tsne_mapping,
-    extract_feature_matrix,
-    get_feature_vector,
-    save_tsne_mapping,
-    validate_feature_matrix,
-)
+# Optional - requires numpy and scikit-learn
+try:
+    from build_tools.syllable_feature_annotator.analysis.dimensionality import (
+        ALL_FEATURES,
+        apply_tsne,
+        calculate_optimal_perplexity,
+        create_tsne_mapping,
+        extract_feature_matrix,
+        get_feature_vector,
+        save_tsne_mapping,
+        validate_feature_matrix,
+    )
+
+    _DIMENSIONALITY_AVAILABLE = True
+except ImportError:
+    # Dimensionality reduction dependencies not installed
+    _DIMENSIONALITY_AVAILABLE = False
+
+    # Provide stub implementations that raise helpful errors
+    def _dimensionality_not_available(*args, **kwargs):
+        raise ImportError(
+            "Dimensionality reduction requires additional dependencies. "
+            "Install with: pip install -e '.[build-tools]'"
+        )
+
+    ALL_FEATURES = []
+    extract_feature_matrix = _dimensionality_not_available
+    validate_feature_matrix = _dimensionality_not_available
+    get_feature_vector = _dimensionality_not_available
+    apply_tsne = _dimensionality_not_available
+    calculate_optimal_perplexity = _dimensionality_not_available
+    create_tsne_mapping = _dimensionality_not_available
+    save_tsne_mapping = _dimensionality_not_available
 
 # Feature signatures exports
 from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
@@ -163,7 +186,8 @@ __all__ = [
     "ensure_output_dir",
     "generate_timestamped_path",
     "generate_output_pair",
-    # Dimensionality reduction (Phase 4 refactoring)
+    # Dimensionality reduction (Phase 4 refactoring - optional)
+    "_DIMENSIONALITY_AVAILABLE",
     "ALL_FEATURES",
     "extract_feature_matrix",
     "validate_feature_matrix",

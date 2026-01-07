@@ -8,10 +8,16 @@ Tests cover:
 
 import json
 
-import numpy as np
 import pytest
 
-from build_tools.syllable_feature_annotator.analysis.dimensionality import (
+# Check if optional dependencies are available before importing them
+# ruff: noqa: E402
+pytest.importorskip("numpy", reason="numpy required for dimensionality tests")
+pytest.importorskip("sklearn", reason="scikit-learn required for dimensionality tests")
+
+import numpy as np  # noqa: E402
+
+from build_tools.syllable_feature_annotator.analysis.dimensionality import (  # noqa: E402
     ALL_FEATURES,
     apply_tsne,
     calculate_optimal_perplexity,
