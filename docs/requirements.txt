@@ -1,5 +1,6 @@
 myst-parser>=4.0
 # Documentation build requirements for ReadTheDocs
 sphinx>=8.0
+sphinx-argparse>=0.4.0
 sphinx-autodoc-typehints>=3.5
 sphinx-rtd-theme>=3.0
