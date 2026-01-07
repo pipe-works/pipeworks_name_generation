@@ -7,6 +7,7 @@ Subpackages
 -----------
 **common**: Shared utilities (data I/O, paths, output management)
 **dimensionality**: Dimensionality reduction (feature matrices, t-SNE, mapping)
+**plotting**: Visualization utilities (static matplotlib, interactive Plotly)
 
 Available Tools
 ---------------
@@ -125,6 +126,37 @@ except ImportError:
     create_tsne_mapping = _dimensionality_not_available
     save_tsne_mapping = _dimensionality_not_available
 
+# Plotting utilities (NEW - Phase 5 refactoring)
+# Static plotting always available (matplotlib is required dependency)
+from build_tools.syllable_feature_annotator.analysis.plotting import (
+    PLOTLY_AVAILABLE,
+    create_metadata_text,
+    create_tsne_scatter,
+    save_static_plot,
+)
+
+# Interactive plotting (optional - requires Plotly)
+if PLOTLY_AVAILABLE:
+    from build_tools.syllable_feature_annotator.analysis.plotting import (
+        build_hover_text,
+        create_interactive_scatter,
+        create_metadata_footer,
+        inject_responsive_css,
+        save_interactive_html,
+    )
+else:
+    # Provide stub implementations that raise helpful errors
+    def _plotly_not_available(*args, **kwargs):
+        raise ImportError(
+            "Interactive plotting requires Plotly. " "Install with: pip install plotly"
+        )
+
+    build_hover_text = _plotly_not_available
+    create_interactive_scatter = _plotly_not_available
+    create_metadata_footer = _plotly_not_available
+    inject_responsive_css = _plotly_not_available
+    save_interactive_html = _plotly_not_available
+
 # Feature signatures exports
 from build_tools.syllable_feature_annotator.analysis.feature_signatures import (
     analyze_feature_signatures,
@@ -144,17 +176,13 @@ from build_tools.syllable_feature_annotator.analysis.random_sampler import (
 )
 from build_tools.syllable_feature_annotator.analysis.random_sampler import sample_syllables
 
-# t-SNE visualizer exports (optional - requires matplotlib, numpy, pandas, scikit-learn)
+# t-SNE visualizer exports (optional - requires matplotlib, numpy, scikit-learn)
 try:
     from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-        create_tsne_visualization,
-        extract_feature_matrix,
-        load_annotated_data,
-        run_tsne_visualization,
-        save_visualization,
+        parse_args as parse_tsne_visualizer_args,
     )
     from build_tools.syllable_feature_annotator.analysis.tsne_visualizer import (
-        parse_args as parse_tsne_visualizer_args,
+        run_tsne_visualization,
     )
 
     _TSNE_AVAILABLE = True
@@ -169,11 +197,7 @@ except ImportError:
             "Install with: pip install -e '.[build-tools]'"
         )
 
-    create_tsne_visualization = _tsne_not_available
-    extract_feature_matrix = _tsne_not_available
-    load_annotated_data = _tsne_not_available
     run_tsne_visualization = _tsne_not_available
-    save_visualization = _tsne_not_available
     parse_tsne_visualizer_args = _tsne_not_available
 
 __all__ = [
@@ -196,6 +220,16 @@ __all__ = [
     "calculate_optimal_perplexity",
     "create_tsne_mapping",
     "save_tsne_mapping",
+    # Plotting (Phase 5 refactoring)
+    "PLOTLY_AVAILABLE",
+    "create_tsne_scatter",
+    "save_static_plot",
+    "create_metadata_text",
+    "create_interactive_scatter",
+    "build_hover_text",
+    "save_interactive_html",
+    "inject_responsive_css",
+    "create_metadata_footer",
     # Random sampler
     "sample_syllables",
     "parse_random_sampler_arguments",
@@ -208,9 +242,6 @@ __all__ = [
     "parse_feature_signatures_args",
     # t-SNE visualizer (optional)
     "_TSNE_AVAILABLE",
-    "load_annotated_data",
-    "create_tsne_visualization",
-    "save_visualization",
     "run_tsne_visualization",
     "parse_tsne_visualizer_args",
 ]
