@@ -9,10 +9,11 @@ isort>=5.13.0
 langdetect>=1.0.9
 mypy>=1.7.0
 
+# Build-time tools (syllable extraction with language detection)
+numpy>=1.24.0
+
 # Pre-commit hooks
 pre-commit>=3.5.0
-
-# Build-time tools (syllable extraction with language detection)
 pyphen>=0.14.0
 
 # Testing
