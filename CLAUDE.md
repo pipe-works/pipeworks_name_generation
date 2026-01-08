@@ -132,6 +132,36 @@ def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
 
 See [Development Guide - CLI Documentation Standards](claude/development.md#cli-documentation-standards) for details.
 
+### CLI Documentation Synchronization
+
+When modifying CLI tools (`build_tools/**/cli.py` or `__main__.py`):
+
+1. **Update argparse help text first** - This is the source of truth
+2. **Check corresponding RST file** in `docs/source/build_tools/*.rst`
+3. **Pre-commit hook reminder** - A warning will display if CLI files change
+
+The pre-commit hook checks:
+
+- Any `cli.py` or `__main__.py` in `build_tools/` subdirectories
+- Reminds to sync RST documentation
+- **Does not fail** - just a friendly reminder
+
+Example workflow:
+
+```python
+# 1. Update CLI (e.g., build_tools/syllable_extractor/cli.py)
+parser.add_argument("--new-option", help="New feature description")
+
+# 2. Git commit triggers hook:
+# ⚠️  CLI files changed: build_tools/syllable_extractor/cli.py
+#    → Remember to update docs/source/build_tools/syllable_extractor.rst
+
+# 3. Update RST if needed (or not, if just refactoring)
+```
+
+**Philosophy**: Not all CLI changes require RST updates (internal refactors, bug fixes),
+so this is a **reminder, not enforcement**.
+
 ### Testing Requirements
 
 All changes must maintain determinism:

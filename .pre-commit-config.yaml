@@ -121,6 +121,17 @@ repos:
         docs/build/.*
       )$
 
+  # Documentation sync reminders
+- repo: local
+  hooks:
+  - id: check-cli-docs-reminder
+    name: CLI Docs Reminder
+    entry: python -c "import sys; files = [f for f in sys.argv[1:] if 'cli.py' in f or '__main__.py' in f]; sys.exit(0) if not files else print('⚠️  CLI files changed:', ', '.join(files), '\n   → Remember to update docs/source/build_tools/*.rst if CLI options changed\n', file=sys.stderr) or sys.exit(0)"
+    language: system
+    files: ^build_tools/.*/(cli|__main__)\.py$
+    pass_filenames: true
+    verbose: true
+
 # Configuration for ci section (auto-update behavior)
 ci:
   autofix_commit_msg: |
