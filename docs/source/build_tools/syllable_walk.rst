@@ -315,12 +315,18 @@ Batch Output
    {
      "walks": [
        {
-         "walk": [...],
+         "walk": [
+           {"syllable": "ka", "frequency": 20, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0]},
+           {"syllable": "ki", "frequency": 15, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]}
+         ],
          "start": "ka",
          "seed": 42
        },
        {
-         "walk": [...],
+         "walk": [
+           {"syllable": "bak", "frequency": 8, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]},
+           {"syllable": "pak", "frequency": 5, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]}
+         ],
          "start": "bak",
          "seed": 43
        }
