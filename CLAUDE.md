@@ -63,6 +63,8 @@ Detailed documentation is organized in the `claude/` directory:
 - **[Syllable Normaliser](claude/build_tools/syllable_normaliser.md)** - 3-step normalization
   pipeline
 - **[Feature Annotator](claude/build_tools/feature_annotator.md)** - Phonetic feature detection
+- **[Corpus Database](claude/build_tools/corpus_db.md)** - Build provenance ledger for tracking
+  extraction runs
 - **[Analysis Tools](claude/build_tools/analysis_tools.md)** - Post-annotation analysis and
   visualization
 
