@@ -306,6 +306,9 @@ class CorpusLedger:
         Associates an input file or directory with an extraction run. Multiple
         inputs can be recorded for a single run.
 
+        Note: Paths are stored in POSIX format (forward slashes) for cross-platform
+        compatibility.
+
         Args:
             run_id: Run ID from start_run()
             source_path: Path to input file or directory
@@ -323,7 +326,7 @@ class CorpusLedger:
                 INSERT INTO inputs (run_id, source_path, file_count)
                 VALUES (?, ?, ?)
                 """,
-                (run_id, str(source_path), file_count),
+                (run_id, source_path.as_posix(), file_count),
             )
             conn.commit()
 
@@ -340,6 +343,9 @@ class CorpusLedger:
 
         Associates an output .syllables file with an extraction run. Multiple
         outputs can be recorded for a single run (e.g., batch processing).
+
+        Note: Paths are stored in POSIX format (forward slashes) for cross-platform
+        compatibility.
 
         Args:
             run_id: Run ID from start_run()
@@ -368,10 +374,10 @@ class CorpusLedger:
                 """,
                 (
                     run_id,
-                    str(output_path),
+                    output_path.as_posix(),
                     syllable_count,
                     unique_syllable_count,
-                    str(meta_path) if meta_path else None,
+                    meta_path.as_posix() if meta_path else None,
                 ),
             )
             conn.commit()
@@ -572,7 +578,7 @@ class CorpusLedger:
                 JOIN outputs o ON r.id = o.run_id
                 WHERE o.output_path = ?
                 """,
-                (str(output_path),),
+                (output_path.as_posix(),),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
