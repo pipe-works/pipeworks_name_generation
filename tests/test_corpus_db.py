@@ -253,8 +253,8 @@ class TestRecordInput:
 
         inputs = ledger.get_run_inputs(run_id)
         assert len(inputs) == 1
-        # Path normalizes trailing slash, so we just check it's the right path
-        assert inputs[0]["source_path"] == str(Path("/data/corpus/"))
+        # Paths are stored in POSIX format (forward slashes)
+        assert inputs[0]["source_path"] == Path("/data/corpus/").as_posix()
         assert inputs[0]["file_count"] == 42
 
         ledger.close()
