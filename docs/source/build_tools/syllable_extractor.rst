@@ -1,27 +1,8 @@
 Syllable Extractor
 ==================
 
-The syllable extractor uses dictionary-based hyphenation to extract syllables from text files.
-This is a **build-time tool only** - not used during runtime name generation.
-
-Overview
---------
-
-The tool supports two modes:
-
-- **Interactive Mode** - Guided prompts for single-file processing
-- **Batch Mode** - Automated processing of multiple files via command-line arguments
-
-Features
---------
-
-- Dictionary-based hyphenation using pyphen (LibreOffice dictionaries)
-- Support for 40+ languages
-- Automatic language detection (optional, via langdetect)
-- Configurable syllable length constraints
-- Deterministic extraction (same input = same output)
-- Unicode support for accented characters
-- Comprehensive metadata and statistics
+.. automodule:: build_tools.syllable_extractor
+   :no-members:
 
 Command-Line Interface
 ----------------------

@@ -1,37 +1,59 @@
 """
-Syllable extraction toolkit for phonetic name generation.
+Syllable Extractor - Dictionary-Based Syllable Extraction
 
-This package provides tools for extracting syllables from text files using
-dictionary-based hyphenation via pyphen's LibreOffice dictionaries.
+The syllable extractor uses dictionary-based hyphenation to extract syllables from text files.
+This is a **build-time tool only** - not used during runtime name generation.
+
+The tool supports two modes:
+
+- **Interactive Mode** - Guided prompts for single-file processing
+- **Batch Mode** - Automated processing of multiple files via command-line arguments
+
+Features:
+
+- Dictionary-based hyphenation using pyphen (LibreOffice dictionaries)
+- Support for 40+ languages
+- Automatic language detection (optional, via langdetect)
+- Configurable syllable length constraints
+- Deterministic extraction (same input = same output)
+- Unicode support for accented characters
+- Comprehensive metadata and statistics
 
 Main Components:
-    - SyllableExtractor: Core extraction class
-    - ExtractionResult: Data model for extraction results
-    - FileProcessingResult: Result for single file in batch mode
-    - BatchResult: Aggregate results for batch processing
-    - SUPPORTED_LANGUAGES: Dictionary of supported language codes
-    - CLI functions: Interactive and batch command-line interfaces
+
+- SyllableExtractor: Core extraction class
+- ExtractionResult: Data model for extraction results
+- FileProcessingResult: Result for single file in batch mode
+- BatchResult: Aggregate results for batch processing
+- SUPPORTED_LANGUAGES: Dictionary of supported language codes
 
 Usage:
-    # Programmatic usage
-    from build_tools.syllable_extractor import SyllableExtractor
+    >>> from pathlib import Path
+    >>> from build_tools.syllable_extractor import SyllableExtractor
+    >>>
+    >>> # Initialize extractor for English (US)
+    >>> extractor = SyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
+    >>>
+    >>> # Extract syllables from text
+    >>> syllables = extractor.extract_syllables_from_text("Hello wonderful world")
+    >>> print(sorted(syllables))
+    ['der', 'ful', 'hel', 'lo', 'won', 'world']
+    >>>
+    >>> # Extract from a file
+    >>> syllables = extractor.extract_syllables_from_file(Path('input.txt'))
+    >>>
+    >>> # Save results
+    >>> extractor.save_syllables(syllables, Path('output.txt'))
 
-    extractor = SyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
-    syllables = extractor.extract_syllables_from_text("Hello world")
-
-    # CLI usage - Interactive mode
+CLI Usage:
+    # Interactive mode
     python -m build_tools.syllable_extractor
 
-    # CLI usage - Batch mode
+    # Single file with specific language
     python -m build_tools.syllable_extractor --file input.txt --lang en_US
+
+    # Batch processing with auto-detection
     python -m build_tools.syllable_extractor --source ~/docs/ --recursive --auto
-
-    # Batch processing programmatically
-    from build_tools.syllable_extractor import discover_files, process_batch
-    from pathlib import Path
-
-    files = discover_files(Path("~/documents"), pattern="*.txt", recursive=True)
-    result = process_batch(files, "en_US", min_len=2, max_len=8, output_dir=Path("output"))
 """
 
 # CLI entry point (for python -m usage)
