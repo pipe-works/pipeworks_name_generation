@@ -250,6 +250,74 @@ gen = NameGenerator(pattern="simple")
 assert gen.generate(seed=42) == gen.generate(seed=42)
 ```
 
+### Versioning and Changelog Governance
+
+**Critical Rule**: Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages.
+
+#### Commit Message Format
+
+```text
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types:**
+
+- `feat:` - New feature (triggers minor version bump in 0.x, major in 1.x+)
+- `fix:` - Bug fix (triggers patch version bump)
+- `docs:` - Documentation only changes
+- `refactor:` - Code refactoring with no functionality change
+- `chore:` - Maintenance tasks (hidden in changelog)
+
+**Examples:**
+
+```text
+feat(build_tools): Add syllable walker for phonetic space exploration
+fix(docs): Replace invalid JSON placeholder with valid example
+docs: Add documentation content rules to CLAUDE.md
+refactor: Move analysis tools to top-level build_tools/syllable_analysis
+```
+
+#### Automated Release Workflow
+
+This project uses [release-please](https://github.com/googleapis/release-please) for automated versioning and
+changelog generation:
+
+1. **Commit using conventional commits** (as above)
+2. **Push to main branch** - release-please bot monitors commits
+3. **Release PR is auto-created/updated** - Accumulates changes, updates CHANGELOG.md, bumps version
+4. **Manually review and merge the release PR** - This triggers:
+   - Git tag creation
+   - GitHub release publication
+   - Version number update in `pyproject.toml`
+
+**Important**: The release PR stays open and accumulates changes. You can push multiple commits before merging.
+**No race conditions** - release only happens when YOU merge the PR.
+
+#### Versioning Strategy (Semantic Versioning)
+
+While in **0.x (Alpha):**
+
+- `0.x.0` - New features, capabilities, or breaking changes
+- `0.x.y` - Bug fixes, documentation, internal refactoring
+
+**Current Status**: 0.2.0 (Alpha)
+
+Move to **1.0.0 (Stable)** when:
+
+- Phase 2+ generator is complete (YAML patterns, phonotactic constraints)
+- CLI interface is stable
+- API is considered production-ready
+- External users exist
+
+#### Changelog
+
+CHANGELOG.md is **auto-generated** by release-please from conventional commit messages. Do not manually edit it -
+all content comes from commit history.
+
 ## Current State (Phase 1)
 
 The project is in **Phase 1** - a minimal working proof of concept:
