@@ -23,6 +23,8 @@ Tool Overview
      - Phonetic feature detection (onset, nucleus, coda features)
    * - :doc:`syllable_walk`
      - Explore phonetic feature space via cost-based random walks
+   * - :doc:`corpus_db`
+     - Build provenance ledger for tracking extraction runs (inputs, outputs, settings)
    * - :doc:`analysis_tools`
      - Post-annotation analysis (feature signatures, t-SNE visualization, random sampling)
 
@@ -69,4 +71,5 @@ Detailed Documentation
    syllable_normaliser
    syllable_feature_annotator
    syllable_walk
+   corpus_db
    analysis_tools
