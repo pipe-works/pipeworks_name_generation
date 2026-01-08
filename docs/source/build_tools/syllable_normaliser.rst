@@ -1,16 +1,8 @@
 Syllable Normaliser
 ===================
 
-The syllable normaliser transforms raw syllable files into canonical form through a 3-step pipeline,
-creating the authoritative syllable inventory for pattern development. This is a **build-time tool only** -
-not used during runtime name generation.
-
-3-Step Normalization Pipeline
-------------------------------
-
-1. **Aggregation** - Combine multiple input files while preserving all occurrences
-2. **Canonicalization** - Unicode normalization, diacritic stripping, charset validation
-3. **Frequency Analysis** - Count occurrences and generate frequency intelligence
+.. automodule:: build_tools.syllable_normaliser
+   :no-members:
 
 Command-Line Interface
 ----------------------
@@ -187,17 +179,6 @@ This intelligence is essential for understanding natural language patterns:
 
 This shows "ka" appears 187 times in the canonical syllables, providing valuable frequency information
 for weighted name generation patterns.
-
-Key Features
-------------
-
-- Unicode normalization (NFKD, NFC, NFD, NFKC)
-- Diacritic stripping using unicodedata
-- Configurable charset and length constraints
-- Frequency intelligence capture (pre-deduplication counts)
-- Deterministic processing (same input = same output)
-- Comprehensive metadata reporting
-- 5 output files for complete analysis
 
 Important Notes
 ---------------

@@ -1,49 +1,8 @@
 Syllable Feature Annotator
 ==========================
 
-The syllable feature annotator attaches phonetic features to normalized syllables, creating a feature-annotated
-dataset for downstream pattern generation. This tool sits between the syllable normaliser and pattern development.
-This is a **build-time tool only** - not used during runtime name generation.
-
-Design Philosophy
------------------
-
-- **Pure observation** - Observes patterns, never interprets or filters
-- **Deterministic feature detection** - Same syllable = same features
-- **Feature independence** - 12 independent boolean detectors
-- **Language-agnostic** - Structural patterns only
-- **Conservative approximation** - No linguistic overthinking
-
-Feature Set (12 features)
---------------------------
-
-Onset Features (3)
-~~~~~~~~~~~~~~~~~~
-
-- ``starts_with_vowel`` - Open onset (vowel-initial)
-- ``starts_with_cluster`` - Initial consonant cluster (2+ consonants)
-- ``starts_with_heavy_cluster`` - Heavy initial cluster (3+ consonants)
-
-Internal Features (4)
-~~~~~~~~~~~~~~~~~~~~~
-
-- ``contains_plosive`` - Contains plosive consonant (p, t, k, b, d, g)
-- ``contains_fricative`` - Contains fricative consonant (f, s, z, v, h)
-- ``contains_liquid`` - Contains liquid consonant (l, r, w)
-- ``contains_nasal`` - Contains nasal consonant (m, n)
-
-Nucleus Features (2)
-~~~~~~~~~~~~~~~~~~~~
-
-- ``short_vowel`` - Exactly one vowel (weight proxy)
-- ``long_vowel`` - Two or more vowels (weight proxy)
-
-Coda Features (3)
-~~~~~~~~~~~~~~~~~
-
-- ``ends_with_vowel`` - Open syllable (vowel-final)
-- ``ends_with_nasal`` - Nasal coda
-- ``ends_with_stop`` - Stop coda
+.. automodule:: build_tools.syllable_feature_annotator
+   :no-members:
 
 Command-Line Interface
 ----------------------
@@ -187,17 +146,6 @@ The feature annotator sits between the normaliser and pattern development:
      --output data/annotated/syllables_annotated.json
 
    # Step 3: Use annotated syllables for pattern generation (future)
-
-Features
---------
-
-- Pure observation (tool observes patterns, never interprets or filters)
-- Deterministic feature detection (same syllable = same features)
-- Feature independence (12 independent boolean detectors)
-- Language-agnostic structural patterns
-- Conservative approximation (no linguistic overthinking)
-- Processing speed: <1 second for 1,000-10,000 syllables
-- Full type safety with comprehensive error handling
 
 Notes
 -----

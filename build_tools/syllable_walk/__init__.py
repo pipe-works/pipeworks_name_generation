@@ -1,26 +1,62 @@
-"""Syllable Walker: Explore phonetic feature space via random walks.
+"""
+Syllable Walker - Phonetic Feature Space Exploration
 
-This package provides tools for exploring syllable datasets through cost-based
-random walks in phonetic feature space. The walker navigates from syllable to
-syllable based on feature similarity, frequency, and configurable exploration
-parameters.
+The syllable walker is a phonetic exploration tool that generates sequences of syllables by "walking" through
+phonetic feature space using cost-based random selection. It enables corpus analysis, pattern discovery, and
+exploration of phonetic relationships. This is a **build-time analysis tool only** - not used during runtime
+name generation.
+
+The walker explores syllable datasets by moving probabilistically from one syllable to phonetically
+similar syllables. Each step considers:
+
+- **Phonetic distance** - How many features change (Hamming distance)
+- **Frequency bias** - Preference for common vs rare syllables
+- **Temperature** - Amount of randomness in selection
+- **Inertia** - Tendency to stay at current syllable
+
+Key Features:
+
+- Four pre-configured profiles (clerical, dialect, goblin, ritual)
+- Custom parameter control for fine-tuned exploration
+- Deterministic walks (same seed = same walk, reproducible)
+- Interactive web interface for browser-based exploration
+- Batch processing to generate thousands of walks for analysis
+- Fast operation (<10ms per walk after initialization)
+- Large corpus support (efficiently handles 500k+ syllables)
 
 Main Components:
-    - SyllableWalker: Core walking algorithm with efficient neighbor graph
-    - WalkProfile: Configuration preset for different walking behaviors
-    - WALK_PROFILES: Predefined profiles (clerical, dialect, goblin, ritual)
 
-Example:
+- SyllableWalker: Core walking algorithm with efficient neighbor graph
+- WalkProfile: Configuration preset for different walking behaviors
+- WALK_PROFILES: Predefined profiles (clerical, dialect, goblin, ritual)
+
+Usage:
     >>> from build_tools.syllable_walk import SyllableWalker
+    >>>
+    >>> # Load annotated syllables
     >>> walker = SyllableWalker("data/annotated/syllables_annotated.json")
-    >>> walk = walker.walk_from_profile(start="ka", profile="dialect", steps=5, seed=42)
+    >>>
+    >>> # Walk using a profile
+    >>> walk = walker.walk_from_profile(
+    ...     start="ka",
+    ...     profile="dialect",
+    ...     steps=5,
+    ...     seed=42
+    ... )
+    >>>
+    >>> # Display walk sequence
     >>> print(" → ".join(s["syllable"] for s in walk))
     ka → ki → ti → ta → da → de
 
-Command-Line Usage:
-    python -m build_tools.syllable_walk data.json --start ka --profile dialect
+CLI Usage:
+    # Walk with a profile
+    python -m build_tools.syllable_walk data.json --start ka --profile dialect --steps 5
 
-For detailed documentation, see: claude/build_tools/syllable_walk.md
+    # Launch interactive web interface
+    python -m build_tools.syllable_walk data.json --web --port 8080
+
+    # Batch walks for analysis
+    python -m build_tools.syllable_walk data.json --batch 100 --profile ritual
 """
 
 from build_tools.syllable_walk.profiles import (

@@ -1,32 +1,8 @@
 Syllable Walker
 ===============
 
-The syllable walker is a phonetic exploration tool that generates sequences of syllables by "walking" through
-phonetic feature space using cost-based random selection. It enables corpus analysis, pattern discovery, and
-exploration of phonetic relationships. This is a **build-time analysis tool only** - not used during runtime
-name generation.
-
-Overview
---------
-
-The Syllable Walker explores syllable datasets by moving probabilistically from one syllable to phonetically
-similar syllables. Each step in the walk considers:
-
-- **Phonetic distance** - How many features change (Hamming distance)
-- **Frequency bias** - Preference for common vs rare syllables
-- **Temperature** - Amount of randomness in selection
-- **Inertia** - Tendency to stay at current syllable
-
-Key Features
-------------
-
-- **Four pre-configured profiles** - clerical, dialect, goblin, ritual
-- **Custom parameter control** - Fine-tune exploration behavior
-- **Deterministic walks** - Same seed = same walk (reproducible)
-- **Interactive web interface** - Browser-based exploration
-- **Batch processing** - Generate thousands of walks for analysis
-- **Fast operation** - <10ms per walk after initialization
-- **Large corpus support** - Efficiently handles 500k+ syllables
+.. automodule:: build_tools.syllable_walk
+   :no-members:
 
 Core Concepts
 -------------

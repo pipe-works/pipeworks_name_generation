@@ -1,29 +1,26 @@
 """
-Syllable Feature Annotator - Build Tool for Phonetic Feature Detection.
+Syllable Feature Annotator - Phonetic Feature Detection
 
-This package provides deterministic, language-agnostic feature annotation for
-syllables. It observes structural patterns in canonical syllables and attaches
-boolean feature flags for downstream pattern generation.
+The syllable feature annotator attaches phonetic features to normalized syllables, creating
+a feature-annotated dataset for downstream pattern generation. This is a **build-time tool only** -
+not used during runtime name generation.
 
-Overview
---------
-The syllable feature annotator sits between the syllable normalizer and pattern
-development in the pipeworks name generation pipeline:
+The tool sits between the syllable normaliser and pattern development:
 
 1. **Input**: Normalized syllables from syllable_normaliser
 2. **Process**: Apply 12 feature detectors to each syllable
 3. **Output**: Feature-annotated syllable dataset
 
-Design Principles
------------------
-1. **Pure Observation**: Tool observes patterns, never interprets or filters
-2. **Deterministic**: Same input always produces same output
-3. **Feature Independence**: No detector depends on another
-4. **Language Agnostic**: Structural patterns only, no linguistic knowledge
-5. **Conservative Detection**: Approximate patterns without overthinking
+Design Principles:
 
-Feature Set
------------
+- **Pure observation** - Observes patterns, never interprets or filters
+- **Deterministic** - Same input always produces same output
+- **Feature independence** - No detector depends on another
+- **Language agnostic** - Structural patterns only, no linguistic knowledge
+- **Conservative detection** - Approximate patterns without overthinking
+
+Feature Set (12 features):
+
 **Onset Features (3)**:
     - starts_with_vowel: Open onset (vowel-initial)
     - starts_with_cluster: Initial consonant cluster (2+ consonants)

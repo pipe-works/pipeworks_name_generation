@@ -1,19 +1,35 @@
 """
-Syllable normalization pipeline for name generation.
+Syllable Normaliser - 3-Step Normalization Pipeline
 
-This package provides tools for normalizing syllables through a 3-step pipeline:
-1. Aggregation - Combine multiple input files while preserving all occurrences
-2. Canonicalization - Unicode normalization, diacritic stripping, charset validation
-3. Frequency Analysis - Count occurrences and generate frequency intelligence
+The syllable normaliser transforms raw syllable files into canonical form through a 3-step pipeline,
+creating the authoritative syllable inventory for pattern development. This is a **build-time tool only** -
+not used during runtime name generation.
+
+3-Step Normalization Pipeline:
+
+1. **Aggregation** - Combine multiple input files while preserving all occurrences
+2. **Canonicalization** - Unicode normalization, diacritic stripping, charset validation
+3. **Frequency Analysis** - Count occurrences and generate frequency intelligence
+
+Features:
+
+- Unicode normalization (NFKD, NFC, NFD, NFKC)
+- Diacritic stripping using unicodedata
+- Configurable charset and length constraints
+- Frequency intelligence capture (pre-deduplication counts)
+- Deterministic processing (same input = same output)
+- Comprehensive metadata reporting
+- 5 output files for complete analysis
 
 The pipeline produces 5 output files:
+
 - syllables_raw.txt: Aggregated raw syllables (all occurrences preserved)
 - syllables_canonicalised.txt: Normalized canonical syllables
 - syllables_frequencies.json: Frequency intelligence (syllable → count)
 - syllables_unique.txt: Deduplicated canonical syllable inventory
 - normalization_meta.txt: Detailed statistics and metadata report
 
-Example:
+Usage:
     >>> from pathlib import Path
     >>> from build_tools.syllable_normaliser import (
     ...     NormalizationConfig,
@@ -36,8 +52,16 @@ Example:
     ... )
     >>>
     >>> # Access results
-    >>> print(f"Processed {result.stats.raw_count} syllables")
-    >>> print(f"Unique canonical: {result.stats.unique_canonical}")
+    >>> print(f"Processed {result.stats.raw_count:,} raw syllables")
+    >>> print(f"Canonical: {result.stats.after_canonicalization:,}")
+    >>> print(f"Unique: {result.stats.unique_canonical:,}")
+
+CLI Usage:
+    # Full pipeline with default settings
+    python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
+
+    # Custom length constraints
+    python -m build_tools.syllable_normaliser --source data/ --min 3 --max 6
 """
 
 # File aggregation
