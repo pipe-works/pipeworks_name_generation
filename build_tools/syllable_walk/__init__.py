@@ -49,14 +49,17 @@ Usage:
     ka → ki → ti → ta → da → de
 
 CLI Usage:
-    # Walk with a profile
-    python -m build_tools.syllable_walk data.json --start ka --profile dialect --steps 5
 
-    # Launch interactive web interface
-    python -m build_tools.syllable_walk data.json --web --port 8080
+    .. code-block:: bash
 
-    # Batch walks for analysis
-    python -m build_tools.syllable_walk data.json --batch 100 --profile ritual
+       # Walk with a profile
+       python -m build_tools.syllable_walk data.json --start ka --profile dialect --steps 5
+
+       # Launch interactive web interface
+       python -m build_tools.syllable_walk data.json --web --port 8080
+
+       # Batch walks for analysis
+       python -m build_tools.syllable_walk data.json --batch 100 --profile ritual
 """
 
 from build_tools.syllable_walk.profiles import (

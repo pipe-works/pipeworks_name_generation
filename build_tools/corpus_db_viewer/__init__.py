@@ -26,15 +26,18 @@ Main Components:
 - formatters: Export functions for CSV and JSON
 - main: CLI entry point with argument parsing
 
-Usage:
-    # Launch interactive TUI with default database
-    python -m build_tools.corpus_db_viewer
+CLI Usage:
 
-    # Specify custom database path
-    python -m build_tools.corpus_db_viewer --db /path/to/database.db
+    .. code-block:: bash
 
-    # Set custom export directory
-    python -m build_tools.corpus_db_viewer --export-dir _working/my_exports/
+       # Launch interactive TUI with default database
+       python -m build_tools.corpus_db_viewer
+
+       # Specify custom database path
+       python -m build_tools.corpus_db_viewer --db /path/to/database.db
+
+       # Set custom export directory
+       python -m build_tools.corpus_db_viewer --export-dir _working/my_exports/
 
 Keyboard Shortcuts (in TUI):
     ↑/↓         Navigate rows

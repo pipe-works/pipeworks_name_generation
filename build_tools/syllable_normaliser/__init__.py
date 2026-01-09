@@ -57,11 +57,14 @@ Usage:
     >>> print(f"Unique: {result.stats.unique_canonical:,}")
 
 CLI Usage:
-    # Full pipeline with default settings
-    python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
 
-    # Custom length constraints
-    python -m build_tools.syllable_normaliser --source data/ --min 3 --max 6
+    .. code-block:: bash
+
+       # Full pipeline with default settings
+       python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
+
+       # Custom length constraints
+       python -m build_tools.syllable_normaliser --source data/ --min 3 --max 6
 """
 
 # File aggregation

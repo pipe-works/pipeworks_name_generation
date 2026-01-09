@@ -47,14 +47,17 @@ Usage:
     >>> extractor.save_syllables(syllables, Path('output.txt'))
 
 CLI Usage:
-    # Interactive mode
-    python -m build_tools.syllable_extractor
 
-    # Single file with specific language
-    python -m build_tools.syllable_extractor --file input.txt --lang en_US
+    .. code-block:: bash
 
-    # Batch processing with auto-detection
-    python -m build_tools.syllable_extractor --source ~/docs/ --recursive --auto
+       # Interactive mode
+       python -m build_tools.syllable_extractor
+
+       # Single file with specific language
+       python -m build_tools.syllable_extractor --file input.txt --lang en_US
+
+       # Batch processing with auto-detection
+       python -m build_tools.syllable_extractor --source ~/docs/ --recursive --auto
 """
 
 # CLI entry point (for python -m usage)
