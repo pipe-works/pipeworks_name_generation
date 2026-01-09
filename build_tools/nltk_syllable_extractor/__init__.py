@@ -12,10 +12,11 @@ The tool supports two modes:
 
 Features:
 
-- Phonetically-guided syllabification using NLTK's CMU Pronouncing Dictionary
+- Phonetically-guided syllabification using CMU Pronouncing Dictionary (via cmudict package)
 - Onset/coda principles for natural consonant cluster splitting
 - English only (CMUDict limitation)
-- Configurable syllable length constraints
+- Preserves all syllables including duplicates (extraction only, no filtering)
+- Configurable syllable length constraints (defaults to no filtering)
 - Deterministic extraction (same input = same output)
 - Unicode support
 - Comprehensive metadata and statistics
@@ -40,18 +41,20 @@ Usage:
     >>> from pathlib import Path
     >>> from build_tools.nltk_syllable_extractor import NltkSyllableExtractor
     >>>
-    >>> # Initialize extractor for English
-    >>> extractor = NltkSyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
+    >>> # Initialize extractor for English (defaults to no length filtering)
+    >>> extractor = NltkSyllableExtractor('en_US')
     >>>
-    >>> # Extract syllables from text
-    >>> syllables = extractor.extract_syllables_from_text("Hello wonderful world")
-    >>> print(sorted(syllables))
-    ['der', 'ful', 'hel', 'lo', 'won', 'world']
+    >>> # Extract syllables from text (preserves duplicates)
+    >>> syllables, stats = extractor.extract_syllables_from_text("Hello wonderful world")
+    >>> print(syllables)  # Note: includes all syllables with duplicates
+    ['hel', 'lo', 'won', 'der', 'ful', 'world']
+    >>> print(f"Total: {len(syllables)}, Unique: {len(set(syllables))}")
+    Total: 6, Unique: 6
     >>>
     >>> # Extract from a file
-    >>> syllables = extractor.extract_syllables_from_file(Path('input.txt'))
+    >>> syllables, stats = extractor.extract_syllables_from_file(Path('input.txt'))
     >>>
-    >>> # Save results
+    >>> # Save results (preserves duplicates)
     >>> extractor.save_syllables(syllables, Path('output.txt'))
 
 CLI Usage:

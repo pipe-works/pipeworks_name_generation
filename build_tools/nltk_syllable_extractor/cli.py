@@ -258,7 +258,7 @@ def process_single_file_batch(
             input_path=input_path,
             only_hyphenated=True,
             total_words=stats["total_words"],
-            skipped_unhyphenated=stats["skipped_unhyphenated"],
+            fallback_count=stats["fallback_count"],
             rejected_syllables=stats["rejected_syllables"],
             processed_words=stats["processed_words"],
         )
@@ -458,10 +458,18 @@ Note: This extractor only supports English (CMUDict). For other languages, use s
 
     # Extraction parameters
     parser.add_argument(
-        "--min", type=int, default=2, metavar="N", help="Minimum syllable length (default: 2)"
+        "--min",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Minimum syllable length (default: 1, no filtering)",
     )
     parser.add_argument(
-        "--max", type=int, default=8, metavar="N", help="Maximum syllable length (default: 8)"
+        "--max",
+        type=int,
+        default=999,
+        metavar="N",
+        help="Maximum syllable length (default: 999, no filtering)",
     )
 
     # Output options
@@ -514,9 +522,9 @@ def main_interactive():
 
     # Get min syllable length
     while True:
-        min_len_str = input("\nMinimum syllable length (default: 2): ").strip()
+        min_len_str = input("\nMinimum syllable length (default: 1, no filtering): ").strip()
         if not min_len_str:
-            min_len = 2
+            min_len = 1
             break
         try:
             min_len = int(min_len_str)
@@ -529,9 +537,9 @@ def main_interactive():
 
     # Get max syllable length
     while True:
-        max_len_str = input("Maximum syllable length (default: 8): ").strip()
+        max_len_str = input("Maximum syllable length (default: 999, no filtering): ").strip()
         if not max_len_str:
-            max_len = 8
+            max_len = 999
             break
         try:
             max_len = int(max_len_str)
@@ -637,7 +645,7 @@ def main_interactive():
         input_path=input_path,
         only_hyphenated=True,
         total_words=stats["total_words"],
-        skipped_unhyphenated=stats["skipped_unhyphenated"],
+        fallback_count=stats["fallback_count"],
         rejected_syllables=stats["rejected_syllables"],
         processed_words=stats["processed_words"],
     )

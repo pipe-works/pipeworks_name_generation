@@ -8,7 +8,7 @@ and their associated metadata for the NLTK syllable extractor.
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -20,7 +20,7 @@ class ExtractionResult:
     metadata about the extraction process for reporting and persistence.
 
     Attributes:
-        syllables: Set of unique syllables extracted from the input text
+        syllables: List of all syllables extracted (includes duplicates)
         language_code: Language code used (always "en_US" for NLTK extractor)
         min_syllable_length: Minimum syllable length constraint
         max_syllable_length: Maximum syllable length constraint
@@ -30,12 +30,12 @@ class ExtractionResult:
         length_distribution: Map of syllable length to count
         sample_syllables: Representative sample of extracted syllables
         total_words: Total words found in source text
-        skipped_unhyphenated: Words skipped (CMUDict lookup failed)
+        fallback_count: Words not in CMUDict (used fallback heuristics)
         rejected_syllables: Syllables rejected due to length constraints
         processed_words: Words that were successfully processed
     """
 
-    syllables: Set[str]
+    syllables: List[str]
     language_code: str
     min_syllable_length: int
     max_syllable_length: int
@@ -45,20 +45,21 @@ class ExtractionResult:
     length_distribution: Dict[int, int] = field(default_factory=dict)
     sample_syllables: List[str] = field(default_factory=list)
     total_words: int = 0
-    skipped_unhyphenated: int = 0
+    fallback_count: int = 0
     rejected_syllables: int = 0
     processed_words: int = 0
 
     def __post_init__(self):
         """Calculate derived fields after initialization."""
-        # Calculate length distribution
-        for syllable in self.syllables:
+        # Calculate length distribution (from unique syllables for display)
+        unique_syllables = set(self.syllables)
+        for syllable in unique_syllables:
             length = len(syllable)
             self.length_distribution[length] = self.length_distribution.get(length, 0) + 1
 
-        # Generate sample syllables (first 15, sorted)
-        sample_size = min(15, len(self.syllables))
-        self.sample_syllables = sorted(self.syllables)[:sample_size]
+        # Generate sample syllables (first 15 unique, sorted)
+        sample_size = min(15, len(unique_syllables))
+        self.sample_syllables = sorted(unique_syllables)[:sample_size]
 
     def format_metadata(self) -> str:
         """
@@ -79,20 +80,21 @@ class ExtractionResult:
             f"Syllable Length:    {self.min_syllable_length}-{self.max_syllable_length} characters"
         )
         lines.append(f"Input File:         {self.input_path}")
-        lines.append(f"Unique Syllables:   {len(self.syllables)}")
+        lines.append(f"Total Syllables:    {len(self.syllables):,}")
+        lines.append(f"Unique Syllables:   {len(set(self.syllables)):,}")
         lines.append("=" * 70)
 
         # Processing statistics
         lines.append("\nProcessing Statistics:")
         lines.append(f"  Total Words:        {self.total_words:,}")
         lines.append(f"  Processed Words:    {self.processed_words:,}")
-        lines.append(f"  Skipped (no CMU):   {self.skipped_unhyphenated:,}")
-        lines.append(f"  Rejected Syllables: {self.rejected_syllables:,}")
+        lines.append(f"  Fallback Used:      {self.fallback_count:,} (not in CMUDict)")
+        lines.append(f"  Rejected Syllables: {self.rejected_syllables:,} (length filter)")
         if self.total_words > 0:
             processed_pct = (self.processed_words / self.total_words) * 100
-            skipped_pct = (self.skipped_unhyphenated / self.total_words) * 100
+            fallback_pct = (self.fallback_count / self.total_words) * 100
             lines.append(f"  Process Rate:       {processed_pct:.1f}%")
-            lines.append(f"  Skip Rate:          {skipped_pct:.1f}%")
+            lines.append(f"  Fallback Rate:      {fallback_pct:.1f}%")
 
         # Length distribution
         if self.length_distribution:
@@ -104,11 +106,12 @@ class ExtractionResult:
 
         # Sample syllables
         if self.sample_syllables:
+            unique_count = len(set(self.syllables))
             lines.append(f"\nSample Syllables (first {len(self.sample_syllables)}):")
             for syllable in self.sample_syllables:
                 lines.append(f"  - {syllable}")
-            if len(self.syllables) > len(self.sample_syllables):
-                lines.append(f"  ... and {len(self.syllables) - len(self.sample_syllables)} more")
+            if unique_count > len(self.sample_syllables):
+                lines.append(f"  ... and {unique_count - len(self.sample_syllables)} more")
 
         lines.append("\n" + "=" * 70)
         return "\n".join(lines)

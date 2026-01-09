@@ -49,12 +49,12 @@ def test_extract_syllables_from_text_basic(extractor):
 
     # Should extract some syllables
     assert len(syllables) > 0
-    assert isinstance(syllables, set)
+    assert isinstance(syllables, list)
 
     # Check statistics
     assert stats["total_words"] == 2
     assert stats["processed_words"] > 0
-    assert "skipped_unhyphenated" in stats
+    assert "fallback_count" in stats
     assert "rejected_syllables" in stats
 
 

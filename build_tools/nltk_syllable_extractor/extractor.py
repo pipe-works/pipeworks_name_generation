@@ -8,7 +8,7 @@ orthographic syllabification based on onset/coda principles.
 
 import re
 from pathlib import Path
-from typing import Dict, Set
+from typing import Dict, List
 
 # Optional dependency - only needed at runtime, not for documentation builds
 try:
@@ -106,15 +106,15 @@ class NltkSyllableExtractor:
     VOWELS = "aeiouy"
 
     def __init__(
-        self, language_code: str, min_syllable_length: int = 1, max_syllable_length: int = 10
+        self, language_code: str, min_syllable_length: int = 1, max_syllable_length: int = 999
     ):
         """
         Initialize the NLTK syllable extractor.
 
         Args:
             language_code: Language code (must be 'en_US' for NLTK extractor)
-            min_syllable_length: Minimum syllable length to include (default: 1)
-            max_syllable_length: Maximum syllable length to include (default: 10)
+            min_syllable_length: Minimum syllable length to include (default: 1, no filtering)
+            max_syllable_length: Maximum syllable length to include (default: 999, no filtering)
 
         Raises:
             ImportError: If cmudict is not installed
@@ -139,9 +139,9 @@ class NltkSyllableExtractor:
 
     def extract_syllables_from_text(
         self, text: str, only_hyphenated: bool = True
-    ) -> tuple[Set[str], Dict[str, int]]:
+    ) -> tuple[List[str], Dict[str, int]]:
         """
-        Extract unique syllables from a block of text.
+        Extract all syllables from a block of text (preserves duplicates).
 
         This method processes input text by tokenizing it into words, applying
         CMUDict phonetic lookup and onset/coda principles to extract individual
@@ -156,11 +156,11 @@ class NltkSyllableExtractor:
 
         Returns:
             Tuple of (syllables, statistics) where:
-                - syllables: Set of unique lowercase syllable strings
+                - syllables: List of all lowercase syllable strings (includes duplicates)
                 - statistics: Dict with the following keys:
                     - 'total_words': Total number of words found in source text
                     - 'processed_words': Words that were successfully processed
-                    - 'skipped_unhyphenated': Words skipped (CMUDict lookup failed)
+                    - 'fallback_count': Words not in CMUDict (used fallback heuristics)
                     - 'rejected_syllables': Syllables rejected due to length constraints
 
         Note:
@@ -176,7 +176,7 @@ class NltkSyllableExtractor:
         Example:
             >>> extractor = NltkSyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
             >>> syllables, stats = extractor.extract_syllables_from_text("Hello world!")
-            >>> print(sorted(syllables))
+            >>> print(syllables)
             ['hel', 'lo', 'world']
             >>> print(stats['total_words'])
             2
@@ -184,10 +184,10 @@ class NltkSyllableExtractor:
         # Extract words using regex (alphanumeric sequences)
         words = re.findall(r"\b[a-zA-Z]+\b", text)
 
-        syllables: Set[str] = set()
+        syllables: List[str] = []
         stats = {
             "total_words": len(words),
-            "skipped_unhyphenated": 0,
+            "fallback_count": 0,
             "rejected_syllables": 0,
             "processed_words": 0,
         }
@@ -199,19 +199,22 @@ class NltkSyllableExtractor:
             # Extract syllables from word
             word_syllables = self._extract_orthographic_syllables(word_lower)
 
+            # Track if CMUDict lookup failed (word not in dictionary)
+            if word_lower not in self.cmu_dict:
+                stats["fallback_count"] += 1
+
             # If CMUDict lookup failed and only_hyphenated is True, skip
             if not word_syllables and only_hyphenated:
-                stats["skipped_unhyphenated"] += 1
                 continue
 
             # If we got syllables (either from CMUDict or fallback)
             if word_syllables:
                 stats["processed_words"] += 1
 
-                # Filter syllables by length and add to set
+                # Filter syllables by length and add to list (preserves duplicates)
                 for syllable in word_syllables:
                     if self.min_syllable_length <= len(syllable) <= self.max_syllable_length:
-                        syllables.add(syllable)
+                        syllables.append(syllable)
                     else:
                         stats["rejected_syllables"] += 1
 
@@ -447,9 +450,9 @@ class NltkSyllableExtractor:
 
         return [s for s in syllables if s]
 
-    def extract_syllables_from_file(self, input_path: Path) -> tuple[Set[str], Dict[str, int]]:
+    def extract_syllables_from_file(self, input_path: Path) -> tuple[List[str], Dict[str, int]]:
         """
-        Extract unique syllables from a text file.
+        Extract all syllables from a text file (preserves duplicates).
 
         This is a convenience wrapper around extract_syllables_from_text() that
         handles file reading with proper encoding (UTF-8) and error handling.
@@ -460,7 +463,7 @@ class NltkSyllableExtractor:
 
         Returns:
             Tuple of (syllables, statistics) where:
-                - syllables: Set of unique lowercase syllable strings
+                - syllables: List of all lowercase syllable strings (includes duplicates)
                 - statistics: Dict with processing statistics (see extract_syllables_from_text)
 
         Raises:
@@ -485,17 +488,17 @@ class NltkSyllableExtractor:
 
         return self.extract_syllables_from_text(text)
 
-    def save_syllables(self, syllables: Set[str], output_path: Path) -> None:
+    def save_syllables(self, syllables: List[str], output_path: Path) -> None:
         """
-        Save syllables to a text file (one syllable per line, sorted).
+        Save syllables to a text file (one syllable per line, preserves all).
 
-        Writes syllables in alphabetical order with UTF-8 encoding, one syllable
-        per line. This format is ideal for version control and easy importing into
-        other tools.
+        Writes syllables with UTF-8 encoding, one syllable per line. Syllables
+        are written in the order they appear in the list (preserving duplicates).
+        This format is ideal for downstream processing by normalizer tools.
 
         Args:
-            syllables: Set of syllables to save. Each syllable should be a string.
-                      The set will be sorted alphabetically before writing.
+            syllables: List of syllables to save (may contain duplicates).
+                      Written in the order provided.
             output_path: Path to the output file. Parent directories must exist.
                         If the file exists, it will be overwritten.
 
@@ -505,20 +508,22 @@ class NltkSyllableExtractor:
         Example:
             >>> from pathlib import Path
             >>> extractor = NltkSyllableExtractor('en_US')
-            >>> syllables = {'hel', 'lo', 'world'}
+            >>> syllables = ['hel', 'lo', 'world', 'hel']  # Note: 'hel' appears twice
             >>> extractor.save_syllables(syllables, Path('output.txt'))
-            # Creates file with content:
+            # Creates file with content (preserving duplicates and order):
             # hel
             # lo
             # world
+            # hel
 
         Note:
             The output file uses UTF-8 encoding with Unix-style line endings (\\n).
             Each line contains exactly one syllable with no leading/trailing whitespace.
+            Duplicates are preserved. Use downstream tools for deduplication if needed.
         """
         try:
             with open(output_path, "w", encoding="utf-8") as f:
-                for syllable in sorted(syllables):
+                for syllable in syllables:
                     f.write(f"{syllable}\n")
         except Exception as e:
             raise IOError(f"Error writing file {output_path}: {e}")
