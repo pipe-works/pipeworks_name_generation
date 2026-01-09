@@ -73,6 +73,7 @@ repos:
     additional_dependencies:
     - pytest
     - types-setuptools
+    - textual>=0.50.0
     args: [--check-untyped-defs]
         # Check main package, tests, and build_tools (expanded from just main package)
     files: ^(pipeworks_name_generation|tests|build_tools)/.*\.py$

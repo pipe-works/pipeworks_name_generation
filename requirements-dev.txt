@@ -22,3 +22,6 @@ pytest-cov>=4.1.0
 
 # Code quality
 ruff>=0.1.0
+
+# Build tools - TUI viewer
+textual>=0.50.0
