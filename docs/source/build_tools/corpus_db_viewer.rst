@@ -4,51 +4,52 @@ Corpus Database Viewer
 .. automodule:: build_tools.corpus_db_viewer
    :no-members:
 
-Overview
---------
-
 The Corpus Database Viewer is an interactive terminal user interface (TUI) for inspecting
-the corpus database provenance records. It provides a keyboard-driven interface for
-browsing extraction run history, viewing schemas, and exporting data.
-
-**Built with:** `Textual <https://textual.textualize.io/>`_ - A modern Python TUI framework
+corpus database provenance records. Built with `Textual <https://textual.textualize.io/>`_,
+it provides a keyboard-driven interface for browsing extraction run history.
 
 **Replaces:** Flask-based web viewer (archived in ``_working/_archived/pipeworks_db_viewer_flask/``)
 
 Key Features
 ------------
 
-- **Interactive table browsing** with pagination (50 rows per page)
-- **Schema inspection** - View columns, types, indexes, and CREATE TABLE statements
-- **Data export** - Export to CSV or JSON formats
-- **Keyboard-driven navigation** - Fast, efficient terminal interface
-- **Read-only access** - Safe inspection without modification risk
+- Browse all database tables interactively
+- Paginated data display (50 rows per page)
+- View table schemas and CREATE TABLE statements
+- Export data to CSV or JSON
+- Read-only database access (safe inspection)
+- Keyboard shortcuts for efficient navigation
 
-Quick Start
------------
+Command-Line Interface
+----------------------
 
-Launch the viewer with the default database:
+Basic Usage
+~~~~~~~~~~~
 
 .. code-block:: bash
 
+   # Launch interactive TUI with default database
    python -m build_tools.corpus_db_viewer
 
-Specify a custom database:
-
-.. code-block:: bash
-
+   # Specify custom database path
    python -m build_tools.corpus_db_viewer --db /path/to/database.db
 
-Command-Line Options
---------------------
+   # Set custom export directory
+   python -m build_tools.corpus_db_viewer --export-dir _working/my_exports/
+
+   # Adjust page size
+   python -m build_tools.corpus_db_viewer --page-size 100
+
+CLI Options
+~~~~~~~~~~~
 
 .. argparse::
    :module: build_tools.corpus_db_viewer.cli
    :func: create_argument_parser
    :prog: corpus_db_viewer
 
-Keyboard Shortcuts
-------------------
+Keyboard Shortcuts (in TUI)
+----------------------------
 
 Navigation
 ~~~~~~~~~~
@@ -64,9 +65,9 @@ Navigation
    * - ``←`` / ``→``
      - Previous/Next page
    * - ``PageUp`` / ``PageDn``
-     - Jump 10 pages back/forward
+     - Jump 10 pages
    * - ``Home`` / ``End``
-     - Go to first/last page
+     - First/Last page
 
 Actions
 ~~~~~~~
@@ -78,17 +79,17 @@ Actions
    * - Key
      - Action
    * - ``t``
-     - Switch table (focuses table selector)
+     - Switch table
    * - ``i``
-     - Show schema information
+     - Show schema info
    * - ``e``
-     - Export current table
+     - Export data
    * - ``r``
-     - Refresh data
+     - Refresh
    * - ``?``
-     - Show help screen
+     - Show help
    * - ``q``
-     - Quit application
+     - Quit
 
 Usage Examples
 --------------
@@ -96,39 +97,59 @@ Usage Examples
 Browsing Tables
 ~~~~~~~~~~~~~~~
 
-1. Launch the viewer (it automatically loads the first table)
-2. Press ``t`` to focus the table list in the sidebar
-3. Use ``↑``/``↓`` arrows to navigate tables
-4. Press ``Enter`` to select a table
+Launch the viewer and it automatically loads the first table. Navigate using:
 
-Or simply click on a table name in the sidebar.
+1. Press ``t`` to focus the table list
+2. Use ``↑`` / ``↓`` to navigate tables
+3. Press ``Enter`` to select
 
-Viewing Schema Information
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Or click directly on table names in the sidebar.
 
-Press ``i`` to view detailed schema information for the current table:
+Viewing Schema
+~~~~~~~~~~~~~~
 
-- Column definitions (name, type, PRIMARY KEY, NOT NULL, DEFAULT values)
-- Indexes (name, columns, UNIQUE constraints)
+Press ``i`` to view detailed schema information:
+
+- Column definitions (name, type, constraints)
+- Indexes (name, columns, UNIQUE flags)
 - CREATE TABLE statement (original SQL)
+
+Example output::
+
+   Schema: runs
+
+   Columns:
+     • id: INTEGER [PRIMARY KEY]
+     • run_timestamp: TEXT NOT NULL
+     • extractor_tool: TEXT NOT NULL
+     • status: TEXT
+
+   Indexes:
+     • idx_status (status)
 
 Exporting Data
 ~~~~~~~~~~~~~~
 
-1. Press ``e`` to open the export modal
-2. Edit the filename if desired (without extension)
-3. Choose "Export CSV" or "Export JSON"
-4. File is saved to the export directory (default: ``_working/exports/``)
+Press ``e`` to export the current table:
 
-**Note:** Export always includes ALL rows, not just the current page.
+1. Edit filename (optional)
+2. Choose CSV or JSON format
+3. File saved to export directory (default: ``_working/exports/``)
 
-Python API
-----------
+**Note:** Export includes ALL rows, not just current page.
+
+Output files::
+
+   _working/exports/
+   ├── runs_20240109_143022.csv
+   ├── runs_20240109_143022.json
+   └── outputs_20240109_143145.csv
+
+Programmatic Usage
+------------------
 
 Query Functions
 ~~~~~~~~~~~~~~~
-
-You can use the query functions programmatically:
 
 .. code-block:: python
 
@@ -155,12 +176,10 @@ You can use the query functions programmatically:
        sort_by="run_timestamp",
        sort_order="DESC"
    )
-   print(f"Total rows: {data['total']}")
+   print(f"Total: {data['total']} rows")
 
 Export Functions
 ~~~~~~~~~~~~~~~~
-
-Export data programmatically:
 
 .. code-block:: python
 
@@ -173,32 +192,28 @@ Export data programmatically:
    ]
 
    # Export to CSV
-   formatters.export_to_csv(rows, Path("_working/exports/data.csv"))
+   formatters.export_to_csv(rows, Path("_working/data.csv"))
 
    # Export to JSON
-   formatters.export_to_json(rows, Path("_working/exports/data.json"))
+   formatters.export_to_json(rows, Path("_working/data.json"))
 
    # Format helpers
-   print(formatters.format_row_count(1234))  # "1,234 rows"
-   print(formatters.format_file_size(1048576))  # "1.0 MB"
+   print(formatters.format_row_count(1234))      # "1,234 rows"
+   print(formatters.format_file_size(1048576))   # "1.0 MB"
 
 Database Structure
 ------------------
 
-The corpus database tracks syllable extraction run provenance:
+The corpus database tracks syllable extraction runs:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 80
+**runs** - Extraction run metadata
+   Tool name, version, status, timestamps, command-line arguments
 
-   * - Table
-     - Purpose
-   * - ``runs``
-     - Extraction run metadata (tool, version, status, timestamps)
-   * - ``inputs``
-     - Input files used in each run
-   * - ``outputs``
-     - Output files produced by each run
+**inputs** - Source files processed
+   Input files or directories used for each run
+
+**outputs** - Generated files
+   Output .syllables and .meta files with syllable counts
 
 Troubleshooting
 ---------------
@@ -206,27 +221,22 @@ Troubleshooting
 Database Not Found
 ~~~~~~~~~~~~~~~~~~
 
-If you see:
-
 .. code-block:: text
 
    Error: Database not found: data/raw/syllable_extractor.db
 
-**Solution:** Ensure the database file exists, or specify a different path:
+**Solution:** Ensure the database exists or specify a different path:
 
 .. code-block:: bash
 
-   python -m build_tools.corpus_db_viewer --db /path/to/your/database.db
+   python -m build_tools.corpus_db_viewer --db /path/to/database.db
 
 Textual Not Installed
 ~~~~~~~~~~~~~~~~~~~~~
 
-If you see:
-
 .. code-block:: text
 
-   Error: Textual library not found. Please install dependencies:
-     pip install textual
+   Error: Textual library not found
 
 **Solution:** Install development dependencies:
 
@@ -237,9 +247,7 @@ If you see:
 Terminal Too Small
 ~~~~~~~~~~~~~~~~~~
 
-If the TUI layout looks broken, your terminal window may be too small.
-Textual recommends a minimum of 80 columns × 24 rows. Resize your terminal
-and the app will automatically reflow.
+If the layout looks broken, resize your terminal. Minimum recommended: 80 columns × 24 rows.
 
 Design Philosophy
 -----------------
@@ -247,43 +255,33 @@ Design Philosophy
 Read-Only Access
 ~~~~~~~~~~~~~~~~
 
-The viewer opens the database in **read-only mode** (``?mode=ro``) to prevent
-accidental modifications. This ensures safe inspection of build provenance
-without risk of corruption.
+The viewer opens databases in read-only mode (``?mode=ro``) to prevent accidental modifications.
 
 Observational Tool
 ~~~~~~~~~~~~~~~~~~
 
-Like the corpus_db ledger itself, the viewer is **observational only**. It
-displays what happened during extraction runs but does not control or modify
-any build processes.
+Like the corpus_db ledger, this viewer is observational only - it displays run history
+but doesn't control or modify build processes.
 
 Benefits Over Flask Version
 ----------------------------
 
-The original Flask-based viewer has been replaced by this TUI version.
-
 **Textual TUI advantages:**
 
-- No web server overhead (runs directly in terminal)
-- Better integration with build tools ecosystem
-- Simpler deployment (no HTML/CSS/JavaScript)
-- Reduced dependencies (removed Flask, pandas, Werkzeug)
+- No web server overhead (terminal-native)
+- Better build tools integration
+- Reduced dependencies (no Flask, pandas, Werkzeug)
 - Single-language codebase (Python only)
 - Native keyboard navigation
 
-**Flask version advantages:**
+**Trade-offs:**
 
-- SQL query interface (custom SELECT queries)
-- Search across all tables
-- Browser-based (familiar UI paradigm)
-
-**Decision:** The TUI better matches the "build tool" philosophy and reduces
-complexity. The SQL query interface and search features may be added in future
-if requested.
+- No SQL query interface (may be added later)
+- No cross-table search (may be added later)
+- Terminal-only (no browser UI)
 
 Related Documentation
 ---------------------
 
-- :doc:`corpus_db` - Build provenance ledger
-- :doc:`syllable_extractor` - The tool that populates the database
+- :doc:`corpus_db` - Build provenance ledger that this tool reads
+- :doc:`syllable_extractor` - Main tool that populates the database
