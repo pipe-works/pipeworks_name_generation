@@ -1,26 +1,14 @@
+==============
 Analysis Tools
 ==============
 
-Post-annotation analysis utilities for inspecting and understanding the annotated syllable corpus.
-These tools help visualize patterns, identify feature combinations, and quality-check the data.
-
-All analysis tools are **build-time only** - not used during runtime name generation.
+.. currentmodule:: build_tools.syllable_analysis
 
 Overview
 --------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 70
-
-   * - Tool
-     - Description
-   * - Feature Signatures
-     - Analyzes which feature combinations exist and their frequency distribution
-   * - t-SNE Visualization
-     - Creates 2D visualizations of the high-dimensional feature space
-   * - Random Sampler
-     - Randomly samples syllables for quality assurance and inspection
+.. automodule:: build_tools.syllable_analysis
+   :no-members:
 
 Random Sampler
 --------------
@@ -35,26 +23,22 @@ Command-Line Interface
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_analysis.random_sampler
 
-Programmatic Usage
-~~~~~~~~~~~~~~~~~~
+Integration Guide
+~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+Use after annotation to randomly sample syllables for quality assurance:
 
-   from pathlib import Path
-   from build_tools.syllable_analysis.random_sampler import (
-       load_annotated_syllables,
-       sample_syllables,
-       save_samples
-   )
+.. code-block:: bash
 
-   # Load annotated syllables
-   records = load_annotated_syllables(Path("data/annotated/syllables_annotated.json"))
+   # Step 1: Annotate syllables
+   python -m build_tools.syllable_feature_annotator
 
-   # Sample with deterministic seed
-   samples = sample_syllables(records, sample_count=50, seed=42)
-
-   # Save samples
-   save_samples(samples, Path("_working/samples.json"))
+   # Step 2: Sample for QA inspection
+   python -m build_tools.syllable_analysis.random_sampler \
+     --input data/annotated/syllables_annotated.json \
+     --count 50 \
+     --output _working/samples.json \
+     --seed 42
 
 Feature Signature Analysis
 ---------------------------
@@ -80,7 +64,7 @@ Command-Line Interface
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_analysis.feature_signatures
 
-Report Format
+Output Format
 ~~~~~~~~~~~~~
 
 The tool generates timestamped plain text reports (``YYYYMMDD_HHMMSS.feature_signatures.txt``) with:
@@ -118,29 +102,20 @@ The tool generates timestamped plain text reports (``YYYYMMDD_HHMMSS.feature_sig
    2      506        2.18%  [3] contains_plosive, ends_with_vowel, long_vowel
    ...
 
-Programmatic Usage
-~~~~~~~~~~~~~~~~~~
+Integration Guide
+~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+Use after annotation to understand feature patterns:
 
-   from pathlib import Path
-   from build_tools.syllable_analysis.feature_signatures import run_analysis
+.. code-block:: bash
 
-   # Run full analysis
-   result = run_analysis(
-       input_path=Path("data/annotated/syllables_annotated.json"),
-       output_dir=Path("_working/analysis/feature_signatures/"),
-       limit=None  # Show all signatures
-   )
+   # Step 1: Annotate syllables
+   python -m build_tools.syllable_feature_annotator
 
-   # Access results
-   print(f"Analyzed {result['total_syllables']:,} syllables")
-   print(f"Found {result['unique_signatures']:,} unique feature signatures")
-   print(f"Report saved to: {result['output_path']}")
-
-   # Access signature counter
-   for signature, count in result['signature_counter'].most_common(10):
-       print(f"{count:4d} syllables: {', '.join(signature)}")
+   # Step 2: Analyze feature signatures
+   python -m build_tools.syllable_analysis.feature_signatures \
+     --input data/annotated/syllables_annotated.json \
+     --output _working/analysis/feature_signatures/
 
 t-SNE Visualization
 -------------------
@@ -156,11 +131,6 @@ preserving local structure. The visualization uses:
 - **Size**: Syllable frequency (larger points = more common)
 - **Color**: Syllable frequency (warmer colors = more common)
 
-**Output Formats:**
-
-- **Static PNG**: High-resolution matplotlib visualization (always generated)
-- **Interactive HTML**: Plotly-based interactive visualization with hover tooltips, zoom, pan, and export (optional)
-
 Command-Line Interface
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -169,8 +139,8 @@ Command-Line Interface
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_analysis.tsne_visualizer
 
-Output Files
-~~~~~~~~~~~~
+Output Format
+~~~~~~~~~~~~~
 
 The visualizer generates timestamped files in the output directory:
 
@@ -178,6 +148,11 @@ The visualizer generates timestamped files in the output directory:
 2. **YYYYMMDD_HHMMSS.tsne_metadata.txt** - Detailed metadata and interpretation guide
 3. **YYYYMMDD_HHMMSS.tsne_mapping.json** - Syllable→features→coordinates mapping (optional, requires ``--save-mapping``)
 4. **YYYYMMDD_HHMMSS.tsne_interactive.html** - Interactive Plotly visualization (optional, requires ``--interactive``)
+
+**Output Formats:**
+
+- **Static PNG**: High-resolution matplotlib visualization (always generated, 300 DPI default)
+- **Interactive HTML**: Plotly-based interactive visualization with hover tooltips, zoom, pan, and export (optional)
 
 **Static PNG metadata file includes:**
 
@@ -194,42 +169,26 @@ The visualizer generates timestamped files in the output directory:
 - Self-contained HTML file with embedded metadata
 - Works in any modern web browser without additional dependencies
 
-Programmatic Usage
-~~~~~~~~~~~~~~~~~~
+Integration Guide
+~~~~~~~~~~~~~~~~~
 
-.. code-block:: python
+Use after annotation to visualize the feature space:
 
-   from pathlib import Path
-   from build_tools.syllable_analysis import run_tsne_visualization
+.. code-block:: bash
 
-   # Run complete visualization pipeline with interactive output
-   result = run_tsne_visualization(
-       input_path=Path("data/annotated/syllables_annotated.json"),
-       output_dir=Path("_working/analysis/tsne/"),
-       perplexity=30,
-       random_state=42,
-       dpi=300,
-       verbose=True,
-       save_mapping=True,  # Optional: save mapping file
-       interactive=True    # Optional: generate interactive HTML (requires Plotly)
-   )
+   # Step 1: Annotate syllables
+   python -m build_tools.syllable_feature_annotator
 
-   # Access results
-   print(f"Visualized {result['syllable_count']:,} syllables")
-   print(f"Projected {result['feature_count']} features into 2D")
-   print(f"Static visualization: {result['output_path']}")
-   print(f"Metadata saved to: {result['metadata_path']}")
+   # Step 2: Generate t-SNE visualization
+   python -m build_tools.syllable_analysis.tsne_visualizer \
+     --input data/annotated/syllables_annotated.json \
+     --output _working/analysis/tsne/ \
+     --interactive
 
-   # Access mapping file (if save_mapping=True)
-   if result['mapping_path']:
-       print(f"Mapping saved to: {result['mapping_path']}")
+Advanced Topics
+~~~~~~~~~~~~~~~
 
-   # Access interactive HTML (if interactive=True)
-   if result['interactive_path']:
-       print(f"Interactive HTML: {result['interactive_path']}")
-
-Understanding t-SNE Parameters
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Understanding t-SNE Parameters:**
 
 **Perplexity** (default: 30):
 
@@ -253,8 +212,7 @@ Understanding t-SNE Parameters
 - Automatically configured for 12-dimensional binary features
 - Not configurable via command-line (intentional design choice)
 
-Interpreting the Visualization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Interpreting the Visualization:**
 
 **What to look for:**
 
@@ -273,26 +231,39 @@ Interpreting the Visualization
 - Frequency might correlate with certain feature patterns
 - Outliers might indicate unusual phonetic combinations
 
-Features
---------
-
-- Deterministic analysis (same input = same output)
-- Human-readable plain text reports with formatted tables
-- Timestamped output files for historical tracking
-- High-resolution visualizations (default 300 DPI)
-- Interactive HTML visualizations with Plotly (optional)
-- Reproducible results with fixed random seeds
-- Fast processing: typically <10 seconds for 1,000-10,000 syllables
-
 Notes
 -----
 
-- These are **build-time analysis tools** - not used during runtime name generation
-- **Required dependencies** for t-SNE visualization (install with ``pip install -e ".[build-tools]"``):
-  - scikit-learn, matplotlib, numpy, pandas (for static PNG generation)
-  - plotly (for interactive HTML generation, optional)
-- t-SNE is non-deterministic by default, but we use fixed random seeds for reproducibility
-- Processing time scales roughly O(n²) with corpus size for t-SNE
+**Dependencies:**
+
+Required dependencies for t-SNE visualization (install with ``pip install -e ".[build-tools]"``):
+
+- scikit-learn, matplotlib, numpy, pandas (for static PNG generation)
+- plotly (for interactive HTML generation, optional)
+
+**Performance:**
+
+- Deterministic analysis with fixed random seeds (same input = same output)
+- Fast processing: typically <10 seconds for 1,000-10,000 syllables
+- t-SNE processing time scales roughly O(n²) with corpus size
 - For very large datasets (>50,000 syllables), consider sampling first
+
+**Output Characteristics:**
+
+- Human-readable plain text reports with formatted tables
+- Timestamped output files for historical tracking
+- High-resolution visualizations (default 300 DPI)
 - Static visualizations saved as PNG files for easy sharing and embedding
-- Interactive visualizations saved as self-contained HTML files (work in any modern browser)
+- Interactive visualizations saved as self-contained HTML files
+
+**Build-time tool:**
+
+These are build-time analysis tools - not used during runtime name generation.
+
+API Reference
+-------------
+
+.. automodule:: build_tools.syllable_analysis
+   :members:
+   :undoc-members:
+   :show-inheritance:

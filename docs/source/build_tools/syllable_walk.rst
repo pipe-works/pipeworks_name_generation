@@ -1,5 +1,11 @@
+===============
 Syllable Walker
 ===============
+
+.. currentmodule:: build_tools.syllable_walk
+
+Overview
+--------
 
 .. automodule:: build_tools.syllable_walk
    :no-members:
@@ -33,7 +39,7 @@ The same seed always produces the same walk. This is essential for reproducible 
 and debugging. Each walk uses an isolated RNG instance to avoid global state contamination.
 
 Walk Profiles
--------------
+~~~~~~~~~~~~~
 
 The walker includes four pre-configured profiles:
 
@@ -91,199 +97,10 @@ The walker includes four pre-configured profiles:
 Command-Line Interface
 ----------------------
 
-Basic Usage
-~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Interactive web interface (recommended)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
-
-   # Generate a single walk
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --start ka
-
-   # Use specific profile
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --start bak --profile goblin --steps 10
-
-   # Compare all profiles
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --start ka --compare-profiles
-
-   # Batch generation for analysis
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --batch 100 --profile ritual --output walks.json
-
-   # Search for valid syllables
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --search "th"
-
-CLI Options
-~~~~~~~~~~~
-
 .. argparse::
    :module: build_tools.syllable_walk.cli
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_walk
-
-Web Interface
--------------
-
-The web interface provides an intuitive way to explore syllable walks without command-line complexity.
-
-Starting the Server
-~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Default port (5000)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
-
-   # Custom port
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --web --port 8000
-
-   # Quiet mode (suppress initialization messages)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \\
-     --web --quiet
-
-Features
-~~~~~~~~
-
-- **Profile selection** - Choose from four profiles or use custom parameters
-- **Starting syllable** - Specify start or use random
-- **Real-time generation** - Instant walk generation with visual feedback
-- **Walk display** - See full path and syllable details with frequencies
-- **Statistics tracking** - Total syllables and walks generated
-- **Reproducible** - Optional seed for deterministic walks
-
-The web server uses Python's standard library ``http.server`` (no Flask dependency).
-
-Common Use Cases
-----------------
-
-Understanding Corpus Structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Generate many walks to see how syllables connect:
-
-.. code-block:: bash
-
-   # Generate 100 walks for corpus analysis
-   python -m build_tools.syllable_walk data.json --batch 100 --output corpus_walks.json
-
-Analyze the JSON output to understand syllable connectivity, central hubs, and phonetic pathways.
-
-Testing Pattern Viability
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Explore if desired phonetic transitions exist before creating new patterns:
-
-.. code-block:: bash
-
-   # Test phonetic transitions with ritual profile
-   python -m build_tools.syllable_walk data.json --start the --profile ritual
-
-Finding Interesting Sequences
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Discover unusual but valid phonetic progressions:
-
-.. code-block:: bash
-
-   # Explore unusual sequences with goblin profile
-   python -m build_tools.syllable_walk data.json --profile goblin --steps 10
-
-Statistical Analysis
-~~~~~~~~~~~~~~~~~~~~
-
-Generate large datasets for analysis:
-
-.. code-block:: bash
-
-   # Generate 1000 walks with dialect profile
-   python -m build_tools.syllable_walk data.json --batch 1000 \\
-     --profile dialect --output dialect_walks.json
-
-   # Generate 1000 walks with goblin profile
-   python -m build_tools.syllable_walk data.json --batch 1000 \\
-     --profile goblin --output goblin_walks.json
-
-Then analyze frequency distributions, transition patterns, etc.
-
-Programmatic Usage
-------------------
-
-.. code-block:: python
-
-   from pathlib import Path
-   from build_tools.syllable_walk import SyllableWalker
-
-   # Initialize walker
-   walker = SyllableWalker(
-       data_path=Path("data/annotated/syllables_annotated.json"),
-       max_neighbor_distance=3,
-       verbose=True
-   )
-
-   # Generate a walk using a profile
-   walk = walker.walk_from_profile(
-       start="ka",
-       profile="dialect",
-       steps=5,
-       seed=42
-   )
-
-   # Generate a walk with custom parameters
-   walk = walker.walk(
-       start="bak",
-       steps=10,
-       max_flips=2,
-       temperature=1.5,
-       frequency_weight=-0.5,
-       seed=123
-   )
-
-   # Access walk results
-   for step in walk:
-       print(f"{step['syllable']} (freq: {step['frequency']})")
-
-   # Get syllable information
-   info = walker.get_syllable_info("ka")
-   print(f"Frequency: {info['frequency']}")
-   print(f"Features: {info['features']}")
-
-   # Get random syllable (deterministic with seed)
-   random_syllable = walker.get_random_syllable(seed=42)
-
-   # Format walk for display
-   formatted = walker.format_walk(walk, arrow=" → ")
-   print(formatted)  # ka → pai → agyai → donace
-
-Import Components
-~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.syllable_walk import (
-       # Core walker
-       SyllableWalker,
-
-       # Profile management
-       WalkProfile,
-       WALK_PROFILES,
-       get_profile,
-       list_profiles,
-   )
-
-   # List all available profiles
-   profiles = list_profiles()
-   print(f"Available: {', '.join(profiles)}")
-
-   # Get specific profile details
-   goblin = get_profile("goblin")
-   print(f"Temperature: {goblin.temperature}")
-   print(f"Description: {goblin.description}")
 
 Output Format
 -------------
@@ -344,41 +161,8 @@ Batch Output
      }
    }
 
-Performance
------------
-
-Initialization Time (500k syllables)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Max Neighbor Distance
-     - Time
-     - Memory
-     - Max Flips Supported
-   * - 1
-     - ~30 seconds
-     - ~50 MB
-     - 1
-   * - 2
-     - ~1 minute
-     - ~150 MB
-     - 1-2
-   * - 3
-     - ~3 minutes
-     - ~300 MB
-     - 1-3
-
-Walk Generation
-~~~~~~~~~~~~~~~
-
-- **After initialization**: <10ms per walk (instant)
-- **Deterministic**: Same seed always produces same walk
-- **Scalable**: Speed independent of corpus size
-
-Pipeline Integration
---------------------
+Integration Guide
+-----------------
 
 The syllable walker uses output from the feature annotator:
 
@@ -388,24 +172,112 @@ The syllable walker uses output from the feature annotator:
    python -m build_tools.syllable_extractor --file wordlist.txt --auto
 
    # Step 2: Normalize syllables
-   python -m build_tools.syllable_normaliser \\
-     --source data/corpus/ \\
+   python -m build_tools.syllable_normaliser \
+     --source data/corpus/ \
      --output data/normalized/
 
    # Step 3: Annotate with phonetic features
-   python -m build_tools.syllable_feature_annotator \\
-     --syllables data/normalized/syllables_unique.txt \\
-     --frequencies data/normalized/syllables_frequencies.json \\
+   python -m build_tools.syllable_feature_annotator \
+     --syllables data/normalized/syllables_unique.txt \
+     --frequencies data/normalized/syllables_frequencies.json \
      --output data/annotated/syllables_annotated.json
 
    # Step 4: Explore with syllable walker
    python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
 
-Algorithm Details
------------------
+**When to use this tool:**
 
-Cost Function
+- To explore phonetic connectivity in your syllable corpus
+- To test if desired phonetic transitions exist before creating patterns
+- To discover interesting phonetic progressions for name generation
+- To analyze corpus structure and syllable relationships
+- To generate datasets for statistical analysis of phonetic patterns
+
+**Common Use Cases:**
+
+**Understanding Corpus Structure:**
+
+Generate many walks to see how syllables connect:
+
+.. code-block:: bash
+
+   # Generate 100 walks for corpus analysis
+   python -m build_tools.syllable_walk data.json --batch 100 --output corpus_walks.json
+
+Analyze the JSON output to understand syllable connectivity, central hubs, and phonetic pathways.
+
+**Testing Pattern Viability:**
+
+Explore if desired phonetic transitions exist before creating new patterns:
+
+.. code-block:: bash
+
+   # Test phonetic transitions with ritual profile
+   python -m build_tools.syllable_walk data.json --start the --profile ritual
+
+**Finding Interesting Sequences:**
+
+Discover unusual but valid phonetic progressions:
+
+.. code-block:: bash
+
+   # Explore unusual sequences with goblin profile
+   python -m build_tools.syllable_walk data.json --profile goblin --steps 10
+
+**Statistical Analysis:**
+
+Generate large datasets for analysis:
+
+.. code-block:: bash
+
+   # Generate 1000 walks with dialect profile
+   python -m build_tools.syllable_walk data.json --batch 1000 \
+     --profile dialect --output dialect_walks.json
+
+   # Generate 1000 walks with goblin profile
+   python -m build_tools.syllable_walk data.json --batch 1000 \
+     --profile goblin --output goblin_walks.json
+
+Then analyze frequency distributions, transition patterns, etc.
+
+Advanced Topics
+---------------
+
+Web Interface
 ~~~~~~~~~~~~~
+
+The web interface provides an intuitive way to explore syllable walks without command-line complexity.
+
+**Starting the Server:**
+
+.. code-block:: bash
+
+   # Default port (5000)
+   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
+
+   # Custom port
+   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \
+     --web --port 8000
+
+   # Quiet mode (suppress initialization messages)
+   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \
+     --web --quiet
+
+**Features:**
+
+- **Profile selection** - Choose from four profiles or use custom parameters
+- **Starting syllable** - Specify start or use random
+- **Real-time generation** - Instant walk generation with visual feedback
+- **Walk display** - See full path and syllable details with frequencies
+- **Statistics tracking** - Total syllables and walks generated
+- **Reproducible** - Optional seed for deterministic walks
+
+The web server uses Python's standard library ``http.server`` (no Flask dependency).
+
+Algorithm Details
+~~~~~~~~~~~~~~~~~
+
+**Cost Function:**
 
 Each potential step has a cost based on:
 
@@ -430,49 +302,84 @@ Higher temperature = more random selection (flattens probability distribution)
 
 Lower temperature = more deterministic (strongly favors lowest cost)
 
-Troubleshooting
----------------
+Performance
+~~~~~~~~~~~
 
-Initialization Takes Too Long
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Initialization Time (500k syllables):**
+
+.. list-table::
+   :header-rows: 1
+
+   * - Max Neighbor Distance
+     - Time
+     - Memory
+     - Max Flips Supported
+   * - 1
+     - ~30 seconds
+     - ~50 MB
+     - 1
+   * - 2
+     - ~1 minute
+     - ~150 MB
+     - 1-2
+   * - 3
+     - ~3 minutes
+     - ~300 MB
+     - 1-3
+
+**Walk Generation:**
+
+- **After initialization**: <10ms per walk (instant)
+- **Deterministic**: Same seed always produces same walk
+- **Scalable**: Speed independent of corpus size
+
+Notes
+-----
+
+**Dependencies:**
+
+- Requires NumPy for efficient feature matrix operations (build-time dependency)
+- Uses standard library ``http.server`` for web interface (no Flask)
+
+**Performance Characteristics:**
+
+- Initialization is one-time cost (30 sec - 3 min depending on distance)
+- Walk generation is instant after initialization (<10ms per walk)
+- Designed for large corpus analysis (500k+ syllables)
+- Determinism guaranteed via isolated RNG instances
+
+**Troubleshooting:**
+
+**Initialization Takes Too Long:**
 
 - Reduce ``--max-neighbor-distance`` (default 3 → try 2)
 - Use smaller corpus for testing
 - Initialization is one-time cost, walk generation is instant
 
-Getting Stuck at One Syllable
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Getting Stuck at One Syllable:**
 
 - Increase ``--max-flips`` (allow bigger phonetic jumps)
 - Increase ``--temperature`` (more randomness)
 - Check if starting syllable is isolated with ``--search``
 
-Walks Too Random
-~~~~~~~~~~~~~~~~
+**Walks Too Random:**
 
 - Decrease ``--temperature`` (less randomness)
 - Adjust ``--frequency-weight`` (try -0.5 for rare syllables)
 - Try different profiles (clerical for conservative)
 
-Port Already in Use (Web Mode)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Port Already in Use (Web Mode):**
 
 .. code-block:: bash
 
    # Use a different port if 5000 is occupied
    python -m build_tools.syllable_walk data.json --web --port 8000
 
-Notes
------
+**Build-time tool:**
 
-- This is a **build-time analysis tool only** - not used during runtime name generation
-- Requires NumPy for efficient feature matrix operations (build-time dependency)
-- Uses standard library ``http.server`` for web interface (no Flask)
-- Determinism guaranteed via isolated RNG instances
-- Designed for large corpus analysis (500k+ syllables)
+This is a build-time analysis tool only - not used during runtime name generation.
 
-See Also
---------
+**Related Documentation:**
 
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
 - :doc:`syllable_normaliser` - Prepares syllable corpus before annotation

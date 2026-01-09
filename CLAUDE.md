@@ -213,6 +213,92 @@ When adding documentation, ask: **"Does this change when code capabilities chang
 - **Yes** → Put in code docstring (will auto-propagate)
 - **No** → Put in RST (stable reference/tutorial content)
 
+### RST Template for Build Tools
+
+All build tool documentation in `docs/source/build_tools/*.rst` must follow the standard template
+located at `docs/source/_templates/build_tool_template.rst`.
+
+#### Required Sections (in order)
+
+1. **Overview** - `.. automodule:: :no-members:` (shows module docstring)
+2. **Command-Line Interface** - `.. argparse::` directive (auto-generates CLI options)
+3. **Output Format** - Manual description of output files, naming conventions, data structures
+4. **Integration Guide** - How the tool fits in the pipeline, when to use it, example workflows
+5. **Notes** - Important caveats, performance considerations, troubleshooting
+6. **API Reference** - `.. automodule:: :members:` (full class/function documentation)
+
+#### Optional Sections (for complex tools only)
+
+- **Core Concepts** (after Overview) - For complex tools requiring conceptual explanation
+  - Example: syllable_walk's phonetic distance, neighbor graphs
+- **Advanced Topics** (before API Reference) - Performance benchmarks, algorithm details, troubleshooting
+  - Example: syllable_walk's Web Interface, Performance, Algorithm Details
+
+#### Template Files
+
+- **Standard template**: `docs/source/_templates/build_tool_template.rst`
+- **Complex template**: `docs/source/_templates/build_tool_template_complex.rst`
+
+Use the complex template when your tool requires:
+
+- Detailed conceptual explanations (Core Concepts section)
+- Advanced features (Web interfaces, multiple modes)
+- Performance benchmarks or algorithm details
+
+#### Key Principles
+
+1. **No duplicate content** - Code examples stay in `__init__.py` docstrings only
+2. **No duplicate CLI examples** - argparse directive generates CLI usage automatically
+3. **Consistent ordering** - All tools follow the same section structure
+4. **Unique content only** - Manual RST should contain information NOT in code docstrings
+
+#### Example Structure
+
+```rst
+===============
+Tool Name
+===============
+
+.. currentmodule:: build_tools.tool_name
+
+Overview
+--------
+
+.. automodule:: build_tools.tool_name
+   :no-members:
+
+Command-Line Interface
+----------------------
+
+.. argparse::
+   :module: build_tools.tool_name.cli
+   :func: create_argument_parser
+   :prog: python -m build_tools.tool_name
+
+Output Format
+-------------
+
+[Manual content: file formats, naming conventions]
+
+Integration Guide
+-----------------
+
+[Manual content: pipeline context, when to use]
+
+Notes
+-----
+
+[Manual content: caveats, troubleshooting]
+
+API Reference
+-------------
+
+.. automodule:: build_tools.tool_name
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ### CLI Documentation Synchronization
 
 When modifying CLI tools (`build_tools/**/cli.py` or `__main__.py`):

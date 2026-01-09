@@ -1,5 +1,11 @@
+===================
 Syllable Normaliser
 ===================
+
+.. currentmodule:: build_tools.syllable_normaliser
+
+Overview
+--------
 
 .. automodule:: build_tools.syllable_normaliser
    :no-members:
@@ -7,66 +13,111 @@ Syllable Normaliser
 Command-Line Interface
 ----------------------
 
-Basic Usage
-~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Process all .txt files in a directory
-   python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
-
-   # Recursive directory scan
-   python -m build_tools.syllable_normaliser --source data/ --recursive --output results/
-
-   # Custom syllable length constraints
-   python -m build_tools.syllable_normaliser --source data/ --min 3 --max 10
-
-   # Verbose output with detailed statistics
-   python -m build_tools.syllable_normaliser --source data/ --verbose
-
-CLI Options
-~~~~~~~~~~~
-
 .. argparse::
    :module: build_tools.syllable_normaliser.cli
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_normaliser
 
-Output Files
-------------
+Output Format
+-------------
 
-The pipeline generates 5 output files:
+The pipeline generates 5 output files in the specified output directory:
 
 1. **syllables_raw.txt** - Aggregated raw syllables (all occurrences preserved)
 2. **syllables_canonicalised.txt** - Normalized canonical syllables
-3. **syllables_frequencies.json** - Frequency intelligence (syllable → count)
+3. **syllables_frequencies.json** - Frequency intelligence (syllable → count mapping)
 4. **syllables_unique.txt** - Deduplicated canonical syllable inventory
 5. **normalization_meta.txt** - Detailed statistics and metadata report
 
-Pipeline Details
-----------------
+**File structure examples:**
 
-Step 1 - Aggregation
-~~~~~~~~~~~~~~~~~~~~
+``syllables_raw.txt`` (preserves all occurrences):
+
+::
+
+    café
+    Café
+    hello
+    hello
+    world
+
+``syllables_canonicalised.txt`` (normalized, duplicates preserved):
+
+::
+
+    cafe
+    cafe
+    hello
+    hello
+    world
+
+``syllables_frequencies.json`` (counts before deduplication):
+
+.. code-block:: json
+
+   {
+     "cafe": 2,
+     "hello": 2,
+     "world": 1
+   }
+
+``syllables_unique.txt`` (deduplicated, sorted):
+
+::
+
+    cafe
+    hello
+    world
+
+Integration Guide
+-----------------
+
+The syllable normaliser sits between extraction and annotation in the pipeline:
+
+.. code-block:: bash
+
+   # Step 1: Extract syllables from corpus
+   python -m build_tools.syllable_extractor \
+     --source data/corpus/ \
+     --lang en_US
+
+   # Step 2: Normalize extracted syllables
+   python -m build_tools.syllable_normaliser \
+     --source data/raw/ \
+     --output data/normalized/
+
+   # Step 3: Annotate with phonetic features
+   python -m build_tools.syllable_feature_annotator \
+     --syllables data/normalized/syllables_unique.txt \
+     --frequencies data/normalized/syllables_frequencies.json
+
+**When to use this tool:**
+
+- After extracting raw syllables from corpus files
+- Before feature annotation or pattern development
+- To normalize syllables from multiple extraction runs
+- To regenerate frequency distributions after combining corpora
+
+**3-Step Normalization Pipeline:**
+
+**Step 1 - Aggregation:**
 
 - Combines all input files into ``syllables_raw.txt``
 - Preserves ALL occurrences (no deduplication)
 - Maintains raw counts for frequency analysis
 - Empty lines filtered during file reading
 
-Step 2 - Canonicalization
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Step 2 - Canonicalization:**
 
 - Unicode normalization (NFKD - compatibility decomposition)
 - Strip diacritics: café → cafe, résumé → resume
 - Lowercase conversion
 - Trim whitespace
 - Charset validation (reject invalid characters)
-- Length constraint enforcement
+- Length constraint enforcement (default: min=2, max=20)
 - Outputs to ``syllables_canonicalised.txt``
 
-Step 3 - Frequency Analysis
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Step 3 - Frequency Analysis:**
 
 - Count occurrences of each canonical syllable
 - Generate frequency rankings and percentages
@@ -76,117 +127,21 @@ Step 3 - Frequency Analysis
   - ``syllables_unique.txt`` - Authoritative syllable inventory
   - ``normalization_meta.txt`` - Comprehensive statistics report
 
-Programmatic Usage
-------------------
+**Pipeline characteristics:**
 
-Full Pipeline
-~~~~~~~~~~~~~
+- Deterministic: same input always produces same output
+- Fast: processes thousands of syllables per second
+- Configurable: adjust length constraints, charset, unicode form
+- Comprehensive: detailed rejection statistics and metadata
 
-.. code-block:: python
+Notes
+-----
 
-   from pathlib import Path
-   from build_tools.syllable_normaliser import (
-       NormalizationConfig,
-       run_full_pipeline,
-       discover_input_files
-   )
-
-   # Discover input files
-   files = discover_input_files(
-       source_dir=Path("data/corpus/"),
-       pattern="*.txt",
-       recursive=False
-   )
-
-   # Create configuration
-   config = NormalizationConfig(
-       min_length=2,
-       max_length=20,
-       allowed_charset="abcdefghijklmnopqrstuvwxyz",
-       unicode_form="NFKD"
-   )
-
-   # Run full pipeline
-   result = run_full_pipeline(
-       input_files=files,
-       output_dir=Path("_working/normalized"),
-       config=config,
-       verbose=True
-   )
-
-   # Access results
-   print(f"Processed {result.stats.raw_count:,} raw syllables")
-   print(f"Canonical: {result.stats.after_canonicalization:,}")
-   print(f"Unique: {result.stats.unique_canonical:,}")
-   print(f"Rejection rate: {result.stats.rejection_rate:.1f}%")
-
-   # Access frequency data
-   top_syllable = max(result.frequencies.items(), key=lambda x: x[1])
-   print(f"Most frequent: {top_syllable[0]} ({top_syllable[1]} occurrences)")
-
-Individual Pipeline Steps
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from pathlib import Path
-   from build_tools.syllable_normaliser import (
-       FileAggregator,
-       SyllableNormalizer,
-       FrequencyAnalyzer,
-       NormalizationConfig,
-       normalize_batch
-   )
-
-   # Step 1: Aggregation
-   aggregator = FileAggregator()
-   raw_syllables = aggregator.aggregate_files([Path("file1.txt"), Path("file2.txt")])
-   aggregator.save_raw_syllables(raw_syllables, Path("syllables_raw.txt"))
-
-   # Step 2: Normalization
-   config = NormalizationConfig(min_length=2, max_length=8)
-   canonical_syllables, rejection_stats = normalize_batch(raw_syllables, config)
-
-   # Save canonicalized syllables
-   with open("syllables_canonicalised.txt", "w", encoding="utf-8") as f:
-       for syllable in canonical_syllables:
-           f.write(f"{syllable}\\n")
-
-   # Step 3: Frequency analysis
-   analyzer = FrequencyAnalyzer()
-   frequencies = analyzer.calculate_frequencies(canonical_syllables)
-   unique_syllables = analyzer.extract_unique_syllables(canonical_syllables)
-
-   # Save outputs
-   analyzer.save_frequencies(frequencies, Path("syllables_frequencies.json"))
-   analyzer.save_unique_syllables(unique_syllables, Path("syllables_unique.txt"))
-
-Single Syllable Normalization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.syllable_normaliser import SyllableNormalizer, NormalizationConfig
-
-   config = NormalizationConfig(min_length=2, max_length=20)
-   normalizer = SyllableNormalizer(config)
-
-   # Basic normalization
-   normalizer.normalize("Café")       # → "cafe"
-   normalizer.normalize("  HELLO  ")  # → "hello"
-   normalizer.normalize("résumé")     # → "resume"
-   normalizer.normalize("Zürich")     # → "zurich"
-
-   # Rejections return None
-   normalizer.normalize("x")          # → None (too short)
-   normalizer.normalize("hello123")   # → None (invalid characters)
-   normalizer.normalize("   ")        # → None (empty after normalization)
-
-Frequency Intelligence
-----------------------
+**Frequency Intelligence:**
 
 The frequency data captures how often each canonical syllable occurs **before** deduplication.
-This intelligence is essential for understanding natural language patterns:
+This intelligence is essential for understanding natural language patterns and can inform
+weighted name generation:
 
 .. code-block:: json
 
@@ -197,18 +152,34 @@ This intelligence is essential for understanding natural language patterns:
      "ta": 98
    }
 
-This shows "ka" appears 187 times in the canonical syllables, providing valuable frequency information
-for weighted name generation patterns.
+This shows "ka" appears 187 times in the canonical syllables, indicating it's a high-frequency
+pattern that may be desirable for common or natural-sounding names.
 
-Important Notes
----------------
+**Normalization Behavior:**
 
-- This is a **build-time tool only** - not used during runtime name generation
-- The normalizer is deterministic (same input always produces same output)
-- Empty lines are filtered during aggregation (not counted as rejections)
-- Frequency counts capture occurrences BEFORE deduplication
 - All syllable processing is case-insensitive (output is lowercase)
 - Unicode normalization form NFKD provides maximum compatibility decomposition
+- Empty lines are filtered during aggregation (not counted as rejections)
+- Frequency counts capture occurrences BEFORE deduplication
+- Invalid syllables (wrong charset, wrong length) are rejected and counted in metadata
+
+**Default Constraints:**
+
+- Min length: 2 characters
+- Max length: 20 characters
+- Allowed charset: a-z (lowercase ASCII letters)
+- Unicode form: NFKD (compatibility decomposition)
+
+**Use Cases:**
+
+- Combining syllables from multiple language extractions
+- Normalizing variations in corpus encoding (UTF-8, Latin-1, etc.)
+- Filtering syllables by length for specific pattern requirements
+- Building frequency-aware name generation systems
+
+**Build-time tool:**
+
+This is a build-time tool only - not used during runtime name generation.
 
 API Reference
 -------------

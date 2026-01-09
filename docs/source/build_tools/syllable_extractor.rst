@@ -1,37 +1,17 @@
+==================
 Syllable Extractor
 ==================
+
+.. currentmodule:: build_tools.syllable_extractor
+
+Overview
+--------
 
 .. automodule:: build_tools.syllable_extractor
    :no-members:
 
 Command-Line Interface
 ----------------------
-
-Basic Usage
-~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Interactive mode (no arguments)
-   python -m build_tools.syllable_extractor
-
-   # Single file
-   python -m build_tools.syllable_extractor --file input.txt --lang en_US
-
-   # Multiple files
-   python -m build_tools.syllable_extractor --files file1.txt file2.txt file3.txt --auto
-
-   # Directory scan (non-recursive)
-   python -m build_tools.syllable_extractor --source /data/texts/ --pattern "*.txt"
-
-   # Directory scan (recursive)
-   python -m build_tools.syllable_extractor --source /data/ --pattern "*.md" --recursive
-
-   # Custom output directory and syllable lengths
-   python -m build_tools.syllable_extractor --source /data/ --output /results/ --min 3 --max 6
-
-CLI Options
-~~~~~~~~~~~
 
 .. argparse::
    :module: build_tools.syllable_extractor.cli
@@ -46,116 +26,132 @@ Output files are saved to ``_working/output/`` with timestamped names including 
 - ``YYYYMMDD_HHMMSS.syllables.LANG.txt`` - Unique syllables (one per line, sorted)
 - ``YYYYMMDD_HHMMSS.meta.LANG.txt`` - Extraction metadata and statistics
 
-Examples::
+**Examples:**
+
+::
 
     20260105_143022.syllables.en_US.txt
     20260105_143022.meta.en_US.txt
     20260105_143045.syllables.de_DE.txt
 
-Programmatic Usage
-------------------
+**Syllables file format:**
 
-Single-File Extraction
-~~~~~~~~~~~~~~~~~~~~~~
+Each line contains one unique syllable, sorted alphabetically:
 
-.. code-block:: python
+::
 
-   from pathlib import Path
-   from build_tools.syllable_extractor import SyllableExtractor
+    der
+    ful
+    hel
+    lo
+    won
+    world
 
-   # Initialize extractor for English (US)
-   extractor = SyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
+**Metadata file format:**
 
-   # Extract syllables from text
-   syllables = extractor.extract_syllables_from_text("Hello wonderful world")
-   print(sorted(syllables))
-   # ['der', 'ful', 'hel', 'lo', 'won', 'world']
+The metadata file records extraction parameters and statistics:
 
-   # Extract from a file
-   syllables = extractor.extract_syllables_from_file(Path('input.txt'))
+- Source files processed
+- Language code used
+- Syllable length constraints (min/max)
+- Unique syllable count
+- Total word count
+- Extraction timestamp
+- Command-line invocation
 
-   # Save results
-   extractor.save_syllables(syllables, Path('output.txt'))
+Integration Guide
+-----------------
 
-Automatic Language Detection
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The syllable extractor is the first step in the build pipeline:
 
-.. code-block:: python
+.. code-block:: bash
 
-   from build_tools.syllable_extractor import SyllableExtractor
+   # Step 1: Extract syllables from corpus
+   python -m build_tools.syllable_extractor \
+     --source data/corpus/ \
+     --pattern "*.txt" \
+     --lang en_US \
+     --output data/raw/
 
-   # Automatic language detection from text
-   text = "Bonjour le monde, comment allez-vous?"
-   syllables, stats, detected_lang = SyllableExtractor.extract_with_auto_language(text)
-   print(f"Detected language: {detected_lang}")  # "fr"
-   print(f"Extracted {len(syllables)} syllables")
+   # Step 2: Normalize extracted syllables
+   python -m build_tools.syllable_normaliser \
+     --source data/raw/ \
+     --output data/normalized/
 
-Batch Processing
-~~~~~~~~~~~~~~~~
+   # Step 3: Annotate with phonetic features
+   python -m build_tools.syllable_feature_annotator
 
-.. code-block:: python
+**When to use this tool:**
 
-   from pathlib import Path
-   from build_tools.syllable_extractor import discover_files, process_batch
+- To extract syllables from text corpora for the first time
+- When adding new language variants to the corpus
+- To regenerate syllables after changing extraction parameters (min/max length)
+- For exploring syllable patterns in specific text sources
 
-   # Discover files in a directory
-   files = discover_files(
-       source=Path("~/documents"),
-       pattern="*.txt",
-       recursive=True
-   )
+**Extraction modes:**
 
-   # Process batch with automatic language detection
-   result = process_batch(
-       files=files,
-       language_code="auto",  # or specific code like "en_US"
-       min_len=2,
-       max_len=8,
-       output_dir=Path("_working/output"),
-       quiet=False,
-       verbose=False
-   )
+- **Interactive mode**: No arguments - prompts for file selection
+- **Single file**: ``--file input.txt`` - Process one file
+- **Multiple files**: ``--files file1.txt file2.txt`` - Process specific files
+- **Directory scan**: ``--source /data/ --pattern "*.txt"`` - Scan directory for files
+- **Recursive scan**: ``--source /data/ --pattern "*.txt" --recursive`` - Scan subdirectories
+- **Auto-detect language**: ``--auto`` - Use automatic language detection (requires ``langdetect``)
 
-   # Check results
-   print(f"Processed {result.total_files} files")
-   print(f"Successful: {result.successful}")
-   print(f"Failed: {result.failed}")
-   print(result.format_summary())  # Detailed summary report
+Notes
+-----
 
-Supported Languages
--------------------
+**Supported Languages:**
 
-The extractor supports 40+ languages through pyphen's LibreOffice dictionaries.
+The extractor supports 40+ languages through pyphen's LibreOffice dictionaries:
+
+- English (US: en_US, UK: en_GB)
+- Germanic: German (de_DE), Dutch (nl_NL), Swedish (sv_SE), Danish (da_DK), Norwegian (nb_NO, nn_NO)
+- Romance: French (fr_FR), Spanish (es_ES), Italian (it_IT), Portuguese (pt_PT), Romanian (ro_RO)
+- Slavic: Russian (ru_RU), Polish (pl_PL), Czech (cs_CZ), Slovak (sk_SK), Ukrainian (uk_UA)
+- Other: Greek (el_GR), Turkish (tr_TR), Hungarian (hu_HU), Finnish (fi_FI), Estonian (et_EE)
+- And many more...
+
+To list all available languages:
 
 .. code-block:: python
 
    from build_tools.syllable_extractor import SUPPORTED_LANGUAGES
-
    print(f"{len(SUPPORTED_LANGUAGES)} languages available")
-   # English (US/UK), German, French, Spanish, Russian, and many more...
 
-Language Auto-Detection
-~~~~~~~~~~~~~~~~~~~~~~~
+**Language Auto-Detection:**
 
-The tool includes automatic language detection (requires ``langdetect``):
+The tool includes automatic language detection (requires ``langdetect`` package):
+
+- Use ``--auto`` flag to enable automatic language detection
+- Detection is per-file based on text content
+- Falls back to English (en_US) if detection fails or is unavailable
+- Install with: ``pip install langdetect``
+
+To check if auto-detection is available:
 
 .. code-block:: python
 
-   from build_tools.syllable_extractor import (
-       detect_language_code,
-       is_detection_available,
-       list_supported_languages
-   )
-
-   # Check if detection is available
+   from build_tools.syllable_extractor import is_detection_available
    if is_detection_available():
-       # Detect language from text
-       lang_code = detect_language_code("Hello world, this is a test")
-       print(lang_code)  # "en_US"
+       print("Language auto-detection is available")
 
-       # List all supported languages with detection
-       languages = list_supported_languages()
-       print(f"{len(languages)} languages available")
+**Syllable Length Constraints:**
+
+- Default: min=2, max=8 characters
+- Adjust with ``--min`` and ``--max`` flags
+- Shorter syllables (min=1) include single vowels
+- Longer syllables (max=10+) may include compound patterns
+
+**Output Organization:**
+
+- Files are timestamped to preserve extraction history
+- Language codes in filenames enable multi-language corpora
+- Metadata files provide full provenance tracking
+- All extractions are logged to corpus database (if available)
+
+**Build-time tool:**
+
+This is a build-time tool only - not used during runtime name generation.
 
 API Reference
 -------------

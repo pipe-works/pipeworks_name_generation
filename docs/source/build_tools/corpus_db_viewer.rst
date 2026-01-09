@@ -1,5 +1,11 @@
+======================
 Corpus Database Viewer
 ======================
+
+.. currentmodule:: build_tools.corpus_db_viewer
+
+Overview
+--------
 
 .. automodule:: build_tools.corpus_db_viewer
    :no-members:
@@ -10,8 +16,7 @@ it provides a keyboard-driven interface for browsing extraction run history.
 
 **Replaces:** Flask-based web viewer (archived in ``_working/_archived/pipeworks_db_viewer_flask/``)
 
-Key Features
-------------
+**Key Features:**
 
 - Browse all database tables interactively
 - Paginated data display (50 rows per page)
@@ -23,36 +28,108 @@ Key Features
 Command-Line Interface
 ----------------------
 
-Basic Usage
-~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Launch interactive TUI with default database
-   python -m build_tools.corpus_db_viewer
-
-   # Specify custom database path
-   python -m build_tools.corpus_db_viewer --db /path/to/database.db
-
-   # Set custom export directory
-   python -m build_tools.corpus_db_viewer --export-dir _working/my_exports/
-
-   # Adjust page size
-   python -m build_tools.corpus_db_viewer --page-size 100
-
-CLI Options
-~~~~~~~~~~~
-
 .. argparse::
    :module: build_tools.corpus_db_viewer.cli
    :func: create_argument_parser
    :prog: corpus_db_viewer
 
-Keyboard Shortcuts (in TUI)
-----------------------------
+Output Format
+-------------
 
-Navigation
-~~~~~~~~~~
+Export Files
+~~~~~~~~~~~~
+
+The viewer can export table data to two formats:
+
+**CSV Format:**
+
+Comma-separated values with header row:
+
+::
+
+    id,run_timestamp,extractor_tool,status
+    1,2026-01-09T14:30:22,syllable_extractor,completed
+    2,2026-01-09T15:12:45,syllable_extractor,completed
+
+**JSON Format:**
+
+Array of objects with full type preservation:
+
+.. code-block:: json
+
+   [
+     {
+       "id": 1,
+       "run_timestamp": "2026-01-09T14:30:22",
+       "extractor_tool": "syllable_extractor",
+       "status": "completed"
+     }
+   ]
+
+**Export file naming:**
+
+Files are timestamped and named by table:
+
+::
+
+    _working/exports/
+    ├── runs_20260109_143022.csv
+    ├── runs_20260109_143022.json
+    └── outputs_20260109_143145.csv
+
+**Important:** Exports include ALL rows, not just the current page.
+
+Database Structure
+~~~~~~~~~~~~~~~~~~
+
+The corpus database tracks syllable extraction runs:
+
+**runs** - Extraction run metadata
+   Tool name, version, status, timestamps, command-line arguments
+
+**inputs** - Source files processed
+   Input files or directories used for each run
+
+**outputs** - Generated files
+   Output .syllables and .meta files with syllable counts
+
+Integration Guide
+-----------------
+
+Use the viewer to inspect corpus database provenance after extraction runs:
+
+.. code-block:: bash
+
+   # Step 1: Extract syllables (populates database)
+   python -m build_tools.syllable_extractor \
+     --source data/corpus/ \
+     --lang en_US
+
+   # Step 2: Inspect extraction history with TUI viewer
+   python -m build_tools.corpus_db_viewer
+
+**When to use this tool:**
+
+- To verify extraction runs completed successfully
+- To inspect which corpus files were processed
+- To track provenance of generated syllable files
+- To export extraction history for reporting or analysis
+- To debug failed extraction runs by examining status and error messages
+
+**Common workflows:**
+
+1. **Browse recent runs:** Launch viewer → select "runs" table → sort by timestamp
+2. **Find run details:** Press ``i`` to view schema → browse rows for run metadata
+3. **Export history:** Press ``e`` → select format (CSV/JSON) → save to export directory
+4. **Track file provenance:** Switch to "outputs" table → identify which run created specific files
+
+Advanced Topics
+---------------
+
+Keyboard Shortcuts
+~~~~~~~~~~~~~~~~~~
+
+**Navigation:**
 
 .. list-table::
    :header-rows: 1
@@ -69,8 +146,7 @@ Navigation
    * - ``Home`` / ``End``
      - First/Last page
 
-Actions
-~~~~~~~
+**Actions:**
 
 .. list-table::
    :header-rows: 1
@@ -92,10 +168,9 @@ Actions
      - Quit
 
 Usage Examples
---------------
+~~~~~~~~~~~~~~
 
-Browsing Tables
-~~~~~~~~~~~~~~~
+**Browsing Tables:**
 
 Launch the viewer and it automatically loads the first table. Navigate using:
 
@@ -105,8 +180,7 @@ Launch the viewer and it automatically loads the first table. Navigate using:
 
 Or click directly on table names in the sidebar.
 
-Viewing Schema
-~~~~~~~~~~~~~~
+**Viewing Schema:**
 
 Press ``i`` to view detailed schema information:
 
@@ -127,8 +201,7 @@ Example output::
    Indexes:
      • idx_status (status)
 
-Exporting Data
-~~~~~~~~~~~~~~
+**Exporting Data:**
 
 Press ``e`` to export the current table:
 
@@ -136,139 +209,21 @@ Press ``e`` to export the current table:
 2. Choose CSV or JSON format
 3. File saved to export directory (default: ``_working/exports/``)
 
-**Note:** Export includes ALL rows, not just current page.
-
-Output files::
-
-   _working/exports/
-   ├── runs_20240109_143022.csv
-   ├── runs_20240109_143022.json
-   └── outputs_20240109_143145.csv
-
-Programmatic Usage
-------------------
-
-Query Functions
-~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.corpus_db_viewer import queries
-   from pathlib import Path
-
-   db_path = Path("data/raw/syllable_extractor.db")
-
-   # Get list of tables
-   tables = queries.get_tables_list(db_path)
-   for table in tables:
-       print(table['name'])
-
-   # Get schema
-   schema = queries.get_table_schema(db_path, "runs")
-   print(f"Columns: {len(schema['columns'])}")
-
-   # Get paginated data
-   data = queries.get_table_data(
-       db_path,
-       "runs",
-       page=1,
-       limit=10,
-       sort_by="run_timestamp",
-       sort_order="DESC"
-   )
-   print(f"Total: {data['total']} rows")
-
-Export Functions
-~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.corpus_db_viewer import formatters
-   from pathlib import Path
-
-   rows = [
-       {'id': 1, 'name': 'Alice', 'age': 30},
-       {'id': 2, 'name': 'Bob', 'age': 25}
-   ]
-
-   # Export to CSV
-   formatters.export_to_csv(rows, Path("_working/data.csv"))
-
-   # Export to JSON
-   formatters.export_to_json(rows, Path("_working/data.json"))
-
-   # Format helpers
-   print(formatters.format_row_count(1234))      # "1,234 rows"
-   print(formatters.format_file_size(1048576))   # "1.0 MB"
-
-Database Structure
-------------------
-
-The corpus database tracks syllable extraction runs:
-
-**runs** - Extraction run metadata
-   Tool name, version, status, timestamps, command-line arguments
-
-**inputs** - Source files processed
-   Input files or directories used for each run
-
-**outputs** - Generated files
-   Output .syllables and .meta files with syllable counts
-
-Troubleshooting
----------------
-
-Database Not Found
-~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   Error: Database not found: data/raw/syllable_extractor.db
-
-**Solution:** Ensure the database exists or specify a different path:
-
-.. code-block:: bash
-
-   # Specify custom database path
-   python -m build_tools.corpus_db_viewer --db /path/to/database.db
-
-Textual Not Installed
-~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   Error: Textual library not found
-
-**Solution:** Install development dependencies:
-
-.. code-block:: bash
-
-   # Install development dependencies
-   pip install -r requirements-dev.txt
-
-Terminal Too Small
-~~~~~~~~~~~~~~~~~~
-
-If the layout looks broken, resize your terminal. Minimum recommended: 80 columns × 24 rows.
-
 Design Philosophy
------------------
+~~~~~~~~~~~~~~~~~
 
-Read-Only Access
-~~~~~~~~~~~~~~~~
+**Read-Only Access:**
 
 The viewer opens databases in read-only mode (``?mode=ro``) to prevent accidental modifications.
 
-Observational Tool
-~~~~~~~~~~~~~~~~~~
+**Observational Tool:**
 
 Like the corpus_db ledger, this viewer is observational only - it displays run history
 but doesn't control or modify build processes.
 
-Benefits Over Flask Version
-----------------------------
+**Benefits Over Flask Version:**
 
-**Textual TUI advantages:**
+The Textual TUI offers advantages over the previous Flask-based web viewer:
 
 - No web server overhead (terminal-native)
 - Better build tools integration
@@ -282,8 +237,66 @@ Benefits Over Flask Version
 - No cross-table search (may be added later)
 - Terminal-only (no browser UI)
 
-Related Documentation
----------------------
+Notes
+-----
+
+**Dependencies:**
+
+Requires Textual library for TUI functionality. Install with:
+
+.. code-block:: bash
+
+   pip install -r requirements-dev.txt
+
+**Troubleshooting:**
+
+**Database Not Found:**
+
+.. code-block:: text
+
+   Error: Database not found: data/raw/syllable_extractor.db
+
+**Solution:** Ensure the database exists or specify a different path:
+
+.. code-block:: bash
+
+   python -m build_tools.corpus_db_viewer --db /path/to/database.db
+
+**Textual Not Installed:**
+
+.. code-block:: text
+
+   Error: Textual library not found
+
+**Solution:** Install development dependencies:
+
+.. code-block:: bash
+
+   pip install -r requirements-dev.txt
+
+**Terminal Too Small:**
+
+If the layout looks broken, resize your terminal. Minimum recommended: 80 columns × 24 rows.
+
+**Database Access:**
+
+- Database opened in read-only mode for safety
+- No modification operations available
+- Safe to run while extraction tools are active
+
+**Build-time tool:**
+
+This is a build-time inspection tool - not used during runtime name generation.
+
+**Related Documentation:**
 
 - :doc:`corpus_db` - Build provenance ledger that this tool reads
 - :doc:`syllable_extractor` - Main tool that populates the database
+
+API Reference
+-------------
+
+.. automodule:: build_tools.corpus_db_viewer
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,11 +1,20 @@
+===============
 Corpus Database
 ===============
+
+.. currentmodule:: build_tools.corpus_db
+
+Overview
+--------
 
 .. automodule:: build_tools.corpus_db
    :no-members:
 
+Output Format
+-------------
+
 Database Schema
----------------
+~~~~~~~~~~~~~~~
 
 The corpus database uses a simple three-table schema to track extraction runs:
 
@@ -26,88 +35,22 @@ For a detailed schema description:
    from build_tools.corpus_db import get_schema_description
    print(get_schema_description())
 
-Programmatic Usage
-------------------
-
-Basic Workflow
-~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.corpus_db import CorpusLedger
-   from pathlib import Path
-
-   # Initialize ledger (creates database if needed)
-   with CorpusLedger() as ledger:
-       # Start recording a run
-       run_id = ledger.start_run(
-           extractor_tool="syllable_extractor",
-           extractor_version="0.2.0",
-           pyphen_lang="en_US",
-           min_len=2,
-           max_len=8,
-           command_line="python -m build_tools.syllable_extractor --file input.txt"
-       )
-
-       # Record inputs
-       ledger.record_input(run_id, Path("data/corpus/english.txt"))
-
-       # ... extraction happens ...
-
-       # Record outputs
-       ledger.record_output(
-           run_id,
-           output_path=Path("data/raw/en_US/corpus.syllables"),
-           unique_syllable_count=1234
-       )
-
-       # Mark run complete
-       ledger.complete_run(run_id, exit_code=0, status="completed")
-
-Querying Runs
-~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   # Find recent runs
-   recent = ledger.get_recent_runs(limit=10)
-   for run in recent:
-       print(f"{run['run_timestamp']}: {run['extractor_tool']}")
-
-   # Find runs by tool
-   pyphen_runs = ledger.get_runs_by_tool("syllable_extractor")
-
-   # Reverse lookup: which run produced this file?
-   run = ledger.find_run_by_output(Path("data/raw/corpus.syllables"))
-   if run:
-       print(f"Created by: {run['command_line']}")
-
-   # Get overall statistics
-   stats = ledger.get_stats()
-   print(f"Total runs: {stats['total_runs']}")
-   print(f"Success rate: {stats['completed_runs']/stats['total_runs']*100:.1f}%")
-
 Database Location
------------------
+~~~~~~~~~~~~~~~~~
 
 Default location: ``data/raw/syllable_extractor.db``
 
-Custom location:
+Custom location can be specified when initializing the ledger:
 
 .. code-block:: python
 
    from pathlib import Path
+   from build_tools.corpus_db import CorpusLedger
+
    ledger = CorpusLedger(db_path=Path("_working/test.db"))
 
-Cross-Platform Compatibility
------------------------------
-
-Paths are stored in POSIX format (forward slashes) for cross-platform consistency.
-This ensures the database can be shared between Windows, macOS, and Linux systems
-without path separator issues.
-
-Integration with Extractors
-----------------------------
+Integration Guide
+-----------------
 
 When building new syllable extractors, integrate the ledger by:
 
@@ -116,7 +59,7 @@ When building new syllable extractors, integrate the ledger by:
 3. Recording all output files with ``record_output()``
 4. Marking completion with ``complete_run()`` in a try/finally block
 
-Example integration pattern:
+**Example integration pattern:**
 
 .. code-block:: python
 
@@ -137,3 +80,31 @@ Example integration pattern:
    except Exception as e:
        ledger.complete_run(run_id, exit_code=1, status="failed")
        raise
+
+**When to use this tool:**
+
+- Track provenance of all syllable extraction runs
+- Query history to understand what corpus files were generated
+- Find which run produced a specific output file
+- Monitor extraction success rates across tools
+
+Notes
+-----
+
+**Cross-Platform Compatibility:**
+
+Paths are stored in POSIX format (forward slashes) for cross-platform consistency.
+This ensures the database can be shared between Windows, macOS, and Linux systems
+without path separator issues.
+
+**Build-time tool:**
+
+This is a build-time tool only - not used during runtime name generation.
+
+API Reference
+-------------
+
+.. automodule:: build_tools.corpus_db
+   :members:
+   :undoc-members:
+   :show-inheritance:

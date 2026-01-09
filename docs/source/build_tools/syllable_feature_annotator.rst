@@ -1,5 +1,11 @@
+===========================
 Syllable Feature Annotator
-==========================
+===========================
+
+.. currentmodule:: build_tools.syllable_feature_annotator
+
+Overview
+--------
 
 .. automodule:: build_tools.syllable_feature_annotator
    :no-members:
@@ -7,33 +13,16 @@ Syllable Feature Annotator
 Command-Line Interface
 ----------------------
 
-Basic Usage
-~~~~~~~~~~~
-
-.. code-block:: bash
-
-   # Annotate with default paths (normalizer output)
-   python -m build_tools.syllable_feature_annotator
-
-   # Annotate with custom paths
-   python -m build_tools.syllable_feature_annotator \
-     --syllables data/normalized/syllables_unique.txt \
-     --frequencies data/normalized/syllables_frequencies.json \
-     --output data/annotated/syllables_annotated.json
-
-   # Enable verbose output
-   python -m build_tools.syllable_feature_annotator --verbose
-
-CLI Options
-~~~~~~~~~~~
-
 .. argparse::
    :module: build_tools.syllable_feature_annotator.cli
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_feature_annotator
 
+Output Format
+-------------
+
 Input/Output Contract
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 **Inputs** (from syllable normaliser):
 
@@ -45,7 +34,7 @@ Input/Output Contract
 - ``syllables_annotated.json`` - Array of syllable records with features
 
 Output Structure
-----------------
+~~~~~~~~~~~~~~~~
 
 The annotator produces JSON with this structure:
 
@@ -72,109 +61,58 @@ The annotator produces JSON with this structure:
      }
    ]
 
-Programmatic Usage
-------------------
+**Feature set:**
 
-Full Pipeline
-~~~~~~~~~~~~~
+All 12 features are applied to every syllable:
+- Onset features (starts_with_vowel, starts_with_cluster, starts_with_heavy_cluster)
+- Content features (contains_plosive, contains_fricative, contains_liquid, contains_nasal)
+- Vowel features (short_vowel, long_vowel)
+- Coda features (ends_with_vowel, ends_with_nasal, ends_with_stop)
 
-.. code-block:: python
-
-   from pathlib import Path
-   from build_tools.syllable_feature_annotator import run_annotation_pipeline
-
-   # Run complete annotation pipeline
-   result = run_annotation_pipeline(
-       syllables_path=Path("data/normalized/syllables_unique.txt"),
-       frequencies_path=Path("data/normalized/syllables_frequencies.json"),
-       output_path=Path("data/annotated/syllables_annotated.json"),
-       verbose=True
-   )
-
-   # Access results
-   print(f"Annotated {result.statistics.syllable_count} syllables")
-   print(f"Processing time: {result.statistics.processing_time:.2f}s")
-
-Annotate Syllables in Code
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.syllable_feature_annotator import (
-       annotate_corpus,
-       annotate_syllable,
-       FEATURE_DETECTORS
-   )
-
-   # Annotate a corpus
-   syllables = ["ka", "kran", "spla"]
-   frequencies = {"ka": 187, "kran": 7, "spla": 2}
-   result = annotate_corpus(syllables, frequencies, FEATURE_DETECTORS)
-
-   # Annotate a single syllable
-   record = annotate_syllable("kran", 7, FEATURE_DETECTORS)
-   print(f"{record.syllable}: {sum(record.features.values())} features active")
-
-   # Access feature detection results
-   print(f"Starts with cluster: {record.features['starts_with_cluster']}")
-   print(f"Contains plosive: {record.features['contains_plosive']}")
-
-Import Individual Components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from build_tools.syllable_feature_annotator import (
-       # Core functions
-       run_annotation_pipeline,
-       annotate_corpus,
-       annotate_syllable,
-       # Data models
-       AnnotatedSyllable,
-       AnnotationStatistics,
-       AnnotationResult,
-       # Feature detection
-       FEATURE_DETECTORS,
-       starts_with_vowel,
-       contains_plosive,
-       # Phoneme sets
-       VOWELS,
-       PLOSIVES,
-       FRICATIVES,
-       # File I/O
-       load_syllables,
-       load_frequencies,
-       save_annotated_syllables
-   )
-
-Pipeline Integration
---------------------
+Integration Guide
+-----------------
 
 The feature annotator sits between the normaliser and pattern development:
 
 .. code-block:: bash
 
    # Step 1: Normalize syllables from corpus
-   python -m build_tools.syllable_normaliser \\
-     --source data/corpus/ \\
+   python -m build_tools.syllable_normaliser \
+     --source data/corpus/ \
      --output data/normalized/
 
    # Step 2: Annotate normalized syllables with features
-   python -m build_tools.syllable_feature_annotator \\
-     --syllables data/normalized/syllables_unique.txt \\
-     --frequencies data/normalized/syllables_frequencies.json \\
+   python -m build_tools.syllable_feature_annotator \
+     --syllables data/normalized/syllables_unique.txt \
+     --frequencies data/normalized/syllables_frequencies.json \
      --output data/annotated/syllables_annotated.json
 
    # Step 3: Use annotated syllables for pattern generation (future)
 
+**When to use this tool:**
+
+- After syllable normalization is complete
+- Before developing phonotactic patterns or constraints
+- To add structural feature metadata to your syllable corpus
+- For analysis tasks requiring feature-based filtering or grouping
+
 Notes
 -----
 
-- This is a **build-time tool only** - not used during runtime name generation
-- Features are structural observations, not linguistic interpretations
-- All 12 features are applied to every syllable (no selective detection)
-- Processing is fast and deterministic (same input = same output)
+**Features are structural observations:**
+
+Features are structural observations based on phoneme presence, not linguistic
+interpretations. This ensures deterministic, language-agnostic detection.
+
+**Processing characteristics:**
+
+- Fast and deterministic (same input = same output)
+- All 12 features applied to every syllable (no selective detection)
 - Designed to integrate seamlessly with syllable normalizer output
+
+**Build-time tool:**
+
+This is a build-time tool only - not used during runtime name generation.
 
 API Reference
 -------------
