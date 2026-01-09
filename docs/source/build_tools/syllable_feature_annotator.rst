@@ -7,6 +7,26 @@ Syllable Feature Annotator
 Command-Line Interface
 ----------------------
 
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Annotate with default paths (normalizer output)
+   python -m build_tools.syllable_feature_annotator
+
+   # Annotate with custom paths
+   python -m build_tools.syllable_feature_annotator \
+     --syllables data/normalized/syllables_unique.txt \
+     --frequencies data/normalized/syllables_frequencies.json \
+     --output data/annotated/syllables_annotated.json
+
+   # Enable verbose output
+   python -m build_tools.syllable_feature_annotator --verbose
+
+CLI Options
+~~~~~~~~~~~
+
 .. argparse::
    :module: build_tools.syllable_feature_annotator.cli
    :func: create_argument_parser

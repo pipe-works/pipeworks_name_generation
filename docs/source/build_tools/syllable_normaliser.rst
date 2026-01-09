@@ -7,6 +7,26 @@ Syllable Normaliser
 Command-Line Interface
 ----------------------
 
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Process all .txt files in a directory
+   python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
+
+   # Recursive directory scan
+   python -m build_tools.syllable_normaliser --source data/ --recursive --output results/
+
+   # Custom syllable length constraints
+   python -m build_tools.syllable_normaliser --source data/ --min 3 --max 10
+
+   # Verbose output with detailed statistics
+   python -m build_tools.syllable_normaliser --source data/ --verbose
+
+CLI Options
+~~~~~~~~~~~
+
 .. argparse::
    :module: build_tools.syllable_normaliser.cli
    :func: create_argument_parser

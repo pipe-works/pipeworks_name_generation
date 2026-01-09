@@ -7,6 +7,32 @@ Syllable Extractor
 Command-Line Interface
 ----------------------
 
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Interactive mode (no arguments)
+   python -m build_tools.syllable_extractor
+
+   # Single file
+   python -m build_tools.syllable_extractor --file input.txt --lang en_US
+
+   # Multiple files
+   python -m build_tools.syllable_extractor --files file1.txt file2.txt file3.txt --auto
+
+   # Directory scan (non-recursive)
+   python -m build_tools.syllable_extractor --source /data/texts/ --pattern "*.txt"
+
+   # Directory scan (recursive)
+   python -m build_tools.syllable_extractor --source /data/ --pattern "*.md" --recursive
+
+   # Custom output directory and syllable lengths
+   python -m build_tools.syllable_extractor --source /data/ --output /results/ --min 3 --max 6
+
+CLI Options
+~~~~~~~~~~~
+
 .. argparse::
    :module: build_tools.syllable_extractor.cli
    :func: create_argument_parser
