@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.3.0...v0.4.0) (2026-01-10)
+
+
+### Features
+
+* **build_tools:** Add corpus_db tracking to interactive mode ([d1fa97f](https://github.com/aa-parky/pipeworks_name_generation/commit/d1fa97fe3901b6035912e179528d8fb1b2d27073))
+* **build_tools:** Add corpus_db_viewer TUI for database inspection ([7df65c3](https://github.com/aa-parky/pipeworks_name_generation/commit/7df65c38f73847befbce50dadd7c635002f85206))
+* **build_tools:** Add extractor identifiers to output directory names ([5bbe49b](https://github.com/aa-parky/pipeworks_name_generation/commit/5bbe49bee40ab251715bd4cc6ad9e00fac3dc554))
+* **build_tools:** Add NLTK syllable extractor for phonetic syllabification ([16c5237](https://github.com/aa-parky/pipeworks_name_generation/commit/16c5237a8d38e6c7ab3277716188d8595cced9a8))
+* **build_tools:** Add NLTK syllable normaliser with fragment cleaning ([baf223a](https://github.com/aa-parky/pipeworks_name_generation/commit/baf223a0e7d08efe7678c4c6b821abfa03679942))
+* **build_tools:** Add pyphen_ prefix to syllable normaliser outputs ([c1c2b8a](https://github.com/aa-parky/pipeworks_name_generation/commit/c1c2b8abea384a94b8c1bf49bedef8cfe10b5df1))
+* **build_tools:** Make pyphen extractor language argument optional ([deeb4c7](https://github.com/aa-parky/pipeworks_name_generation/commit/deeb4c739c0bf7d841dff7e89d436bb2375a10e7))
+
+
+### Documentation
+
+* **build_tools:** Add Basic Usage sections to CLI documentation ([a482971](https://github.com/aa-parky/pipeworks_name_generation/commit/a48297100c1bdde2f895067e7cfa46357b163297))
+* **build_tools:** Add documentation for NLTK syllable extractor ([8121d04](https://github.com/aa-parky/pipeworks_name_generation/commit/8121d04a32eccfce57166564280f203e892d942f))
+* **build_tools:** Add NLTK normaliser documentation ([e06da84](https://github.com/aa-parky/pipeworks_name_generation/commit/e06da84039739242b6bc4b8649ec425fde065f07))
+* **build_tools:** Add Sphinx documentation for corpus_db_viewer ([0681e4d](https://github.com/aa-parky/pipeworks_name_generation/commit/0681e4dd9075a87f5d58ae8e813e465568452f28))
+* **build_tools:** Fix bash command formatting in CLI documentation ([4dfbd87](https://github.com/aa-parky/pipeworks_name_generation/commit/4dfbd87a16d1848ff13baf9dee24554785f254bb))
+* **build_tools:** Fix bash formatting in module docstrings ([8162ef6](https://github.com/aa-parky/pipeworks_name_generation/commit/8162ef61186723b6af1d85504d4d3d5bfd84edb5))
+* **build_tools:** Improve corpus_db_viewer documentation formatting ([b652ac1](https://github.com/aa-parky/pipeworks_name_generation/commit/b652ac1def8afe110e9f06c2541faed157ca51fa))
+* **build_tools:** Standardize RST documentation and eliminate redundancy ([12bb279](https://github.com/aa-parky/pipeworks_name_generation/commit/12bb2790d262b5085ff6c2aabb34903ed696c577))
+* **build_tools:** Update NLTK extractor docs for duplicate preservation ([3971524](https://github.com/aa-parky/pipeworks_name_generation/commit/39715240a2fa93994393750094eff124b153bde5))
+* Fix broken cross-references in syllable_walk.rst ([f1c582a](https://github.com/aa-parky/pipeworks_name_generation/commit/f1c582ae07fc826a68653f5f4879c812a1659ff8))
+* Update documentation titles and references for pyphen tools ([955c90b](https://github.com/aa-parky/pipeworks_name_generation/commit/955c90b14d371b0fb25dcaeef07132cd8078fd95))
+* Update README and CLAUDE.md with NLTK extractor setup instructions ([8beb55c](https://github.com/aa-parky/pipeworks_name_generation/commit/8beb55c019560aaffdc445fb9a67ce502eb376f9))
+
 ## [0.3.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.2.0...v0.3.0) (2026-01-08)
 
 
