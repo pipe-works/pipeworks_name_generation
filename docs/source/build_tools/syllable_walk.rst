@@ -164,36 +164,59 @@ Batch Output
 Integration Guide
 -----------------
 
-The syllable walker uses output from the feature annotator:
+The syllable walker uses output from the feature annotator. With Phase 1 enhancements, the walker automatically
+discovers annotated datasets from your ``_working/output/`` directories.
+
+**Recommended Workflow (with auto-discovery):**
 
 .. code-block:: bash
 
-   # Step 1: Extract syllables from dictionary
-   python -m build_tools.pyphen_syllable_extractor --file wordlist.txt --auto
-
-   # Step 2: Normalize syllables
+   # Step 1: Extract and normalize syllables
+   python -m build_tools.pyphen_syllable_extractor --file wordlist.txt
    python -m build_tools.pyphen_syllable_normaliser \
-     --source data/corpus/ \
-     --output data/normalized/
+     --run-dir _working/output/20260110_115453_pyphen/
 
-   # Step 3: Annotate with phonetic features
+   # Step 2: Annotate with phonetic features (output auto-detected)
    python -m build_tools.syllable_feature_annotator \
-     --syllables data/normalized/syllables_unique.txt \
-     --frequencies data/normalized/syllables_frequencies.json \
-     --output data/annotated/syllables_annotated.json
+     --syllables _working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt \
+     --frequencies _working/output/20260110_115453_pyphen/pyphen_syllables_frequencies.json
+   # Creates: _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json
 
-   # Step 4: Explore with syllable walker
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
+   # Step 3: Explore with syllable walker (auto-discovers datasets)
+   python -m build_tools.syllable_walk --web
+   # Web interface shows dropdown with all available datasets
+
+**Alternative (explicit path):**
+
+.. code-block:: bash
+
+   # Specify dataset explicitly
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json --web
 
 **When to use this tool:**
 
 - To explore phonetic connectivity in your syllable corpus
+- To compare different extractors (pyphen vs NLTK) and their phonetic behaviors
 - To test if desired phonetic transitions exist before creating patterns
 - To discover interesting phonetic progressions for name generation
 - To analyze corpus structure and syllable relationships
 - To generate datasets for statistical analysis of phonetic patterns
+- To evaluate the impact of different normalization pipelines on syllable connectivity
 
 **Common Use Cases:**
+
+**Comparing Pyphen vs NLTK Extractors:**
+
+Use the web interface to compare different extraction methods:
+
+.. code-block:: bash
+
+   # Start walker with auto-discovery
+   python -m build_tools.syllable_walk --web
+
+Then use the dataset dropdown to switch between pyphen and NLTK datasets. Generate walks with the same
+seed to see how different extraction methods affect phonetic connectivity.
 
 **Understanding Corpus Structure:**
 
@@ -201,8 +224,10 @@ Generate many walks to see how syllables connect:
 
 .. code-block:: bash
 
-   # Generate 100 walks for corpus analysis
-   python -m build_tools.syllable_walk data.json --batch 100 --output corpus_walks.json
+   # Generate 100 walks for corpus analysis (CLI mode requires explicit path)
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --batch 100 --output corpus_walks.json
 
 Analyze the JSON output to understand syllable connectivity, central hubs, and phonetic pathways.
 
@@ -213,7 +238,9 @@ Explore if desired phonetic transitions exist before creating new patterns:
 .. code-block:: bash
 
    # Test phonetic transitions with ritual profile
-   python -m build_tools.syllable_walk data.json --start the --profile ritual
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --start the --profile ritual
 
 **Finding Interesting Sequences:**
 
@@ -222,7 +249,9 @@ Discover unusual but valid phonetic progressions:
 .. code-block:: bash
 
    # Explore unusual sequences with goblin profile
-   python -m build_tools.syllable_walk data.json --profile goblin --steps 10
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --profile goblin --steps 10
 
 **Statistical Analysis:**
 
@@ -231,12 +260,14 @@ Generate large datasets for analysis:
 .. code-block:: bash
 
    # Generate 1000 walks with dialect profile
-   python -m build_tools.syllable_walk data.json --batch 1000 \
-     --profile dialect --output dialect_walks.json
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --batch 1000 --profile dialect --output dialect_walks.json
 
    # Generate 1000 walks with goblin profile
-   python -m build_tools.syllable_walk data.json --batch 1000 \
-     --profile goblin --output goblin_walks.json
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --batch 1000 --profile goblin --output goblin_walks.json
 
 Then analyze frequency distributions, transition patterns, etc.
 
@@ -247,30 +278,70 @@ Web Interface
 ~~~~~~~~~~~~~
 
 The web interface provides an intuitive way to explore syllable walks without command-line complexity.
+With Phase 1 enhancements, the interface includes smart dataset discovery and dynamic switching.
 
-**Starting the Server:**
+**Starting the Server (Zero-Configuration):**
 
 .. code-block:: bash
 
-   # Default port (5000)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
+   # Auto-discover and load most recent dataset
+   python -m build_tools.syllable_walk --web
+   # Discovers datasets from _working/output/*/data/*_syllables_annotated.json
+   # Opens at http://localhost:5000 (or next available port)
 
-   # Custom port
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \
-     --web --port 8000
+**Starting the Server (Explicit Dataset):**
+
+.. code-block:: bash
+
+   # Load specific dataset
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json --web
+
+   # Custom port (with smart port selection)
+   python -m build_tools.syllable_walk --web --port 8000
+   # If port 8000 is in use, automatically tries 8001, 8002, etc.
 
    # Quiet mode (suppress initialization messages)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json \
-     --web --quiet
+   python -m build_tools.syllable_walk --web --quiet
 
-**Features:**
+**Interface Features:**
+
+- **Dataset selector** - Dropdown showing all available datasets with metadata
+
+  - Displays: "NLTK - 2026-01-10 11:56 (33,640 syllables)"
+  - Switch datasets without server restart
+  - Auto-loads most recent dataset on startup
 
 - **Profile selection** - Choose from four profiles or use custom parameters
 - **Starting syllable** - Specify start or use random
 - **Real-time generation** - Instant walk generation with visual feedback
 - **Walk display** - See full path and syllable details with frequencies
-- **Statistics tracking** - Total syllables and walks generated
+- **Statistics tracking** - Total syllables and walks generated per dataset
 - **Reproducible** - Optional seed for deterministic walks
+- **Smart port selection** - Automatically finds available port if requested port is in use
+
+**Dataset Discovery:**
+
+The walker automatically scans these locations:
+
+- ``_working/output/*/data/*_syllables_annotated.json`` - Normalizer output directories
+- ``data/annotated/syllables_annotated.json`` - Legacy location (if exists)
+
+Each dataset displays:
+
+- **Extractor type** (pyphen or NLTK)
+- **Timestamp** (when the extraction was run)
+- **Syllable count** (corpus size)
+
+**Comparing Extractors:**
+
+Use the dataset selector to easily compare pyphen vs NLTK outputs:
+
+1. Start the web interface: ``python -m build_tools.syllable_walk --web``
+2. Select "PYPHEN - 2026-01-10 11:54 (24,220 syllables)" from dropdown
+3. Generate a walk with seed=42
+4. Switch to "NLTK - 2026-01-10 11:56 (33,640 syllables)"
+5. Generate same walk with seed=42 to compare behavior
 
 The web server uses Python's standard library ``http.server`` (no Flask dependency).
 
@@ -370,10 +441,37 @@ Notes
 
 **Port Already in Use (Web Mode):**
 
+The server now automatically finds an available port if the requested port is in use:
+
+.. code-block:: text
+
+   Port 5000 in use, trying 5001...
+   Port 5001 in use, trying 5002...
+   ✓ Found available port: 5002
+
+   Starting web server on port 5002...
+   Open your browser and navigate to: http://localhost:5002
+
+The server tries up to 10 ports (e.g., 5000-5009) before giving up. You can also manually specify a different starting port:
+
 .. code-block:: bash
 
-   # Use a different port if 5000 is occupied
-   python -m build_tools.syllable_walk data.json --web --port 8000
+   # Start from port 8000
+   python -m build_tools.syllable_walk --web --port 8000
+
+**No Datasets Found:**
+
+If you see "No annotated datasets found", ensure you've run the feature annotator:
+
+.. code-block:: bash
+
+   # Run feature annotator first
+   python -m build_tools.syllable_feature_annotator \
+     --syllables _working/output/.../pyphen_syllables_unique.txt \
+     --frequencies _working/output/.../pyphen_syllables_frequencies.json
+
+   # Then start walker
+   python -m build_tools.syllable_walk --web
 
 **Build-time tool:**
 
