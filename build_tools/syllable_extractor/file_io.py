@@ -16,60 +16,92 @@ DEFAULT_OUTPUT_DIR = Path("_working/output")
 
 
 def generate_output_filename(
-    output_dir: Optional[Path] = None, language_code: Optional[str] = None
+    output_dir: Optional[Path] = None,
+    language_code: Optional[str] = None,
+    run_timestamp: Optional[str] = None,
+    input_filename: Optional[str] = None,
 ) -> tuple[Path, Path]:
     """
-    Generate timestamped output filenames for syllables and metadata.
+    Generate output filenames in run-based subdirectory structure.
 
-    Creates two output paths with the format:
-    - YYYYMMDD_HHMMSS.syllables.LANG.txt (if language_code provided)
-    - YYYYMMDD_HHMMSS.meta.LANG.txt (if language_code provided)
+    Creates a run directory with timestamp, then organizes outputs into
+    syllables/ and meta/ subdirectories:
+    - output_dir/YYYYMMDD_HHMMSS/syllables/filename.txt
+    - output_dir/YYYYMMDD_HHMMSS/meta/filename.txt
 
-    Or without language code:
-    - YYYYMMDD_HHMMSS.syllables.txt
-    - YYYYMMDD_HHMMSS.meta.txt
+    This structure groups each extraction run's outputs together, making it
+    easier to manage, archive, or delete complete runs as atomic units.
 
     Args:
-        output_dir: Directory to save files. Defaults to _working/output/
+        output_dir: Base output directory. Defaults to _working/output/
         language_code: Optional pyphen language code (e.g., 'en_US', 'de_DE').
-                      If provided, will be included in the filename for easy
-                      identification of language-specific syllable sets.
+                      Used for filename if input_filename not provided.
+        run_timestamp: Optional timestamp string (YYYYMMDD_HHMMSS format).
+                      If provided, uses this timestamp for the run directory name.
+                      If not provided, generates a new timestamp using datetime.now().
+                      **Critical for batch processing** - pass the same timestamp to group
+                      all files from a batch into one run directory.
+        input_filename: Optional input filename to use for output naming.
+                       If provided, output files will use this name (e.g., 'alice.txt').
+                       Takes precedence over language_code for naming.
 
     Returns:
         Tuple of (syllables_path, metadata_path)
 
     Example:
-        >>> # With language code
+        >>> # Interactive mode - single file with language code
         >>> syllables_path, meta_path = generate_output_filename(language_code='en_US')
         >>> print(syllables_path)
-        _working/output/20260104_153022.syllables.en_US.txt
+        _working/output/20260110_153022/syllables/en_US.txt
 
-        >>> # Without language code (backward compatible)
-        >>> syllables_path, meta_path = generate_output_filename()
-        >>> print(syllables_path)
-        _working/output/20260104_153022.syllables.txt
+        >>> # Batch mode - multiple files sharing one run directory
+        >>> timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        >>> s1, m1 = generate_output_filename(
+        ...     run_timestamp=timestamp,
+        ...     input_filename='alice.txt'
+        ... )
+        >>> s2, m2 = generate_output_filename(
+        ...     run_timestamp=timestamp,
+        ...     input_filename='middlemarch.txt'
+        ... )
+        >>> print(s1)
+        _working/output/20260110_153022/syllables/alice.txt
+        >>> print(s2)
+        _working/output/20260110_153022/syllables/middlemarch.txt
+        >>> # Both files share the same run directory
 
     Note:
-        Including the language code in filenames is useful when processing
-        multiple files in different languages, making it easy to identify
-        and organize language-specific syllable sets.
+        For batch processing, always pass the same run_timestamp to group all
+        outputs into a single run directory. This represents one logical batch
+        operation, regardless of how many input files are processed.
     """
     if output_dir is None:
         output_dir = DEFAULT_OUTPUT_DIR
 
-    # Ensure output directory exists
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Generate timestamp string if not provided
+    if run_timestamp is None:
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Generate timestamp string
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Create run directory structure
+    run_dir = output_dir / run_timestamp
+    syllables_dir = run_dir / "syllables"
+    meta_dir = run_dir / "meta"
 
-    # Build filename with optional language code
-    if language_code:
-        syllables_path = output_dir / f"{timestamp}.syllables.{language_code}.txt"
-        metadata_path = output_dir / f"{timestamp}.meta.{language_code}.txt"
+    # Ensure subdirectories exist
+    syllables_dir.mkdir(parents=True, exist_ok=True)
+    meta_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determine output filename (priority: input_filename > language_code > defaults)
+    if input_filename:
+        output_name = input_filename
+    elif language_code:
+        output_name = f"{language_code}.txt"
     else:
-        syllables_path = output_dir / f"{timestamp}.syllables.txt"
-        metadata_path = output_dir / f"{timestamp}.meta.txt"
+        output_name = "syllables.txt"
+
+    # Build full paths
+    syllables_path = syllables_dir / output_name
+    metadata_path = meta_dir / output_name
 
     return syllables_path, metadata_path
 

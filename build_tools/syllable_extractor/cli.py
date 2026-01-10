@@ -289,6 +289,7 @@ def process_single_file_batch(
     min_len: int,
     max_len: int,
     output_dir: Path,
+    run_timestamp: str,
     verbose: bool = False,
 ) -> FileProcessingResult:
     """
@@ -306,6 +307,7 @@ def process_single_file_batch(
         min_len: Minimum syllable length to include in results
         max_len: Maximum syllable length to include in results
         output_dir: Directory where output files should be saved
+        run_timestamp: Timestamp for the batch run (shared across all files in batch)
         verbose: If True, print detailed progress messages (default: False)
 
     Returns:
@@ -318,12 +320,14 @@ def process_single_file_batch(
         design allows batch processing to continue despite individual failures.
 
     Example:
+        >>> timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         >>> result = process_single_file_batch(
         ...     Path("book.txt"),
         ...     language_code="en_US",
         ...     min_len=2,
         ...     max_len=8,
         ...     output_dir=Path("output/"),
+        ...     run_timestamp=timestamp,
         ...     verbose=True
         ... )
         >>> if result.success:
@@ -351,9 +355,11 @@ def process_single_file_batch(
             syllables, stats = extractor.extract_syllables_from_file(input_path)
             actual_language = language_code
 
-        # Generate output filenames with language code
+        # Generate output filenames using input filename and shared run timestamp
         syllables_path, metadata_path = generate_output_filename(
-            output_dir=output_dir, language_code=actual_language
+            output_dir=output_dir,
+            run_timestamp=run_timestamp,
+            input_filename=input_path.name,
         )
 
         # Save syllables (create extractor if needed for auto-detection case)
@@ -421,9 +427,9 @@ def process_batch(
     Process multiple files sequentially in batch mode.
 
     This function processes a list of files one at a time, extracting syllables
-    from each and saving results to the specified output directory. Processing
-    continues even when individual files fail, with all failures reported in
-    the final summary.
+    from each and saving results to the specified output directory. All files
+    in the batch share a single timestamped run directory, grouping them as
+    one logical batch operation.
 
     Args:
         files: List of input file paths to process
@@ -452,13 +458,21 @@ def process_batch(
 
     Note:
         Processing is sequential (not parallel). Files are processed in the
-        order provided in the files list. This ensures predictable resource
-        usage and easier debugging, though it may be slower for large batches.
+        order provided in the files list. All outputs share a single run
+        directory identified by the batch start timestamp.
     """
     start_time = time.perf_counter()
 
+    # Generate a single timestamp for the entire batch run
+    from datetime import datetime
+
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Compute run directory path for display
+    run_dir = output_dir / run_timestamp
 
     if not quiet:
         print(f"\n{'='*70}")
@@ -466,7 +480,7 @@ def process_batch(
         print(f"{'='*70}")
         print(f"Language:         {language_code}")
         print(f"Syllable Length:  {min_len}-{max_len} characters")
-        print(f"Output Directory: {output_dir}")
+        print(f"Run Directory:    {run_dir}")
         print(f"{'='*70}\n")
 
     results = []
@@ -484,6 +498,7 @@ def process_batch(
             min_len,
             max_len,
             output_dir,
+            run_timestamp,
             verbose=verbose and not quiet,
         )
 
@@ -506,7 +521,7 @@ def process_batch(
         failed=failed,
         results=results,
         total_time=total_time,
-        output_directory=output_dir,
+        output_directory=run_dir,  # Use run directory, not base output directory
     )
 
 
@@ -853,9 +868,12 @@ def main_interactive():
 
     # Step 9: Display summary to console
     print("\n" + result.format_metadata())
-    print(f"\n✓ Output files saved to: {DEFAULT_OUTPUT_DIR}/")
-    print(f"  - Syllables: {syllables_path.name}")
-    print(f"  - Metadata:  {metadata_path.name}")
+
+    # Get the run directory (parent of syllables dir)
+    run_dir = syllables_path.parent.parent
+    print(f"\n✓ Output saved to run directory: {run_dir}/")
+    print(f"  - Syllables: {syllables_path.relative_to(DEFAULT_OUTPUT_DIR)}")
+    print(f"  - Metadata:  {metadata_path.relative_to(DEFAULT_OUTPUT_DIR)}")
     print("\n✓ Done!\n")
 
 
