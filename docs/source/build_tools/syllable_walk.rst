@@ -382,8 +382,10 @@ This is a build-time analysis tool only - not used during runtime name generatio
 **Related Documentation:**
 
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
-- :doc:`syllable_normaliser` - Prepares syllable corpus before annotation
-- :doc:`syllable_extractor` - Extracts raw syllables from dictionary
+- :doc:`pyphen_syllable_normaliser` - Prepares pyphen syllable corpus before annotation
+- :doc:`nltk_syllable_normaliser` - Prepares NLTK syllable corpus before annotation
+- :doc:`pyphen_syllable_extractor` - Extracts raw syllables using pyphen
+- :doc:`nltk_syllable_extractor` - Extracts raw syllables using NLTK
 - :doc:`analysis_tools` - Additional analysis tools for syllable data
 
 For detailed usage guide, see: ``claude/build_tools/syllable_walk.md``
