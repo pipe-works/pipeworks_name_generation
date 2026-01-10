@@ -332,22 +332,25 @@ class TestOutputFileGeneration:
         """Test generating output filenames with default directory."""
         syllables_path, metadata_path = generate_output_filename()
 
-        # Check that both paths are in the default output directory
-        assert syllables_path.parent == DEFAULT_OUTPUT_DIR
-        assert metadata_path.parent == DEFAULT_OUTPUT_DIR
+        # Check that paths are in run-based subdirectory structure
+        # Structure: DEFAULT_OUTPUT_DIR/TIMESTAMP/syllables/filename.txt
+        run_dir = syllables_path.parent.parent
+        assert run_dir.parent == DEFAULT_OUTPUT_DIR
+        assert syllables_path.parent.name == "syllables"
+        assert metadata_path.parent.name == "meta"
 
-        # Check filename format
-        assert syllables_path.name.endswith(".syllables.txt")
-        assert metadata_path.name.endswith(".meta.txt")
+        # Both should be in the same run directory
+        assert syllables_path.parent.parent == metadata_path.parent.parent
 
-        # Check that both have the same timestamp base
-        base_name_syll = syllables_path.stem.replace(".syllables", "")
-        base_name_meta = metadata_path.stem.replace(".meta", "")
-        assert base_name_syll == base_name_meta
+        # Check default filename (no language code or input_filename)
+        # Both use the same filename since they're in different subdirectories
+        assert syllables_path.name == "syllables.txt"
+        assert metadata_path.name == "syllables.txt"
 
-        # Check timestamp format (YYYYMMDD_HHMMSS)
-        assert len(base_name_syll) == 15  # YYYYMMDD_HHMMSS
-        assert base_name_syll[8] == "_"
+        # Check run directory timestamp format (YYYYMMDD_HHMMSS)
+        timestamp = run_dir.name
+        assert len(timestamp) == 15  # YYYYMMDD_HHMMSS
+        assert timestamp[8] == "_"
 
     def test_generate_output_filename_custom_dir(self, tmp_path):
         """Test generating output filenames with custom directory."""
@@ -355,13 +358,18 @@ class TestOutputFileGeneration:
 
         syllables_path, metadata_path = generate_output_filename(custom_dir)
 
-        # Check that both paths are in the custom directory
-        assert syllables_path.parent == custom_dir
-        assert metadata_path.parent == custom_dir
+        # Check run-based structure under custom directory
+        # Structure: custom_dir/TIMESTAMP/syllables/filename.txt
+        run_dir = syllables_path.parent.parent
+        assert run_dir.parent == custom_dir
+        assert syllables_path.parent.name == "syllables"
+        assert metadata_path.parent.name == "meta"
 
-        # Check that directory was created
+        # Check that directory structure was created
         assert custom_dir.exists()
         assert custom_dir.is_dir()
+        assert run_dir.exists()
+        assert run_dir.is_dir()
 
     def test_generate_output_filename_creates_directory(self, tmp_path):
         """Test that output directory is created if it doesn't exist."""
@@ -380,31 +388,19 @@ class TestOutputFileGeneration:
 
         syllables_path, metadata_path = generate_output_filename(output_dir, language_code="en_US")
 
-        # Check that both paths are in the specified directory
-        assert syllables_path.parent == output_dir
-        assert metadata_path.parent == output_dir
+        # Check run-based structure
+        # Structure: output_dir/TIMESTAMP/syllables/en_US.txt
+        run_dir = syllables_path.parent.parent
+        assert run_dir.parent == output_dir
+        assert syllables_path.parent.name == "syllables"
+        assert metadata_path.parent.name == "meta"
+
+        # Both should be in the same run directory
+        assert syllables_path.parent.parent == metadata_path.parent.parent
 
         # Check filename format includes language code
-        assert syllables_path.name.endswith(".syllables.en_US.txt")
-        assert metadata_path.name.endswith(".meta.en_US.txt")
-
-        # Check that both have the same timestamp base
-        # Format: YYYYMMDD_HHMMSS.syllables.en_US.txt
-        syllables_parts = syllables_path.stem.split(".")
-        metadata_parts = metadata_path.stem.split(".")
-
-        # Should have format: [timestamp, 'syllables', 'en_US']
-        assert len(syllables_parts) == 3
-        assert syllables_parts[1] == "syllables"
-        assert syllables_parts[2] == "en_US"
-
-        # Should have format: [timestamp, 'meta', 'en_US']
-        assert len(metadata_parts) == 3
-        assert metadata_parts[1] == "meta"
-        assert metadata_parts[2] == "en_US"
-
-        # Timestamps should match
-        assert syllables_parts[0] == metadata_parts[0]
+        assert syllables_path.name == "en_US.txt"
+        assert metadata_path.name == "en_US.txt"
 
     def test_generate_output_filename_with_different_language_codes(self):
         """Test generating filenames with various language codes."""
@@ -413,37 +409,37 @@ class TestOutputFileGeneration:
         for lang_code in test_codes:
             syllables_path, metadata_path = generate_output_filename(language_code=lang_code)
 
-            # Check that language code is in the filename
-            assert lang_code in syllables_path.name
-            assert lang_code in metadata_path.name
-            assert syllables_path.name.endswith(f".syllables.{lang_code}.txt")
-            assert metadata_path.name.endswith(f".meta.{lang_code}.txt")
+            # Check that language code is the filename
+            assert syllables_path.name == f"{lang_code}.txt"
+            assert metadata_path.name == f"{lang_code}.txt"
+
+            # Check run-based structure
+            assert syllables_path.parent.name == "syllables"
+            assert metadata_path.parent.name == "meta"
 
     def test_generate_output_filename_without_language_code_backward_compatible(self):
-        """Test that omitting language code maintains backward compatibility."""
+        """Test that omitting language code uses default filenames."""
         syllables_path, metadata_path = generate_output_filename()
 
-        # Should not have language code in filename
-        assert syllables_path.name.endswith(".syllables.txt")
-        assert metadata_path.name.endswith(".meta.txt")
+        # Without language code, both use same default filename (in different dirs)
+        assert syllables_path.name == "syllables.txt"
+        assert metadata_path.name == "syllables.txt"
 
-        # Should NOT have extra dots (no language code)
-        # Format should be: YYYYMMDD_HHMMSS.syllables.txt (2 parts before extension)
-        syllables_stem_parts = syllables_path.stem.split(".")
-        assert len(syllables_stem_parts) == 2  # timestamp and 'syllables'
-        assert syllables_stem_parts[1] == "syllables"
+        # Check run-based structure
+        assert syllables_path.parent.name == "syllables"
+        assert metadata_path.parent.name == "meta"
 
     def test_generate_output_filename_language_code_with_underscore(self):
         """Test handling of language codes with underscores (e.g., en_US, de_CH)."""
         syllables_path, metadata_path = generate_output_filename(language_code="en_US")
 
-        # Verify underscore in language code is preserved
-        assert "en_US" in syllables_path.name
-        assert "en_US" in metadata_path.name
+        # Verify underscore in language code is preserved in filename
+        assert syllables_path.name == "en_US.txt"
+        assert metadata_path.name == "en_US.txt"
 
-        # Verify correct filename structure
-        assert ".syllables.en_US.txt" in str(syllables_path)
-        assert ".meta.en_US.txt" in str(metadata_path)
+        # Verify run-based structure
+        assert syllables_path.parent.name == "syllables"
+        assert metadata_path.parent.name == "meta"
 
     def test_save_metadata(self, tmp_path):
         """Test saving metadata to a file."""
@@ -691,11 +687,12 @@ class TestHelperFunctions:
     """Test suite for module-level helper functions."""
 
     def test_generate_output_filename_timestamp_format(self):
-        """Test that output filenames have correct timestamp format."""
+        """Test that run directory has correct timestamp format."""
         syllables_path, metadata_path = generate_output_filename()
 
-        # Extract timestamp from filename
-        timestamp_part = syllables_path.stem.replace(".syllables", "")
+        # Extract timestamp from run directory name
+        run_dir = syllables_path.parent.parent
+        timestamp_part = run_dir.name
 
         # Should be YYYYMMDD_HHMMSS format (15 characters)
         assert len(timestamp_part) == 15

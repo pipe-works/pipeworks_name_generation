@@ -211,9 +211,12 @@ class TestCorpusDBIntegration:
                 # Verify warning was printed to stderr
                 assert mock_stderr.write.called
 
-        # Verify output file was created
-        output_files = list(output_dir.glob("*.syllables.*.txt"))
-        assert len(output_files) == 1
+        # Verify output file was created in run-based structure
+        # Structure: output_dir/TIMESTAMP/syllables/*.txt
+        run_dirs = [d for d in output_dir.iterdir() if d.is_dir()]
+        assert len(run_dirs) == 1
+        syllables_files = list(run_dirs[0].glob("syllables/*.txt"))
+        assert len(syllables_files) == 1
 
     def test_extraction_works_without_corpus_db(self, tmp_path):
         """Test extraction works if corpus_db not installed."""
@@ -247,9 +250,12 @@ class TestCorpusDBIntegration:
             # Extraction should succeed
             assert excinfo.value.code == 0
 
-        # Verify output file was created
-        output_files = list(output_dir.glob("*.syllables.*.txt"))
-        assert len(output_files) == 1
+        # Verify output file was created in run-based structure
+        # Structure: output_dir/TIMESTAMP/syllables/*.txt
+        run_dirs = [d for d in output_dir.iterdir() if d.is_dir()]
+        assert len(run_dirs) == 1
+        syllables_files = list(run_dirs[0].glob("syllables/*.txt"))
+        assert len(syllables_files) == 1
 
     def test_auto_language_detection_recorded(self, tmp_path):
         """Test that auto language detection is correctly recorded."""

@@ -11,6 +11,7 @@ This module tests the batch mode CLI, including:
 """
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -133,12 +134,15 @@ class TestSingleFileBatchProcessing:
         )
         output_dir = tmp_path / "output"
 
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         result = process_single_file_batch(
             input_path=test_file,
             language_code="en_US",
             min_len=2,
             max_len=8,
             output_dir=output_dir,
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
@@ -159,6 +163,7 @@ class TestSingleFileBatchProcessing:
             encoding="utf-8",
         )
         output_dir = tmp_path / "output"
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         result = process_single_file_batch(
             input_path=test_file,
@@ -166,6 +171,7 @@ class TestSingleFileBatchProcessing:
             min_len=2,
             max_len=8,
             output_dir=output_dir,
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
@@ -175,12 +181,15 @@ class TestSingleFileBatchProcessing:
 
     def test_process_single_file_nonexistent_file(self, tmp_path):
         """Test that nonexistent file returns error result (doesn't raise)."""
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         result = process_single_file_batch(
             input_path=Path("/nonexistent/file.txt"),
             language_code="en_US",
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "output",
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
@@ -193,12 +202,15 @@ class TestSingleFileBatchProcessing:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello world", encoding="utf-8")
 
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         result = process_single_file_batch(
             input_path=test_file,
             language_code="invalid_lang",
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "output",
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
@@ -210,6 +222,7 @@ class TestSingleFileBatchProcessing:
         """Test that verbose mode produces output."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello beautiful world", encoding="utf-8")
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         process_single_file_batch(
             input_path=test_file,
@@ -217,6 +230,7 @@ class TestSingleFileBatchProcessing:
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "output",
+            run_timestamp=run_timestamp,
             verbose=True,
         )
 
@@ -228,12 +242,15 @@ class TestSingleFileBatchProcessing:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello world beautiful", encoding="utf-8")
 
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         result = process_single_file_batch(
             input_path=test_file,
             language_code="en_US",
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "output",
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
@@ -654,12 +671,15 @@ class TestIntegration:
         # Process files individually with small delay to ensure unique timestamps
         results_list = []
         for file_path in files:
+            run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             result = process_single_file_batch(
                 input_path=file_path,
                 language_code="en_US",
                 min_len=2,
                 max_len=8,
                 output_dir=output_dir,
+                run_timestamp=run_timestamp,
                 verbose=False,
             )
             results_list.append(result)
@@ -670,9 +690,15 @@ class TestIntegration:
         assert len(results_list) == 2
         assert output_dir.exists()
 
-        # Verify output files were created (at least 2 files, may have unique timestamps)
-        output_files = list(output_dir.glob("*.txt"))
-        assert len(output_files) >= 2  # At least syllables or meta files created
+        # Verify output files were created in run-based subdirectory structure
+        # Each file gets its own run directory since they have unique timestamps
+        run_dirs = [d for d in output_dir.iterdir() if d.is_dir()]
+        assert len(run_dirs) >= 1  # At least one run directory created
+
+        # Check that syllables and meta subdirectories exist
+        for run_dir in run_dirs:
+            assert (run_dir / "syllables").exists()
+            assert (run_dir / "meta").exists()
 
     def test_deterministic_batch_processing(self, tmp_path):
         """Test that batch processing is deterministic (same input = same output)."""
@@ -680,14 +706,19 @@ class TestIntegration:
         test_file.write_text("Hello beautiful wonderful world", encoding="utf-8")
 
         # Process twice
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         result1 = process_single_file_batch(
             input_path=test_file,
             language_code="en_US",
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "out1",
+            run_timestamp=run_timestamp,
             verbose=False,
         )
+
+        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         result2 = process_single_file_batch(
             input_path=test_file,
@@ -695,6 +726,7 @@ class TestIntegration:
             min_len=2,
             max_len=8,
             output_dir=tmp_path / "out2",
+            run_timestamp=run_timestamp,
             verbose=False,
         )
 
