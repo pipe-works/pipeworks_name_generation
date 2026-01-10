@@ -28,9 +28,12 @@ Run from command line::
         --frequencies data/normalized/syllables_frequencies.json \\
         --output data/annotated/syllables_annotated.json
 
-Use default paths::
+Use with normalizer output (auto-detects output path)::
 
-    $ python -m build_tools.syllable_feature_annotator
+    $ python -m build_tools.syllable_feature_annotator \\
+        --syllables _working/output/20260110_115601_nltk/nltk_syllables_unique.txt \\
+        --frequencies _working/output/20260110_115601_nltk/nltk_syllables_frequencies.json
+    # Output will be: _working/output/20260110_115601_nltk/data/nltk_syllables_annotated.json
 
 Enable verbose output::
 
@@ -52,7 +55,8 @@ CLI Arguments
 
 --output PATH
     Path where annotated JSON should be written
-    Default: data/annotated/syllables_annotated.json
+    Auto-detects output path from syllables file location if not specified
+    Falls back to: data/annotated/syllables_annotated.json
 
 --verbose, -v
     Show detailed progress information
@@ -128,19 +132,19 @@ This CLI is designed to work seamlessly with the syllable normalizer:
 
 Example workflow::
 
-    # Step 1: Normalize syllables from corpus
+    # Step 1: Extract and normalize syllables
+    $ python -m build_tools.pyphen_syllable_extractor --file input.txt
     $ python -m build_tools.pyphen_syllable_normaliser \\
-        --source data/corpus/ \\
-        --output data/normalized/
+        --run-dir _working/output/20260110_115453_pyphen/
 
-    # Step 2: Annotate normalized syllables with features
+    # Step 2: Annotate with features (output path auto-detected)
     $ python -m build_tools.syllable_feature_annotator \\
-        --syllables data/normalized/syllables_unique.txt \\
-        --frequencies data/normalized/syllables_frequencies.json \\
-        --output data/annotated/syllables_annotated.json
+        --syllables _working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt \\
+        --frequencies _working/output/20260110_115453_pyphen/pyphen_syllables_frequencies.json
+    # Creates: _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json
 
     # Step 3: Use annotated syllables for pattern generation
-    # (future tools will consume syllables_annotated.json)
+    # (future tools will consume *_syllables_annotated.json)
 
 Notes
 -----
@@ -156,6 +160,121 @@ import sys
 from pathlib import Path
 
 from build_tools.syllable_feature_annotator.annotator import run_annotation_pipeline
+
+
+def detect_extractor_type(syllables_path: Path) -> str | None:
+    """
+    Detect the extractor type (pyphen or nltk) from the syllables file path.
+
+    This function examines the syllables path to determine which extractor
+    (pyphen or nltk) produced the file, enabling automatic output path computation.
+
+    Detection Strategy
+    ------------------
+    1. Check if filename starts with "pyphen_" or "nltk_"
+    2. Check if parent directory name contains "_pyphen" or "_nltk"
+    3. Return None if no match (not from a normalizer run)
+
+    Parameters
+    ----------
+    syllables_path : Path
+        Path to the syllables file (typically *_syllables_unique.txt)
+
+    Returns
+    -------
+    str | None
+        "pyphen" if pyphen extractor detected
+        "nltk" if NLTK extractor detected
+        None if extractor type cannot be determined
+
+    Examples
+    --------
+    Detect from filename prefix::
+
+        >>> path = Path("_working/output/20260110_115601_nltk/nltk_syllables_unique.txt")
+        >>> detect_extractor_type(path)
+        'nltk'
+
+    Detect from directory name::
+
+        >>> path = Path("_working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt")
+        >>> detect_extractor_type(path)
+        'pyphen'
+
+    Non-normalizer path returns None::
+
+        >>> path = Path("data/custom/syllables.txt")
+        >>> detect_extractor_type(path)
+        None
+
+    Notes
+    -----
+    - Detection is case-sensitive (looks for lowercase "pyphen" and "nltk")
+    - File must follow naming convention: {extractor}_syllables_*.txt
+    - Directory must follow naming convention: *_{extractor}/
+    """
+    # Check filename prefix first (most reliable)
+    filename = syllables_path.name
+    if filename.startswith("pyphen_"):
+        return "pyphen"
+    if filename.startswith("nltk_"):
+        return "nltk"
+
+    # Check parent directory name as fallback
+    parent_dir = syllables_path.parent.name
+    if "_pyphen" in parent_dir:
+        return "pyphen"
+    if "_nltk" in parent_dir:
+        return "nltk"
+
+    # No match - not from a normalizer run
+    return None
+
+
+def compute_output_path(syllables_path: Path, extractor_type: str) -> Path:
+    """
+    Compute the output path for annotated syllables in the run directory.
+
+    This function creates a self-contained output path within the same
+    directory as the input syllables file, following the naming convention:
+    <run_directory>/data/<extractor_type>_syllables_annotated.json
+
+    Parameters
+    ----------
+    syllables_path : Path
+        Path to the input syllables file
+    extractor_type : str
+        The extractor type ("pyphen" or "nltk")
+
+    Returns
+    -------
+    Path
+        Computed output path in the format:
+        <syllables_parent>/data/<extractor_type>_syllables_annotated.json
+
+    Examples
+    --------
+    Compute pyphen output path::
+
+        >>> syllables = Path("_working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt")
+        >>> compute_output_path(syllables, "pyphen")
+        PosixPath('_working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json')
+
+    Compute NLTK output path::
+
+        >>> syllables = Path("_working/output/20260110_115601_nltk/nltk_syllables_unique.txt")
+        >>> compute_output_path(syllables, "nltk")
+        PosixPath('_working/output/20260110_115601_nltk/data/nltk_syllables_annotated.json')
+
+    Notes
+    -----
+    - Output directory (data/) is automatically created by save_annotated_syllables
+    - Filename format: {extractor_type}_syllables_annotated.json
+    - This makes each extraction run self-contained with all derived data
+    """
+    run_directory = syllables_path.parent
+    output_filename = f"{extractor_type}_syllables_annotated.json"
+    return run_directory / "data" / output_filename
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -234,8 +353,13 @@ For more information, see the documentation in CLAUDE.md
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/annotated/syllables_annotated.json"),
-        help="Path for annotated output JSON. Default: data/annotated/syllables_annotated.json",
+        default=None,
+        help=(
+            "Path for annotated output JSON. If not specified, automatically "
+            "computes path based on syllables file location: "
+            "<run_directory>/data/<extractor_type>_syllables_annotated.json. "
+            "Falls back to data/annotated/syllables_annotated.json if auto-detection fails."
+        ),
     )
 
     parser.add_argument(
@@ -360,11 +484,33 @@ def main(args: list[str] | None = None) -> int:
         # Parse arguments
         parsed_args = parse_arguments(args)
 
+        # Auto-detect output path if not specified
+        output_path = parsed_args.output
+        if output_path is None:
+            # Try to detect extractor type from syllables path
+            extractor_type = detect_extractor_type(parsed_args.syllables)
+            if extractor_type is not None:
+                # Compute output path in run directory
+                output_path = compute_output_path(parsed_args.syllables, extractor_type)
+                if parsed_args.verbose:
+                    print(
+                        f"Auto-detected {extractor_type} extractor, "
+                        f"output will be saved to: {output_path}"
+                    )
+            else:
+                # Fall back to legacy default if auto-detection fails
+                output_path = Path("data/annotated/syllables_annotated.json")
+                if parsed_args.verbose:
+                    print(
+                        f"Could not auto-detect extractor type, "
+                        f"using default output path: {output_path}"
+                    )
+
         # Run annotation pipeline
         result = run_annotation_pipeline(
             syllables_path=parsed_args.syllables,
             frequencies_path=parsed_args.frequencies,
-            output_path=parsed_args.output,
+            output_path=output_path,
             verbose=parsed_args.verbose,
         )
 
@@ -374,7 +520,7 @@ def main(args: list[str] | None = None) -> int:
             print(f"  Syllables annotated: {result.statistics.syllable_count:,}")
             print(f"  Features per syllable: {result.statistics.feature_count}")
             print(f"  Processing time: {result.statistics.processing_time:.3f}s")
-            print(f"  Output saved to: {parsed_args.output}")
+            print(f"  Output saved to: {output_path}")
 
         return 0  # Success
 

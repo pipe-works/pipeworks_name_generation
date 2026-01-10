@@ -73,7 +73,12 @@ from build_tools.syllable_feature_annotator import (
     starts_with_heavy_cluster,
     starts_with_vowel,
 )
-from build_tools.syllable_feature_annotator.cli import main, parse_arguments
+from build_tools.syllable_feature_annotator.cli import (
+    compute_output_path,
+    detect_extractor_type,
+    main,
+    parse_arguments,
+)
 
 # =========================================================================
 # Test Phoneme Sets
@@ -607,7 +612,7 @@ class TestCLI:
         args = parse_arguments([])
         assert args.syllables == Path("data/normalized/syllables_unique.txt")
         assert args.frequencies == Path("data/normalized/syllables_frequencies.json")
-        assert args.output == Path("data/annotated/syllables_annotated.json")
+        assert args.output is None  # Changed: now defaults to None for auto-detection
         assert args.verbose is False
 
     def test_parse_arguments_custom_paths(self):
@@ -667,6 +672,157 @@ class TestCLI:
 
         assert exit_code == 0  # Success
         assert output_file.exists()
+
+
+# =========================================================================
+# Test Path Detection
+# =========================================================================
+
+
+class TestPathDetection:
+    """Test automatic path detection for output files."""
+
+    def test_detect_extractor_type_from_filename_pyphen(self):
+        """Test detecting pyphen from filename prefix."""
+        path = Path("_working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt")
+        assert detect_extractor_type(path) == "pyphen"
+
+    def test_detect_extractor_type_from_filename_nltk(self):
+        """Test detecting NLTK from filename prefix."""
+        path = Path("_working/output/20260110_115601_nltk/nltk_syllables_unique.txt")
+        assert detect_extractor_type(path) == "nltk"
+
+    def test_detect_extractor_type_from_directory_pyphen(self):
+        """Test detecting pyphen from directory name."""
+        path = Path("_working/output/20260110_115453_pyphen/syllables_unique.txt")
+        assert detect_extractor_type(path) == "pyphen"
+
+    def test_detect_extractor_type_from_directory_nltk(self):
+        """Test detecting NLTK from directory name."""
+        path = Path("_working/output/20260110_115601_nltk/syllables_unique.txt")
+        assert detect_extractor_type(path) == "nltk"
+
+    def test_detect_extractor_type_no_match(self):
+        """Test that non-normalizer paths return None."""
+        path = Path("data/custom/syllables.txt")
+        assert detect_extractor_type(path) is None
+
+    def test_detect_extractor_type_no_match_similar_name(self):
+        """Test that similar but incorrect names return None."""
+        path = Path("data/pyphenated/syllables.txt")  # Contains "pyphen" but not "_pyphen"
+        assert detect_extractor_type(path) is None
+
+    def test_compute_output_path_pyphen(self):
+        """Test computing output path for pyphen extractor."""
+        syllables_path = Path("_working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt")
+        expected = Path(
+            "_working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json"
+        )
+        assert compute_output_path(syllables_path, "pyphen") == expected
+
+    def test_compute_output_path_nltk(self):
+        """Test computing output path for NLTK extractor."""
+        syllables_path = Path("_working/output/20260110_115601_nltk/nltk_syllables_unique.txt")
+        expected = Path("_working/output/20260110_115601_nltk/data/nltk_syllables_annotated.json")
+        assert compute_output_path(syllables_path, "nltk") == expected
+
+    def test_compute_output_path_different_filename(self):
+        """Test that output path is computed from parent directory."""
+        syllables_path = Path(
+            "_working/output/20260110_115601_nltk/nltk_syllables_canonicalised.txt"
+        )
+        expected = Path("_working/output/20260110_115601_nltk/data/nltk_syllables_annotated.json")
+        assert compute_output_path(syllables_path, "nltk") == expected
+
+    def test_main_auto_detect_output_path_pyphen(self, tmp_path):
+        """Test that main() auto-detects output path for pyphen files."""
+        # Create test directory structure mimicking pyphen normalizer output
+        run_dir = tmp_path / "20260110_115453_pyphen"
+        run_dir.mkdir()
+
+        # Create input files
+        syllables_file = run_dir / "pyphen_syllables_unique.txt"
+        syllables_file.write_text("ka\nkran\n")
+
+        frequencies_file = run_dir / "pyphen_syllables_frequencies.json"
+        frequencies_file.write_text('{"ka": 187, "kran": 7}')
+
+        # Run main WITHOUT specifying --output
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+            ]
+        )
+
+        # Check that output was created in auto-detected location
+        expected_output = run_dir / "data" / "pyphen_syllables_annotated.json"
+        assert exit_code == 0
+        assert expected_output.exists()
+
+    def test_main_auto_detect_output_path_nltk(self, tmp_path):
+        """Test that main() auto-detects output path for NLTK files."""
+        # Create test directory structure mimicking NLTK normalizer output
+        run_dir = tmp_path / "20260110_115601_nltk"
+        run_dir.mkdir()
+
+        # Create input files
+        syllables_file = run_dir / "nltk_syllables_unique.txt"
+        syllables_file.write_text("ka\nkran\n")
+
+        frequencies_file = run_dir / "nltk_syllables_frequencies.json"
+        frequencies_file.write_text('{"ka": 187, "kran": 7}')
+
+        # Run main WITHOUT specifying --output
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+            ]
+        )
+
+        # Check that output was created in auto-detected location
+        expected_output = run_dir / "data" / "nltk_syllables_annotated.json"
+        assert exit_code == 0
+        assert expected_output.exists()
+
+    def test_main_explicit_output_overrides_auto_detection(self, tmp_path):
+        """Test that explicit --output overrides auto-detection."""
+        # Create test directory structure
+        run_dir = tmp_path / "20260110_115601_nltk"
+        run_dir.mkdir()
+
+        # Create input files
+        syllables_file = run_dir / "nltk_syllables_unique.txt"
+        syllables_file.write_text("ka\n")
+
+        frequencies_file = run_dir / "nltk_syllables_frequencies.json"
+        frequencies_file.write_text('{"ka": 187}')
+
+        # Specify explicit output path
+        explicit_output = tmp_path / "custom" / "output.json"
+
+        # Run main WITH explicit --output
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+                "--output",
+                str(explicit_output),
+            ]
+        )
+
+        # Check that output was created in explicit location, NOT auto-detected
+        assert exit_code == 0
+        assert explicit_output.exists()
+        auto_detected = run_dir / "data" / "nltk_syllables_annotated.json"
+        assert not auto_detected.exists()
 
 
 # =========================================================================
