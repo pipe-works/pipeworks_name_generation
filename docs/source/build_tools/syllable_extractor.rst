@@ -28,7 +28,7 @@ Output files are organized in a run-based subdirectory structure under ``_workin
 ::
 
     _working/output/
-      └── YYYYMMDD_HHMMSS/          # Run directory (one per batch)
+      └── YYYYMMDD_HHMMSS_pyphen/   # Run directory (one per batch)
           ├── syllables/
           │   ├── file1.txt          # Input filename preserved
           │   ├── file2.txt
@@ -43,7 +43,7 @@ Output files are organized in a run-based subdirectory structure under ``_workin
 ::
 
     _working/output/
-      └── 20260110_143022/
+      └── 20260110_143022_pyphen/
           ├── syllables/
           │   └── en_US.txt
           └── meta/
@@ -54,7 +54,7 @@ Output files are organized in a run-based subdirectory structure under ``_workin
 ::
 
     _working/output/
-      └── 20260110_143022/          # All files share one run directory
+      └── 20260110_143022_pyphen/   # All files share one run directory
           ├── syllables/
           │   ├── alice.txt
           │   ├── middlemarch.txt
@@ -182,7 +182,7 @@ To check if auto-detection is available:
 
 **Output Organization:**
 
-- Each extraction run creates a timestamped directory (``YYYYMMDD_HHMMSS/``)
+- Each extraction run creates a timestamped directory with pyphen identifier (``YYYYMMDD_HHMMSS_pyphen/``)
 - Run directory contains ``syllables/`` and ``meta/`` subdirectories
 - Batch processing groups all files into a single run directory
 - Input filenames are preserved in output (e.g., ``alice.txt``)

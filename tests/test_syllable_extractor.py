@@ -347,10 +347,11 @@ class TestOutputFileGeneration:
         assert syllables_path.name == "syllables.txt"
         assert metadata_path.name == "syllables.txt"
 
-        # Check run directory timestamp format (YYYYMMDD_HHMMSS)
-        timestamp = run_dir.name
-        assert len(timestamp) == 15  # YYYYMMDD_HHMMSS
-        assert timestamp[8] == "_"
+        # Check run directory format (YYYYMMDD_HHMMSS_pyphen)
+        dir_name = run_dir.name
+        assert len(dir_name) == 22  # YYYYMMDD_HHMMSS_pyphen
+        assert dir_name[8] == "_"  # First underscore
+        assert dir_name[15:] == "_pyphen"  # Identifier suffix
 
     def test_generate_output_filename_custom_dir(self, tmp_path):
         """Test generating output filenames with custom directory."""
@@ -687,20 +688,21 @@ class TestHelperFunctions:
     """Test suite for module-level helper functions."""
 
     def test_generate_output_filename_timestamp_format(self):
-        """Test that run directory has correct timestamp format."""
+        """Test that run directory has correct timestamp format with pyphen identifier."""
         syllables_path, metadata_path = generate_output_filename()
 
-        # Extract timestamp from run directory name
+        # Extract run directory name
         run_dir = syllables_path.parent.parent
-        timestamp_part = run_dir.name
+        dir_name = run_dir.name
 
-        # Should be YYYYMMDD_HHMMSS format (15 characters)
-        assert len(timestamp_part) == 15
-        assert timestamp_part[8] == "_"
+        # Should be YYYYMMDD_HHMMSS_pyphen format (22 characters)
+        assert len(dir_name) == 22
+        assert dir_name[8] == "_"  # First underscore
+        assert dir_name[15:] == "_pyphen"  # Identifier suffix
 
-        # All characters except underscore should be digits
-        assert timestamp_part[:8].isdigit()  # YYYYMMDD
-        assert timestamp_part[9:].isdigit()  # HHMMSS
+        # All characters except underscores should be digits in timestamp part
+        assert dir_name[:8].isdigit()  # YYYYMMDD
+        assert dir_name[9:15].isdigit()  # HHMMSS
 
     def test_generate_output_filename_creates_nested_dirs(self, tmp_path):
         """Test that deeply nested directories are created."""

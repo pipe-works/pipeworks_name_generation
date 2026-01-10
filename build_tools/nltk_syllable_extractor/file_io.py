@@ -24,10 +24,10 @@ def generate_output_filename(
     """
     Generate output filenames in run-based subdirectory structure.
 
-    Creates a run directory with timestamp, then organizes outputs into
-    syllables/ and meta/ subdirectories:
-    - output_dir/YYYYMMDD_HHMMSS/syllables/filename.txt
-    - output_dir/YYYYMMDD_HHMMSS/meta/filename.txt
+    Creates a run directory with timestamp and 'nltk' identifier, then organizes
+    outputs into syllables/ and meta/ subdirectories:
+    - output_dir/YYYYMMDD_HHMMSS_nltk/syllables/filename.txt
+    - output_dir/YYYYMMDD_HHMMSS_nltk/meta/filename.txt
 
     This structure groups each extraction run's outputs together, making it
     easier to manage, archive, or delete complete runs as atomic units.
@@ -52,7 +52,7 @@ def generate_output_filename(
         >>> # Interactive mode - single file with language code
         >>> syllables_path, meta_path = generate_output_filename(language_code='en_US')
         >>> print(syllables_path)
-        _working/output/20260110_153022/syllables/en_US.txt
+        _working/output/20260110_153022_nltk/syllables/en_US.txt
 
         >>> # Batch mode - multiple files sharing one run directory
         >>> timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -65,9 +65,9 @@ def generate_output_filename(
         ...     input_filename='middlemarch.txt'
         ... )
         >>> print(s1)
-        _working/output/20260110_153022/syllables/alice.txt
+        _working/output/20260110_153022_nltk/syllables/alice.txt
         >>> print(s2)
-        _working/output/20260110_153022/syllables/middlemarch.txt
+        _working/output/20260110_153022_nltk/syllables/middlemarch.txt
         >>> # Both files share the same run directory
 
     Note:
@@ -82,8 +82,8 @@ def generate_output_filename(
     if run_timestamp is None:
         run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Create run directory structure
-    run_dir = output_dir / run_timestamp
+    # Create run directory structure (with nltk identifier)
+    run_dir = output_dir / f"{run_timestamp}_nltk"
     syllables_dir = run_dir / "syllables"
     meta_dir = run_dir / "meta"
 
