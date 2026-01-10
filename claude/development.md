@@ -82,22 +82,22 @@ python examples/minimal_proof_of_concept.py
 
 ```bash
 # Extract syllables from text (interactive mode)
-python -m build_tools.syllable_extractor
+python -m build_tools.pyphen_syllable_extractor
 
 # Extract syllables in batch mode - single file
-python -m build_tools.syllable_extractor --file input.txt --lang en_US
+python -m build_tools.pyphen_syllable_extractor --file input.txt --lang en_US
 
 # Extract syllables in batch mode - multiple files
-python -m build_tools.syllable_extractor --files file1.txt file2.txt file3.txt --auto
+python -m build_tools.pyphen_syllable_extractor --files file1.txt file2.txt file3.txt --auto
 
 # Extract syllables in batch mode - directory scan
-python -m build_tools.syllable_extractor --source ~/documents/ --pattern "*.txt" --lang en_US
+python -m build_tools.pyphen_syllable_extractor --source ~/documents/ --pattern "*.txt" --lang en_US
 
 # Extract syllables in batch mode - recursive directory scan with auto-detection
-python -m build_tools.syllable_extractor --source ~/corpus/ --recursive --auto
+python -m build_tools.pyphen_syllable_extractor --source ~/corpus/ --recursive --auto
 
 # Extract syllables with custom parameters
-python -m build_tools.syllable_extractor --file input.txt --lang de_DE --min 3 --max 6 --output ~/results/
+python -m build_tools.pyphen_syllable_extractor --file input.txt --lang de_DE --min 3 --max 6 --output ~/results/
 
 # Run syllable extraction example (programmatic)
 python examples/syllable_extraction_example.py
@@ -109,10 +109,10 @@ pytest tests/test_syllable_extractor.py tests/test_syllable_extractor_batch.py -
 pytest tests/test_syllable_extractor_batch.py -v
 
 # Normalize syllables through 3-step pipeline (build-time tool)
-python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
+python -m build_tools.pyphen_syllable_normaliser --source data/corpus/ --output _working/normalized/
 
 # Normalize syllables recursively with custom parameters
-python -m build_tools.syllable_normaliser \
+python -m build_tools.pyphen_syllable_normaliser \
   --source data/ \
   --recursive \
   --min 3 \

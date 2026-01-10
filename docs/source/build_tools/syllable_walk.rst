@@ -169,10 +169,10 @@ The syllable walker uses output from the feature annotator:
 .. code-block:: bash
 
    # Step 1: Extract syllables from dictionary
-   python -m build_tools.syllable_extractor --file wordlist.txt --auto
+   python -m build_tools.pyphen_syllable_extractor --file wordlist.txt --auto
 
    # Step 2: Normalize syllables
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source data/corpus/ \
      --output data/normalized/
 

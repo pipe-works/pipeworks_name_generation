@@ -128,12 +128,12 @@ The NLTK syllable normaliser is the second step after NLTK extraction, complemen
 .. code-block:: bash
 
    # Extract and normalize with pyphen (typographic)
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --lang en_US \
      --output _working/output/
 
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source _working/output/20260110_143022_pyphen/syllables/ \
      --output _working/output/20260110_143022_pyphen/
 

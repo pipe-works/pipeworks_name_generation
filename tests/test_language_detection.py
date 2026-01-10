@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_extractor import (
+from build_tools.pyphen_syllable_extractor import (
     SyllableExtractor,
     detect_language_code,
     get_alternative_locales,

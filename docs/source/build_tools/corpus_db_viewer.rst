@@ -101,7 +101,7 @@ Use the viewer to inspect corpus database provenance after extraction runs:
 .. code-block:: bash
 
    # Step 1: Extract syllables (populates database)
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --lang en_US
 

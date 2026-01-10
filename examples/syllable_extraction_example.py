@@ -7,7 +7,7 @@ programmatically and as a CLI tool.
 
 from pathlib import Path
 
-from build_tools.syllable_extractor import SyllableExtractor
+from build_tools.pyphen_syllable_extractor import SyllableExtractor
 
 # Example 1: Programmatic usage with filtering
 print("=" * 70)
@@ -86,7 +86,7 @@ print("\n" + "=" * 70)
 print("CLI Usage")
 print("=" * 70)
 print("\nTo use the interactive CLI tool:")
-print("  python -m build_tools.syllable_extractor")
+print("  python -m build_tools.pyphen_syllable_extractor")
 print("\nThe CLI will guide you through:")
 print("  1. Selecting a language from 50+ supported options")
 print("  2. Providing an input text file")

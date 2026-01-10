@@ -36,7 +36,7 @@ pre-commit run --all-files
 
 # Option 1: pyphen (40+ languages, typographic hyphenation)
 # Language auto-detected if langdetect installed, otherwise defaults to en_US
-python -m build_tools.syllable_extractor --file input.txt
+python -m build_tools.pyphen_syllable_extractor --file input.txt
 
 # Option 2: NLTK (English only, phonetic splits with onset/coda)
 python -m build_tools.nltk_syllable_extractor --file input.txt
@@ -44,7 +44,7 @@ python -m build_tools.nltk_syllable_extractor --file input.txt
 # Normalize syllables (both use in-place processing)
 
 # For pyphen extractor output:
-python -m build_tools.syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
+python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 
 # For NLTK extractor output (in-place processing with fragment cleaning):
 python -m build_tools.nltk_syllable_normaliser --run-dir _working/output/20260110_095213_nltk/
@@ -96,14 +96,14 @@ The project supports two parallel syllable extraction pipelines with matching no
 ```bash
 # 1. Extract with pyphen (typographic hyphenation)
 # Language auto-detected if langdetect installed, otherwise defaults to en_US
-python -m build_tools.syllable_extractor \
+python -m build_tools.pyphen_syllable_extractor \
   --source data/corpus/ \
   --output _working/output/
 
 # Creates: _working/output/YYYYMMDD_HHMMSS_pyphen/syllables/*.txt
 
 # 2. Normalize with pyphen normaliser (in-place)
-python -m build_tools.syllable_normaliser \
+python -m build_tools.pyphen_syllable_normaliser \
   --run-dir _working/output/YYYYMMDD_HHMMSS_pyphen/
 
 # Creates (in-place): YYYYMMDD_HHMMSS_pyphen/pyphen_syllables_*.txt, pyphen_syllables_*.json
@@ -212,11 +212,11 @@ Both pipelines can be run in parallel for comparison or hybrid corpus building:
 
 ```bash
 # Extract with both (pyphen will auto-detect language by default)
-python -m build_tools.syllable_extractor --file input.txt
+python -m build_tools.pyphen_syllable_extractor --file input.txt
 python -m build_tools.nltk_syllable_extractor --file input.txt
 
 # Normalize both (both use in-place processing now)
-python -m build_tools.syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
+python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 python -m build_tools.nltk_syllable_normaliser --run-dir _working/output/20260110_095213_nltk/
 
 # Compare outputs (different prefixes make this clear)
@@ -328,7 +328,7 @@ Features:
 - Deterministic extraction
 
 Usage:
-    >>> from build_tools.syllable_extractor import SyllableExtractor
+    >>> from build_tools.pyphen_syllable_extractor import SyllableExtractor
     >>> extractor = SyllableExtractor('en_US', min_syllable_length=2)
     >>> syllables = extractor.extract_syllables_from_text("Hello world")
 """

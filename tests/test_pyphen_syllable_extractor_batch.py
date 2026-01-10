@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_extractor import (
+from build_tools.pyphen_syllable_extractor import (
     BatchResult,
     FileProcessingResult,
     discover_files,
@@ -24,7 +24,7 @@ from build_tools.syllable_extractor import (
     process_batch,
     process_single_file_batch,
 )
-from build_tools.syllable_extractor.cli import create_argument_parser
+from build_tools.pyphen_syllable_extractor.cli import create_argument_parser
 
 
 class TestFileDiscovery:

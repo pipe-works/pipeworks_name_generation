@@ -75,13 +75,13 @@ The project includes a comprehensive suite of build-time tools for corpus lingui
 
 ```bash
 # Option 1: Extract syllables with pyphen (typographic hyphenation, 40+ languages)
-python -m build_tools.syllable_extractor --file input.txt --auto
+python -m build_tools.pyphen_syllable_extractor --file input.txt --auto
 
 # Option 2: Extract syllables with NLTK (phonetic splits, English only)
 python -m build_tools.nltk_syllable_extractor --file input.txt
 
 # Normalize the extracted syllables (works with either extractor)
-python -m build_tools.syllable_normaliser --source _working/output/
+python -m build_tools.pyphen_syllable_normaliser --source _working/output/
 ```
 
 ### NLTK Extractor Setup

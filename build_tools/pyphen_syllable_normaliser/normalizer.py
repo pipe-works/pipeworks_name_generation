@@ -26,7 +26,7 @@ class SyllableNormalizer:
             allowed charset, length constraints, and Unicode normalization form.
 
     Example:
-        >>> from build_tools.syllable_normaliser import NormalizationConfig
+        >>> from build_tools.pyphen_syllable_normaliser import NormalizationConfig
         >>> config = NormalizationConfig(min_length=2, max_length=8)
         >>> normalizer = SyllableNormalizer(config)
         >>> normalizer.normalize("Café")

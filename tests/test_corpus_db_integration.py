@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from build_tools.syllable_extractor import main_batch
+from build_tools.pyphen_syllable_extractor import main_batch
 
 
 class TestCorpusDBIntegration:
@@ -42,7 +42,7 @@ class TestCorpusDBIntegration:
         )
 
         # Patch CorpusLedger to use test db
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger = Mock()
             mock_ledger_class.return_value = mock_ledger
             mock_ledger.start_run.return_value = 1
@@ -57,7 +57,7 @@ class TestCorpusDBIntegration:
             # Verify ledger interactions
             mock_ledger.start_run.assert_called_once()
             call_kwargs = mock_ledger.start_run.call_args[1]
-            assert call_kwargs["extractor_tool"] == "syllable_extractor"
+            assert call_kwargs["extractor_tool"] == "pyphen_syllable_extractor"
             assert call_kwargs["pyphen_lang"] == "en_US"
             assert call_kwargs["min_len"] == 2
             assert call_kwargs["max_len"] == 8
@@ -110,7 +110,7 @@ class TestCorpusDBIntegration:
             verbose=False,
         )
 
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger = Mock()
             mock_ledger_class.return_value = mock_ledger
             mock_ledger.start_run.return_value = 1
@@ -154,7 +154,7 @@ class TestCorpusDBIntegration:
             verbose=False,
         )
 
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger = Mock()
             mock_ledger_class.return_value = mock_ledger
             mock_ledger.start_run.return_value = 1
@@ -197,7 +197,7 @@ class TestCorpusDBIntegration:
         )
 
         # Mock CorpusLedger to raise exception
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger_class.side_effect = Exception("Database connection failed")
 
             # Capture stderr to check for warning
@@ -243,7 +243,7 @@ class TestCorpusDBIntegration:
         )
 
         # Hide corpus_db by setting CORPUS_DB_AVAILABLE to False
-        with patch("build_tools.syllable_extractor.cli.CORPUS_DB_AVAILABLE", False):
+        with patch("build_tools.pyphen_syllable_extractor.cli.CORPUS_DB_AVAILABLE", False):
             with pytest.raises(SystemExit) as excinfo:
                 main_batch(args)
 
@@ -281,7 +281,7 @@ class TestCorpusDBIntegration:
             verbose=False,
         )
 
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger = Mock()
             mock_ledger_class.return_value = mock_ledger
             mock_ledger.start_run.return_value = 1
@@ -321,7 +321,7 @@ class TestCorpusDBIntegration:
             verbose=False,
         )
 
-        with patch("build_tools.syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
+        with patch("build_tools.pyphen_syllable_extractor.cli.CorpusLedger") as mock_ledger_class:
             mock_ledger = Mock()
             mock_ledger_class.return_value = mock_ledger
             mock_ledger.start_run.return_value = 1

@@ -2,21 +2,21 @@
 Syllable Extractor
 ==================
 
-.. currentmodule:: build_tools.syllable_extractor
+.. currentmodule:: build_tools.pyphen_syllable_extractor
 
 Overview
 --------
 
-.. automodule:: build_tools.syllable_extractor
+.. automodule:: build_tools.pyphen_syllable_extractor
    :no-members:
 
 Command-Line Interface
 ----------------------
 
 .. argparse::
-   :module: build_tools.syllable_extractor.cli
+   :module: build_tools.pyphen_syllable_extractor.cli
    :func: create_argument_parser
-   :prog: python -m build_tools.syllable_extractor
+   :prog: python -m build_tools.pyphen_syllable_extractor
 
 Output Format
 -------------
@@ -105,13 +105,13 @@ The syllable extractor is the first step in the build pipeline:
 .. code-block:: bash
 
    # Step 1: Extract syllables from corpus (language auto-detected or defaults to en_US)
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --pattern "*.txt" \
      --output data/raw/
 
    # Step 2: Normalize extracted syllables
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source data/raw/ \
      --output data/normalized/
 
@@ -149,13 +149,13 @@ The syllable extractor is the first step in the build pipeline:
 .. code-block:: bash
 
    # Simple usage (language auto-selected)
-   python -m build_tools.syllable_extractor --file input.txt
+   python -m build_tools.pyphen_syllable_extractor --file input.txt
 
    # Explicit language selection
-   python -m build_tools.syllable_extractor --file input.txt --lang de_DE
+   python -m build_tools.pyphen_syllable_extractor --file input.txt --lang de_DE
 
    # Force automatic detection
-   python -m build_tools.syllable_extractor --file input.txt --auto
+   python -m build_tools.pyphen_syllable_extractor --file input.txt --auto
 
 Notes
 -----
@@ -175,7 +175,7 @@ To list all available languages:
 
 .. code-block:: python
 
-   from build_tools.syllable_extractor import SUPPORTED_LANGUAGES
+   from build_tools.pyphen_syllable_extractor import SUPPORTED_LANGUAGES
    print(f"{len(SUPPORTED_LANGUAGES)} languages available")
 
 **Language Auto-Detection:**
@@ -191,7 +191,7 @@ To check if auto-detection is available:
 
 .. code-block:: python
 
-   from build_tools.syllable_extractor import is_detection_available
+   from build_tools.pyphen_syllable_extractor import is_detection_available
    if is_detection_available():
        print("Language auto-detection is available")
 
@@ -219,7 +219,7 @@ This is a build-time tool only - not used during runtime name generation.
 API Reference
 -------------
 
-.. automodule:: build_tools.syllable_extractor
+.. automodule:: build_tools.pyphen_syllable_extractor
    :members:
    :undoc-members:
    :show-inheritance:

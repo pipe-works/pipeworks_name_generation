@@ -31,7 +31,7 @@ The pipeline produces 5 output files (with pyphen_ prefix for provenance):
 
 Usage:
     >>> from pathlib import Path
-    >>> from build_tools.syllable_normaliser import (
+    >>> from build_tools.pyphen_syllable_normaliser import (
     ...     NormalizationConfig,
     ...     run_full_pipeline
     ... )
@@ -56,10 +56,10 @@ CLI Usage:
     .. code-block:: bash
 
        # Process specific pyphen run directory (in-place)
-       python -m build_tools.syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
+       python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 
        # Auto-detect all pyphen run directories
-       python -m build_tools.syllable_normaliser --source _working/output/
+       python -m build_tools.pyphen_syllable_normaliser --source _working/output/
 """
 
 # File aggregation

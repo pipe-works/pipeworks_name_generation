@@ -88,7 +88,7 @@ Each line contains one syllable, preserving duplicates in the order extracted. T
     lo
     world
 
-**Note:** Duplicates are intentionally preserved. The extractor's job is to extract, not to filter. Use ``build_tools.syllable_normaliser`` for deduplication and frequency analysis.
+**Note:** Duplicates are intentionally preserved. The extractor's job is to extract, not to filter. Use ``build_tools.pyphen_syllable_normaliser`` for deduplication and frequency analysis.
 
 **Metadata file format:**
 
@@ -144,7 +144,7 @@ The NLTK syllable extractor is an alternative first step in the build pipeline, 
      --output data/raw/nltk/
 
    # Step 2: Normalize extracted syllables (source-agnostic)
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source data/raw/nltk/ \
      --output data/normalized/
 
@@ -156,7 +156,7 @@ The NLTK syllable extractor is an alternative first step in the build pipeline, 
 .. code-block:: bash
 
    # Extract with pyphen (typographic)
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --lang en_US \
      --output data/raw/pyphen/

@@ -30,7 +30,7 @@ except ImportError:
 
 # Version for ledger
 try:
-    from build_tools.syllable_extractor import __version__ as EXTRACTOR_VERSION  # noqa: N812
+    from build_tools.pyphen_syllable_extractor import __version__ as EXTRACTOR_VERSION  # noqa: N812
 except (ImportError, AttributeError):
     EXTRACTOR_VERSION = "unknown"
 
@@ -751,7 +751,7 @@ def main_interactive():
             pyphen_lang = None if language_code == "auto" else language_code
 
             run_id = ledger.start_run(
-                extractor_tool="syllable_extractor",
+                extractor_tool="pyphen_syllable_extractor",
                 extractor_version=EXTRACTOR_VERSION,
                 pyphen_lang=pyphen_lang,
                 min_len=min_len,
@@ -956,7 +956,7 @@ def main_batch(args: argparse.Namespace):
             pyphen_lang = None if language_code == "auto" else language_code
 
             run_id = ledger.start_run(
-                extractor_tool="syllable_extractor",
+                extractor_tool="pyphen_syllable_extractor",
                 extractor_version=EXTRACTOR_VERSION,
                 pyphen_lang=pyphen_lang,
                 min_len=args.min,

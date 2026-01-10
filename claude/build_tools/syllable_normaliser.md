@@ -23,22 +23,22 @@ creating the authoritative syllable inventory for pattern development and featur
 
 ```bash
 # Process all .txt files in a directory
-python -m build_tools.syllable_normaliser --source data/corpus/ --output _working/normalized/
+python -m build_tools.pyphen_syllable_normaliser --source data/corpus/ --output _working/normalized/
 
 # Recursive directory scan
-python -m build_tools.syllable_normaliser --source data/ --recursive --output results/
+python -m build_tools.pyphen_syllable_normaliser --source data/ --recursive --output results/
 
 # Custom syllable length constraints
-python -m build_tools.syllable_normaliser --source data/ --min 3 --max 10
+python -m build_tools.pyphen_syllable_normaliser --source data/ --min 3 --max 10
 
 # Custom charset and Unicode form
-python -m build_tools.syllable_normaliser \
+python -m build_tools.pyphen_syllable_normaliser \
   --source data/ \
   --charset "abcdefghijklmnopqrstuvwxyz" \
   --unicode-form NFKD
 
 # Verbose output with detailed statistics
-python -m build_tools.syllable_normaliser --source data/ --verbose
+python -m build_tools.pyphen_syllable_normaliser --source data/ --verbose
 ```
 
 ## Command-Line Options
@@ -108,7 +108,7 @@ The pipeline generates 5 output files in the specified output directory:
 
 ```python
 from pathlib import Path
-from build_tools.syllable_normaliser import (
+from build_tools.pyphen_syllable_normaliser import (
     NormalizationConfig,
     run_full_pipeline,
     discover_input_files
@@ -152,7 +152,7 @@ print(f"Most frequent: {top_syllable[0]} ({top_syllable[1]} occurrences)")
 ## Working with Individual Components
 
 ```python
-from build_tools.syllable_normaliser import (
+from build_tools.pyphen_syllable_normaliser import (
     SyllableNormalizer,
     FileAggregator,
     FrequencyAnalyzer,
@@ -165,7 +165,7 @@ raw_syllables = aggregator.aggregate_files([Path("file1.txt"), Path("file2.txt")
 aggregator.save_raw_syllables(raw_syllables, Path("syllables_raw.txt"))
 
 # Step 2: Normalization
-from build_tools.syllable_normaliser import normalize_batch
+from build_tools.pyphen_syllable_normaliser import normalize_batch
 config = NormalizationConfig(min_length=2, max_length=8)
 canonical_syllables, rejection_stats = normalize_batch(raw_syllables, config)
 
@@ -187,7 +187,7 @@ print(f"Rejected (length): {rejection_stats['rejected_length']}")
 ## Normalization Examples
 
 ```python
-from build_tools.syllable_normaliser import SyllableNormalizer, NormalizationConfig
+from build_tools.pyphen_syllable_normaliser import SyllableNormalizer, NormalizationConfig
 
 config = NormalizationConfig(min_length=2, max_length=20)
 normalizer = SyllableNormalizer(config)

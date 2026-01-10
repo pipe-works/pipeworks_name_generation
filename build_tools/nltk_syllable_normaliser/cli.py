@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 # Import shared components from pyphen normaliser
-from build_tools.syllable_normaliser import (
+from build_tools.pyphen_syllable_normaliser import (
     FileAggregator,
     FrequencyAnalyzer,
     NormalizationConfig,

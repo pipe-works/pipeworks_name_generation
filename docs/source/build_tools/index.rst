@@ -15,11 +15,11 @@ Tool Overview
 
    * - Tool
      - Description
-   * - :doc:`syllable_extractor`
+   * - :doc:`pyphen_syllable_extractor`
      - Dictionary-based syllable extraction using pyphen (LibreOffice dictionaries)
    * - :doc:`nltk_syllable_extractor`
      - Phonetically-guided syllable extraction using NLTK CMUDict with onset/coda principles
-   * - :doc:`syllable_normaliser`
+   * - :doc:`pyphen_syllable_normaliser`
      - 3-step normalization pipeline for pyphen extractor output
    * - :doc:`nltk_syllable_normaliser`
      - NLTK-specific normalization with fragment cleaning for phonetically coherent syllables
@@ -42,7 +42,7 @@ Quick Start
    # Extract syllables from text (choose one extractor)
 
    # Option 1: pyphen extractor (40+ languages, typographic splits)
-   python -m build_tools.syllable_extractor --file input.txt --auto
+   python -m build_tools.pyphen_syllable_extractor --file input.txt --auto
 
    # Option 2: NLTK extractor (English only, phonetic splits)
    python -m build_tools.nltk_syllable_extractor --file input.txt
@@ -50,7 +50,7 @@ Quick Start
    # Normalize extracted syllables (both use in-place processing)
 
    # For pyphen extractor output:
-   python -m build_tools.syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
+   python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 
    # For NLTK extractor output:
    python -m build_tools.nltk_syllable_normaliser --run-dir _working/output/20260110_095213_nltk/
@@ -70,9 +70,9 @@ Detailed Documentation
 .. toctree::
    :maxdepth: 2
 
-   syllable_extractor
+   pyphen_syllable_extractor
    nltk_syllable_extractor
-   syllable_normaliser
+   pyphen_syllable_normaliser
    nltk_syllable_normaliser
    syllable_feature_annotator
    syllable_walk

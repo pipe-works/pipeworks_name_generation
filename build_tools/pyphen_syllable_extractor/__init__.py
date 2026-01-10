@@ -30,7 +30,7 @@ Main Components:
 
 Usage:
     >>> from pathlib import Path
-    >>> from build_tools.syllable_extractor import SyllableExtractor
+    >>> from build_tools.pyphen_syllable_extractor import SyllableExtractor
     >>>
     >>> # Initialize extractor for English (US)
     >>> extractor = SyllableExtractor('en_US', min_syllable_length=2, max_syllable_length=8)
@@ -51,13 +51,13 @@ CLI Usage:
     .. code-block:: bash
 
        # Interactive mode
-       python -m build_tools.syllable_extractor
+       python -m build_tools.pyphen_syllable_extractor
 
        # Single file with specific language
-       python -m build_tools.syllable_extractor --file input.txt --lang en_US
+       python -m build_tools.pyphen_syllable_extractor --file input.txt --lang en_US
 
        # Batch processing with auto-detection
-       python -m build_tools.syllable_extractor --source ~/docs/ --recursive --auto
+       python -m build_tools.pyphen_syllable_extractor --source ~/docs/ --recursive --auto
 """
 
 # CLI entry point (for python -m usage)

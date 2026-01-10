@@ -117,7 +117,7 @@ Integration with Pipeline
 This tool is designed to work with the syllable normalizer::
 
     # Step 1: Normalize syllables
-    $ python -m build_tools.syllable_normaliser \\
+    $ python -m build_tools.pyphen_syllable_normaliser \\
         --source data/corpus/ \\
         --output data/normalized/
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_normaliser import (
+from build_tools.pyphen_syllable_normaliser import (
     FileAggregator,
     FrequencyAnalyzer,
     NormalizationConfig,
@@ -631,7 +631,7 @@ class TestRunDirectoryDetection:
 
     def test_detect_pyphen_run_directories(self, tmp_path: Path):
         """Test auto-detection of pyphen run directories."""
-        from build_tools.syllable_normaliser.cli import detect_pyphen_run_directories
+        from build_tools.pyphen_syllable_normaliser.cli import detect_pyphen_run_directories
 
         # Create multiple pyphen run directories
         run1 = tmp_path / "20260110_100000_pyphen"
@@ -662,7 +662,7 @@ class TestRunDirectoryDetection:
 
     def test_detect_no_pyphen_directories(self, tmp_path: Path):
         """Test detection when no pyphen directories exist."""
-        from build_tools.syllable_normaliser.cli import detect_pyphen_run_directories
+        from build_tools.pyphen_syllable_normaliser.cli import detect_pyphen_run_directories
 
         # Create only NLTK directories
         nltk_run = tmp_path / "20260110_100000_nltk"
@@ -676,7 +676,7 @@ class TestRunDirectoryDetection:
 
     def test_detect_nonexistent_directory(self, tmp_path: Path):
         """Test detection with nonexistent source directory."""
-        from build_tools.syllable_normaliser.cli import detect_pyphen_run_directories
+        from build_tools.pyphen_syllable_normaliser.cli import detect_pyphen_run_directories
 
         nonexistent = tmp_path / "does_not_exist"
 

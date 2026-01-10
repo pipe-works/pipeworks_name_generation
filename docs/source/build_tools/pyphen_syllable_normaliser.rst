@@ -2,21 +2,21 @@
 Syllable Normaliser
 ===================
 
-.. currentmodule:: build_tools.syllable_normaliser
+.. currentmodule:: build_tools.pyphen_syllable_normaliser
 
 Overview
 --------
 
-.. automodule:: build_tools.syllable_normaliser
+.. automodule:: build_tools.pyphen_syllable_normaliser
    :no-members:
 
 Command-Line Interface
 ----------------------
 
 .. argparse::
-   :module: build_tools.syllable_normaliser.cli
+   :module: build_tools.pyphen_syllable_normaliser.cli
    :func: create_argument_parser
-   :prog: python -m build_tools.syllable_normaliser
+   :prog: python -m build_tools.pyphen_syllable_normaliser
 
 Output Format
 -------------
@@ -98,18 +98,18 @@ The pyphen syllable normaliser is the second step after pyphen extraction, proce
 .. code-block:: bash
 
    # Step 1: Extract syllables using pyphen
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --pattern "*.txt" \
      --output _working/output/ \
      --lang en_US
 
    # Step 2: Normalize extracted syllables (in-place)
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --run-dir _working/output/20260110_143022_pyphen/
 
    # Alternative: Auto-detect all pyphen run directories
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source _working/output/
 
    # Step 3: Annotate with phonetic features (source-agnostic)
@@ -122,12 +122,12 @@ The pyphen syllable normaliser is the second step after pyphen extraction, proce
 .. code-block:: bash
 
    # Pyphen pipeline (typographic hyphenation)
-   python -m build_tools.syllable_extractor \
+   python -m build_tools.pyphen_syllable_extractor \
      --source data/corpus/ \
      --lang en_US \
      --output _working/output/
 
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --run-dir _working/output/20260110_143022_pyphen/
 
    # NLTK pipeline (phonetic splitting)
@@ -265,7 +265,7 @@ This allows batch processing:
 .. code-block:: bash
 
    # Process all pyphen runs at once
-   python -m build_tools.syllable_normaliser --source _working/output/
+   python -m build_tools.pyphen_syllable_normaliser --source _working/output/
 
    # Output:
    # Found 3 pyphen run directories:
@@ -281,7 +281,7 @@ This is a build-time tool only - not used during runtime name generation.
 API Reference
 -------------
 
-.. automodule:: build_tools.syllable_normaliser
+.. automodule:: build_tools.pyphen_syllable_normaliser
    :members:
    :undoc-members:
    :show-inheritance:

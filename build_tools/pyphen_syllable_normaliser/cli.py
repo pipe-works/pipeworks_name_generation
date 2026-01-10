@@ -278,13 +278,13 @@ def create_argument_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   # Process specific pyphen run directory
-  python -m build_tools.syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
+  python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 
   # Auto-detect and process all pyphen run directories
-  python -m build_tools.syllable_normaliser --source _working/output/
+  python -m build_tools.pyphen_syllable_normaliser --source _working/output/
 
   # Custom normalization config
-  python -m build_tools.syllable_normaliser \\
+  python -m build_tools.pyphen_syllable_normaliser \\
     --run-dir _working/output/20260110_143022_pyphen/ \\
     --min 2 --max 8
         """,

@@ -129,7 +129,7 @@ This CLI is designed to work seamlessly with the syllable normalizer:
 Example workflow::
 
     # Step 1: Normalize syllables from corpus
-    $ python -m build_tools.syllable_normaliser \\
+    $ python -m build_tools.pyphen_syllable_normaliser \\
         --source data/corpus/ \\
         --output data/normalized/
 

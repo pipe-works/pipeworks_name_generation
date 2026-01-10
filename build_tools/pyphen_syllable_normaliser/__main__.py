@@ -1,8 +1,8 @@
 """
-Entry point for running syllable_normaliser as a module.
+Entry point for running pyphen_syllable_normaliser as a module.
 
 This allows the package to be executed with:
-    python -m build_tools.syllable_normaliser [arguments]
+    python -m build_tools.pyphen_syllable_normaliser [arguments]
 """
 
 import sys

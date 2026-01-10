@@ -66,7 +66,7 @@ Extract syllables from text corpora:
 .. code-block:: bash
 
    # Run syllable extractor in interactive mode
-   python -m build_tools.syllable_extractor
+   python -m build_tools.pyphen_syllable_extractor
 
 Features tab completion for paths and supports 50+ languages via pyphen.
 

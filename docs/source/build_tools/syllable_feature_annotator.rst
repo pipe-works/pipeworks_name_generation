@@ -77,7 +77,7 @@ The feature annotator sits between the normaliser and pattern development:
 .. code-block:: bash
 
    # Step 1: Normalize syllables from corpus
-   python -m build_tools.syllable_normaliser \
+   python -m build_tools.pyphen_syllable_normaliser \
      --source data/corpus/ \
      --output data/normalized/
 

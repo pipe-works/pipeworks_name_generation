@@ -15,7 +15,7 @@ via pyphen. This tool is used to generate syllable lists for pattern development
 ## Interactive Usage
 
 ```bash
-python -m build_tools.syllable_extractor
+python -m build_tools.pyphen_syllable_extractor
 # Prompts for:
 # 1. Language selection (by number, name, or code)
 # 2. Min/max syllable length (default: 2-8)
@@ -31,22 +31,22 @@ mode is used).
 
 ```bash
 # Process a single file with manual language selection
-python -m build_tools.syllable_extractor --file input.txt --lang en_US
+python -m build_tools.pyphen_syllable_extractor --file input.txt --lang en_US
 
 # Process a single file with automatic language detection
-python -m build_tools.syllable_extractor --file input.txt --auto
+python -m build_tools.pyphen_syllable_extractor --file input.txt --auto
 
 # Process multiple specific files
-python -m build_tools.syllable_extractor --files book1.txt book2.txt book3.txt --auto
+python -m build_tools.pyphen_syllable_extractor --files book1.txt book2.txt book3.txt --auto
 
 # Scan a directory for files (non-recursive)
-python -m build_tools.syllable_extractor --source ~/documents/ --pattern "*.txt" --lang en_US
+python -m build_tools.pyphen_syllable_extractor --source ~/documents/ --pattern "*.txt" --lang en_US
 
 # Scan a directory recursively with auto-detection
-python -m build_tools.syllable_extractor --source ~/corpus/ --recursive --auto
+python -m build_tools.pyphen_syllable_extractor --source ~/corpus/ --recursive --auto
 
 # Use custom syllable length constraints and output directory
-python -m build_tools.syllable_extractor \
+python -m build_tools.pyphen_syllable_extractor \
   --source ~/texts/ \
   --pattern "*.md" \
   --recursive \
@@ -56,10 +56,10 @@ python -m build_tools.syllable_extractor \
   --output ~/results/
 
 # Quiet mode (suppress progress indicators)
-python -m build_tools.syllable_extractor --files *.txt --lang de_DE --quiet
+python -m build_tools.pyphen_syllable_extractor --files *.txt --lang de_DE --quiet
 
 # Verbose mode (show detailed processing information)
-python -m build_tools.syllable_extractor --source ~/data/ --auto --verbose
+python -m build_tools.pyphen_syllable_extractor --source ~/data/ --auto --verbose
 ```
 
 ## Batch Mode Options
@@ -103,7 +103,7 @@ python -m build_tools.syllable_extractor --source ~/data/ --auto --verbose
 
 ```python
 from pathlib import Path
-from build_tools.syllable_extractor import (
+from build_tools.pyphen_syllable_extractor import (
     discover_files,
     process_batch,
     process_single_file_batch,
@@ -156,7 +156,7 @@ else:
 
 ```python
 from pathlib import Path
-from build_tools.syllable_extractor import (
+from build_tools.pyphen_syllable_extractor import (
     SyllableExtractor,
     ExtractionResult,
     generate_output_filename,

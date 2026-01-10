@@ -9,7 +9,7 @@ The language detection is optional and only used when explicitly requested.
 It requires the langdetect package to be installed separately.
 
 Typical Usage:
-    >>> from build_tools.syllable_extractor import detect_language_code
+    >>> from build_tools.pyphen_syllable_extractor import detect_language_code
     >>> text = "Bonjour le monde, comment allez-vous aujourd'hui?"
     >>> code = detect_language_code(text)
     >>> print(code)
@@ -21,7 +21,7 @@ Typical Usage:
     'en_US'
 
     >>> # Check if available
-    >>> from build_tools.syllable_extractor.language_detection import is_detection_available
+    >>> from build_tools.pyphen_syllable_extractor.language_detection import is_detection_available
     >>> if is_detection_available():
     ...     code = detect_language_code(text)
 
