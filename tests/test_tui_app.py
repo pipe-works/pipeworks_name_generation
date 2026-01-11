@@ -9,8 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_walk_tui.app import SyllableWalkApp
-from build_tools.syllable_walk_tui.config import TUIConfig
+# Check if textual is available
+try:
+    from build_tools.syllable_walk_tui.app import SyllableWalkApp
+    from build_tools.syllable_walk_tui.config import TUIConfig
+
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not TEXTUAL_AVAILABLE, reason="textual not installed (optional dependency)"
+)
 
 
 class TestSyllableWalkApp:

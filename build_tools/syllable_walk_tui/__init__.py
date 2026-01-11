@@ -40,6 +40,17 @@ Philosophy:
 
 __version__ = "0.1.0"
 
-from build_tools.syllable_walk_tui.app import SyllableWalkApp
+# Lazy import to avoid requiring textual for basic package imports
+# Import SyllableWalkApp directly when needed:
+#   from build_tools.syllable_walk_tui.app import SyllableWalkApp
 
 __all__ = ["SyllableWalkApp"]
+
+
+def __getattr__(name: str):
+    """Lazy import for textual-dependent components."""
+    if name == "SyllableWalkApp":
+        from build_tools.syllable_walk_tui.app import SyllableWalkApp
+
+        return SyllableWalkApp
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

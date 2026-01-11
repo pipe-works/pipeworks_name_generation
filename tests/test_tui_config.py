@@ -9,7 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_walk_tui.config import TUIConfig, get_project_root
+# Config module doesn't need textual, but we skip if it's not importable
+try:
+    from build_tools.syllable_walk_tui.config import TUIConfig, get_project_root
+
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not TEXTUAL_AVAILABLE, reason="textual not installed (optional dependency)"
+)
 
 
 class TestProjectRoot:

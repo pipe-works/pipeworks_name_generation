@@ -9,7 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_walk_tui.modules.oscillator import OscillatorModule
+# Check if textual is available
+try:
+    from build_tools.syllable_walk_tui.modules.oscillator import OscillatorModule
+
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not TEXTUAL_AVAILABLE, reason="textual not installed (optional dependency)"
+)
 
 
 class TestOscillatorModule:
