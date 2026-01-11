@@ -36,6 +36,7 @@ dev = [
     "isort>=5.13",
     "bandit[toml]>=1.7",
     "build>=1.0",
+    "textual>=0.50.0",  # For syllable_walk_tui testing
     "pyphen>=0.14.0",
     "langdetect>=1.0.9",
     "cmudict>=1.0.0",
