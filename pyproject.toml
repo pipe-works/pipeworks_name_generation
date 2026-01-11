@@ -74,6 +74,11 @@ docs = [
     "sphinx-argparse>=0.4.0",
 ]
 
+# TUI dependencies (for syllable_walk_tui)
+tui = [
+    "textual>=0.50.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/aa-parky/pipeworks_name_generation"
 Repository = "https://github.com/aa-parky/pipeworks_name_generation"
