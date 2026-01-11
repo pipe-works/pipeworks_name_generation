@@ -97,9 +97,10 @@ class TestSyllableWalkApp:
         assert app.current_steps == 5
 
     def test_app_initial_corpus_is_none(self):
-        """App should start with no corpus loaded."""
+        """App should start with no corpus loaded in either oscillator."""
         app = SyllableWalkApp()
-        assert app.current_corpus_name is None
+        assert app.osc1_corpus_name is None
+        assert app.osc2_corpus_name is None
 
     def test_app_custom_keybindings(self, temp_config_file):
         """App should respect custom keybindings from config."""
