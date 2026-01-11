@@ -22,8 +22,15 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <div class="header">
-            <h1>Syllable Walker</h1>
-            <p>Explore phonetic feature space through cost-based random walks</p>
+            <div class="header-content">
+                <div>
+                    <h1>Syllable Walker</h1>
+                    <p>Explore phonetic feature space through cost-based random walks</p>
+                </div>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                    <span class="theme-icon">☀️</span>
+                </button>
+            </div>
         </div>
 
         <div class="mode-selector">
@@ -265,6 +272,33 @@ HTML_TEMPLATE = """
         let walkCountB = 0;
         let serverLoadedDataset = null;  // Track which dataset is currently loaded on server
 
+        // Theme handling
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+            document.documentElement.setAttribute('data-theme', theme);
+            updateThemeIcon(theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcon(next);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.querySelector('.theme-icon');
+            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Initialize theme on load
+        initTheme();
+
         const profileDescriptions = {
             clerical: "Conservative, favors common syllables, minimal phonetic change",
             dialect: "Moderate exploration, neutral frequency bias",
@@ -495,15 +529,18 @@ HTML_TEMPLATE = """
                 }
             });
 
-            // Show/hide panels
+            // Show/hide panels and top stats bar
+            const statsBar = document.querySelector('.stats');
             if (mode === 'single') {
                 document.getElementById('single-panel').style.display = 'grid';
                 document.getElementById('split-panels').style.display = 'none';
                 document.getElementById('single-dataset-selector').style.display = 'flex';
+                statsBar.style.display = 'flex';
             } else {
                 document.getElementById('single-panel').style.display = 'none';
                 document.getElementById('split-panels').style.display = 'grid';
                 document.getElementById('single-dataset-selector').style.display = 'none';
+                statsBar.style.display = 'none';  // Hide top stats in split mode
 
                 // Populate split panel dataset selectors if not done yet
                 if (datasetPathA === null && availableDatasets.length > 0) {
@@ -774,6 +811,59 @@ HTML_TEMPLATE = """
 
 # CSS stylesheet for the web interface
 CSS_CONTENT = """/* ========================================
+   CSS VARIABLES FOR THEMING
+   ======================================== */
+:root[data-theme="light"] {
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f3f5;
+    --bg-accent: #e9ecef;
+
+    --text-primary: #212529;
+    --text-secondary: #495057;
+    --text-tertiary: #6c757d;
+
+    --border-primary: #dee2e6;
+    --border-secondary: #ced4da;
+
+    --accent-primary: #4a6fa5;
+    --accent-secondary: #6c8ebb;
+    --accent-hover: #3a5a8a;
+
+    --stat-value: #2c5282;
+    --stat-label: #6c757d;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+:root[data-theme="dark"] {
+    --bg-primary: #1a1d23;
+    --bg-secondary: #22262e;
+    --bg-tertiary: #2a2e38;
+    --bg-accent: #32363f;
+
+    --text-primary: #e8eaed;
+    --text-secondary: #b8bcc4;
+    --text-tertiary: #8e929b;
+
+    --border-primary: #3a3e47;
+    --border-secondary: #4a4e57;
+
+    --accent-primary: #6b8fbc;
+    --accent-secondary: #8aa8cc;
+    --accent-hover: #5a7fa8;
+
+    --stat-value: #8aa8cc;
+    --stat-label: #8e929b;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ========================================
    RESET
    ======================================== */
 * {
@@ -786,11 +876,12 @@ CSS_CONTENT = """/* ========================================
    BASE
    ======================================== */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f1218 0%, #151a23 100%);
-    color: #d6d9e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     min-height: 100vh;
     padding: 20px;
+    transition: background-color 0.2s, color 0.2s;
 }
 
 /* ========================================
@@ -799,43 +890,69 @@ body {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    background: #1b1f2a;
-    border-radius: 12px;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
-    border: 1px solid #262b38;
+    border: 1px solid var(--border-primary);
 }
 
 /* ========================================
    HEADER
    ======================================== */
 .header {
-    background: linear-gradient(135deg, #232a3a 0%, #1b2130 100%);
-    color: #eef0f4;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
     padding: 30px;
-    text-align: center;
-    border-bottom: 1px solid #2b3142;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
 }
 
 .header h1 {
-    font-size: 2.4em;
-    margin-bottom: 10px;
+    font-size: 2em;
+    margin-bottom: 8px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    color: var(--text-primary);
 }
 
 .header p {
-    font-size: 1.05em;
-    color: #b8bcc6;
+    font-size: 1em;
+    color: var(--text-secondary);
+}
+
+.theme-toggle {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 10px 15px;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+    background: var(--bg-accent);
+    border-color: var(--border-secondary);
+}
+
+.theme-icon {
+    display: inline-block;
 }
 
 /* ========================================
    MODE SELECTOR
    ======================================== */
 .mode-selector {
-    background: #1b1f2a;
+    background: var(--bg-secondary);
     padding: 15px 30px;
-    border-bottom: 1px solid #262b38;
+    border-bottom: 1px solid var(--border-primary);
     display: flex;
     gap: 10px;
     justify-content: center;
@@ -843,24 +960,24 @@ body {
 
 .mode-btn {
     padding: 10px 25px;
-    background: #0f1218;
-    border: 2px solid #2b3142;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
-    color: #cfd3dc;
+    color: var(--text-primary);
     font-size: 0.95em;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .mode-btn:hover {
-    border-color: #6a74ff;
-    background: #161a23;
+    border-color: var(--accent-primary);
+    background: var(--bg-accent);
 }
 
 .mode-btn.active {
-    background: linear-gradient(135deg, #4f5bd5 0%, #6a74ff 100%);
-    border-color: #6a74ff;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
     color: #ffffff;
 }
 
@@ -868,9 +985,9 @@ body {
    DATASET SELECTOR
    ======================================== */
 .dataset-selector {
-    background: #1b1f2a;
+    background: var(--bg-secondary);
     padding: 20px 30px;
-    border-bottom: 1px solid #262b38;
+    border-bottom: 1px solid var(--border-primary);
     display: flex;
     align-items: center;
     gap: 15px;
@@ -878,7 +995,7 @@ body {
 
 .dataset-label {
     font-weight: 600;
-    color: #cfd3dc;
+    color: var(--text-primary);
     font-size: 0.95em;
     min-width: 70px;
 }
@@ -886,36 +1003,36 @@ body {
 .dataset-selector select {
     flex: 1;
     padding: 10px 15px;
-    background: #0f1218;
-    border: 1px solid #2b3142;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
     font-size: 0.95em;
-    color: #e6e8ee;
+    color: var(--text-primary);
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
 }
 
 .dataset-selector select:hover {
-    border-color: #9aa4ff;
+    border-color: var(--accent-secondary);
 }
 
 .dataset-selector select:focus {
     outline: none;
-    border-color: #9aa4ff;
-    background: #121623;
+    border-color: var(--accent-primary);
+    background: var(--bg-accent);
 }
 
 .dataset-loading {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #9aa4ff;
+    color: var(--accent-primary);
     font-size: 0.9em;
 }
 
 .mini-spinner {
-    border: 2px solid #2b3142;
-    border-top: 2px solid #9aa4ff;
+    border: 2px solid var(--border-primary);
+    border-top: 2px solid var(--accent-primary);
     border-radius: 50%;
     width: 16px;
     height: 16px;
@@ -928,9 +1045,9 @@ body {
 .stats {
     display: flex;
     justify-content: space-around;
-    background: #161a23;
+    background: var(--bg-tertiary);
     padding: 20px;
-    border-bottom: 1px solid #262b38;
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .stat {
@@ -940,11 +1057,11 @@ body {
 .stat-value {
     font-size: 2em;
     font-weight: 600;
-    color: #9aa4ff;
+    color: var(--stat-value);
 }
 
 .stat-label {
-    color: #8c92a3;
+    color: var(--stat-label);
     font-size: 0.85em;
     margin-top: 5px;
     letter-spacing: 0.04em;
@@ -956,6 +1073,7 @@ body {
    ======================================== */
 .content {
     padding: 30px;
+    background: var(--bg-secondary);
 }
 
 .panel-container {
@@ -974,9 +1092,9 @@ body {
 }
 
 .panel {
-    background: #161a23;
+    background: var(--bg-tertiary);
     border-radius: 8px;
-    border: 2px solid #2b3142;
+    border: 1px solid var(--border-secondary);
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -984,11 +1102,11 @@ body {
 }
 
 .panel-a {
-    border-color: #6a74ff;
+    border-left: 3px solid var(--accent-primary);
 }
 
 .panel-b {
-    border-color: #ff6a88;
+    border-left: 3px solid #6c8ebb;
 }
 
 .panel-header {
@@ -996,43 +1114,45 @@ body {
     flex-direction: column;
     gap: 10px;
     padding-bottom: 15px;
-    border-bottom: 1px solid #262b38;
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .panel-header h3 {
-    color: #eef0f4;
+    color: var(--text-primary);
     font-size: 1.2em;
     margin: 0;
+    font-weight: 600;
 }
 
 .panel-dataset-selector select {
     width: 100%;
     padding: 8px 12px;
-    background: #0f1218;
-    border: 1px solid #2b3142;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
     font-size: 0.9em;
-    color: #e6e8ee;
+    color: var(--text-primary);
     cursor: pointer;
     transition: border-color 0.2s;
 }
 
 .panel-dataset-selector select:hover {
-    border-color: #9aa4ff;
+    border-color: var(--accent-secondary);
 }
 
 .panel-dataset-selector select:focus {
     outline: none;
-    border-color: #9aa4ff;
+    border-color: var(--accent-primary);
 }
 
 .panel-stats {
     display: flex;
     justify-content: space-around;
-    background: #1b1f2a;
+    background: var(--bg-secondary);
     padding: 15px;
     border-radius: 6px;
     gap: 10px;
+    border: 1px solid var(--border-primary);
 }
 
 .panel-stat {
@@ -1042,11 +1162,11 @@ body {
 .panel-stat-value {
     font-size: 1.5em;
     font-weight: 600;
-    color: #9aa4ff;
+    color: var(--stat-value);
 }
 
 .panel-stat-label {
-    color: #8c92a3;
+    color: var(--stat-label);
     font-size: 0.75em;
     margin-top: 5px;
     text-transform: uppercase;
@@ -1065,29 +1185,31 @@ body {
 }
 
 .panel-results .walk-display {
-    background: #1b1f2a;
+    background: var(--bg-secondary);
     padding: 20px;
     border-radius: 6px;
     margin-bottom: 15px;
+    border: 1px solid var(--border-primary);
 }
 
 .panel-results .walk-path {
     font-size: 1.1em;
-    font-weight: 600;
-    color: #eef0f4;
+    font-weight: 500;
+    color: var(--text-primary);
     line-height: 1.6;
     word-wrap: break-word;
 }
 
 .panel-results .syllable-card {
-    background: #1b1f2a;
+    background: var(--bg-secondary);
     padding: 12px;
     margin: 8px 0;
     border-radius: 6px;
-    border-left: 3px solid #6a74ff;
+    border-left: 3px solid var(--accent-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border: 1px solid var(--border-primary);
 }
 
 .btn-panel {
@@ -1099,10 +1221,10 @@ body {
    CONTROLS PANEL
    ======================================== */
 .controls {
-    background: #161a23;
+    background: var(--bg-tertiary);
     padding: 25px;
     border-radius: 8px;
-    border: 1px solid #262b38;
+    border: 1px solid var(--border-primary);
     height: fit-content;
 }
 
@@ -1114,7 +1236,7 @@ body {
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #cfd3dc;
+    color: var(--text-primary);
     font-size: 0.9em;
 }
 
@@ -1122,36 +1244,40 @@ body {
 .control-group select {
     width: 100%;
     padding: 10px;
-    background: #0f1218;
-    border: 1px solid #2b3142;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
     font-size: 1em;
-    color: #e6e8ee;
+    color: var(--text-primary);
     transition: border-color 0.2s, background 0.2s;
+}
+
+.control-group input::placeholder {
+    color: var(--text-tertiary);
 }
 
 .control-group input:focus,
 .control-group select:focus {
     outline: none;
-    border-color: #9aa4ff;
-    background: #121623;
+    border-color: var(--accent-primary);
+    background: var(--bg-accent);
 }
 
 .control-group .help-text {
     font-size: 0.8em;
-    color: #8c92a3;
+    color: var(--text-tertiary);
     margin-top: 6px;
     line-height: 1.4;
 }
 
 .profile-info {
-    background: #1f2534;
+    background: var(--bg-accent);
     padding: 15px;
     border-radius: 6px;
     margin-top: 10px;
     font-size: 0.85em;
-    color: #cfd3dc;
-    border-left: 3px solid #9aa4ff;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--accent-primary);
 }
 
 /* ========================================
@@ -1160,29 +1286,28 @@ body {
 .btn {
     width: 100%;
     padding: 15px;
-    background: linear-gradient(135deg, #4f5bd5 0%, #6a74ff 100%);
+    background: var(--accent-primary);
     color: #ffffff;
     border: none;
     border-radius: 6px;
     font-size: 1.05em;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 
 .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(106, 116, 255, 0.35);
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-md);
 }
 
 .btn:active {
-    transform: translateY(0);
-    box-shadow: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .btn:disabled {
-    background: #3a3f52;
-    color: #8c92a3;
+    background: var(--bg-accent);
+    color: var(--text-tertiary);
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -1198,17 +1323,17 @@ body {
    WALK DISPLAY
    ======================================== */
 .walk-display {
-    background: #161a23;
+    background: var(--bg-tertiary);
     padding: 25px;
     border-radius: 8px;
     margin-bottom: 20px;
-    border: 1px solid #262b38;
+    border: 1px solid var(--border-primary);
 }
 
 .walk-path {
-    font-size: 1.4em;
-    font-weight: 600;
-    color: #eef0f4;
+    font-size: 1.3em;
+    font-weight: 500;
+    color: var(--text-primary);
     line-height: 1.8;
     word-wrap: break-word;
 }
@@ -1221,35 +1346,35 @@ body {
 }
 
 .syllable-card {
-    background: #1b1f2a;
+    background: var(--bg-tertiary);
     padding: 15px;
     margin: 10px 0;
     border-radius: 6px;
-    border-left: 3px solid #6a74ff;
+    border-left: 3px solid var(--accent-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: transform 0.15s, background 0.15s;
+    transition: background-color 0.2s;
+    border: 1px solid var(--border-primary);
 }
 
 .syllable-card:hover {
-    transform: translateX(4px);
-    background: #20263a;
+    background: var(--bg-accent);
 }
 
 .syllable-text {
-    font-size: 1.25em;
-    font-weight: 600;
-    color: #eef0f4;
+    font-size: 1.15em;
+    font-weight: 500;
+    color: var(--text-primary);
 }
 
 .syllable-freq {
-    background: #6a74ff;
+    background: var(--accent-primary);
     color: #ffffff;
     padding: 5px 14px;
-    border-radius: 20px;
+    border-radius: 4px;
     font-size: 0.85em;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 /* ========================================
@@ -1258,12 +1383,12 @@ body {
 .loading {
     text-align: center;
     padding: 40px;
-    color: #8c92a3;
+    color: var(--text-tertiary);
 }
 
 .spinner {
-    border: 4px solid #2b3142;
-    border-top: 4px solid #6a74ff;
+    border: 4px solid var(--border-primary);
+    border-top: 4px solid var(--accent-primary);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -1280,12 +1405,17 @@ body {
    ERROR STATE
    ======================================== */
 .error {
-    background: #2a1b1d;
-    color: #f2b8bd;
+    background: #f8d7da;
+    color: #721c24;
     padding: 15px;
     border-radius: 6px;
     margin: 20px 0;
     border-left: 3px solid #d9534f;
+}
+
+:root[data-theme="dark"] .error {
+    background: #2a1b1d;
+    color: #f2b8bd;
 }
 
 /* ========================================
@@ -1304,6 +1434,11 @@ body {
 @media (max-width: 768px) {
     .panel-container {
         grid-template-columns: 1fr;
+    }
+
+    .header-content {
+        flex-direction: column;
+        text-align: center;
     }
 
     .stats {
