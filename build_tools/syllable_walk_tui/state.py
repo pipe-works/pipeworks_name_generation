@@ -23,6 +23,16 @@ class PatchState:
         rng: Isolated Random instance for this patch
         corpus_dir: Path to corpus directory (None if not selected)
         corpus_type: Detected corpus type ("NLTK" or "Pyphen", None if not selected)
+
+        # Quick metadata (loaded immediately, ~50KB)
+        syllables: List of unique syllables loaded from corpus (None if not loaded)
+        frequencies: Dictionary mapping syllable to frequency count (None if not loaded)
+
+        # Full phonetic feature data (loaded in background, ~15MB)
+        annotated_data: List of syllable dicts with phonetic features (None if not loaded)
+        is_loading_annotated: Flag indicating background loading in progress
+        loading_error: Error message if annotated data failed to load (None if no error)
+
         min_length: Minimum syllable length
         max_length: Maximum syllable length
         walk_length: Number of steps in random walk
@@ -35,6 +45,16 @@ class PatchState:
     seed: int = field(default_factory=lambda: random.SystemRandom().randint(0, 2**32 - 1))
     corpus_dir: Path | None = None
     corpus_type: str | None = None
+
+    # Quick metadata (loaded synchronously)
+    syllables: list[str] | None = None
+    frequencies: dict[str, int] | None = None
+
+    # Full annotated data (loaded asynchronously in background)
+    annotated_data: list[dict] | None = None
+    is_loading_annotated: bool = False
+    loading_error: str | None = None
+
     min_length: int = 2
     max_length: int = 5
     walk_length: int = 5
@@ -59,6 +79,29 @@ class PatchState:
         self.seed = random.SystemRandom().randint(0, 2**32 - 1)
         self.rng = random.Random(self.seed)  # nosec B311 - Not for cryptographic use
         return self.seed
+
+    def is_ready_for_generation(self) -> bool:
+        """
+        Check if patch has all required data loaded for name generation.
+
+        A patch is ready when:
+        1. Corpus directory is selected
+        2. Quick metadata (syllables, frequencies) is loaded
+        3. Annotated data with phonetic features is loaded
+        4. Not currently loading
+        5. No loading errors
+
+        Returns:
+            True if patch can generate names, False otherwise
+        """
+        return (
+            self.corpus_dir is not None
+            and self.syllables is not None
+            and self.frequencies is not None
+            and self.annotated_data is not None
+            and not self.is_loading_annotated
+            and self.loading_error is None
+        )
 
 
 @dataclass

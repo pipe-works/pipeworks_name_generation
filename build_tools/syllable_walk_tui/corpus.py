@@ -1,10 +1,11 @@
 """
 Corpus directory validation and utilities for Syllable Walker TUI.
 
-This module provides functions for validating corpus directories
-without loading the actual corpus data.
+This module provides functions for validating and loading corpus data
+from normalized syllable extraction output directories.
 """
 
+import json
 from pathlib import Path
 
 
@@ -98,3 +99,214 @@ def get_corpus_info(path: Path) -> str:
     dir_name = path.name
 
     return f"{corpus_type} ({dir_name})"
+
+
+def load_corpus_data(path: Path) -> tuple[list[str], dict[str, int]]:
+    """
+    Load syllables and frequencies from a validated corpus directory.
+
+    Args:
+        path: Path to validated corpus directory
+
+    Returns:
+        Tuple of (syllables_list, frequencies_dict)
+        - syllables_list: List of unique syllables (one per line from .txt file)
+        - frequencies_dict: Dictionary mapping syllable to frequency count
+
+    Raises:
+        ValueError: If directory is invalid or files cannot be loaded
+        FileNotFoundError: If expected corpus files are missing
+        json.JSONDecodeError: If frequencies JSON is malformed
+
+    Examples:
+        >>> syllables, freqs = load_corpus_data(Path("/path/to/20260110_115601_nltk"))
+        >>> len(syllables)
+        15234
+        >>> freqs["hello"]
+        42
+
+    Note:
+        This function assumes the directory has already been validated with
+        validate_corpus_directory(). It will attempt to load from either
+        NLTK or Pyphen corpus files based on what exists.
+    """
+    # Validate directory first
+    is_valid, corpus_type, error = validate_corpus_directory(path)
+    if not is_valid:
+        raise ValueError(f"Invalid corpus directory: {error}")
+
+    # Determine which corpus files to load
+    if corpus_type == "NLTK":
+        syllables_file = path / "nltk_syllables_unique.txt"
+        frequencies_file = path / "nltk_syllables_frequencies.json"
+    elif corpus_type == "Pyphen":
+        syllables_file = path / "pyphen_syllables_unique.txt"
+        frequencies_file = path / "pyphen_syllables_frequencies.json"
+    else:
+        raise ValueError(f"Unknown corpus type: {corpus_type}")
+
+    # Load syllables (one per line)
+    try:
+        with open(syllables_file, encoding="utf-8") as f:
+            syllables = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Syllables file not found: {syllables_file}")
+    except Exception as e:
+        raise ValueError(f"Error reading syllables file: {e}") from e
+
+    # Load frequencies (JSON dict)
+    try:
+        with open(frequencies_file, encoding="utf-8") as f:
+            frequencies = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Frequencies file not found: {frequencies_file}")
+    except json.JSONDecodeError as e:
+        raise json.JSONDecodeError(
+            f"Invalid JSON in frequencies file: {e.msg}", e.doc, e.pos
+        ) from e
+    except Exception as e:
+        raise ValueError(f"Error reading frequencies file: {e}") from e
+
+    # Validate data integrity
+    if not syllables:
+        raise ValueError("Syllables file is empty")
+
+    if not frequencies:
+        raise ValueError("Frequencies file is empty")
+
+    # Sanity check: all syllables should have frequency data
+    missing_freqs = [s for s in syllables if s not in frequencies]
+    if missing_freqs:
+        # This is a warning, not a fatal error - some syllables might be legitimately rare
+        print(
+            f"Warning: {len(missing_freqs)} syllables missing frequency data "
+            f"(out of {len(syllables)} total)"
+        )
+
+    return syllables, frequencies
+
+
+def load_annotated_data(path: Path) -> list[dict]:
+    """
+    Load phonetic feature annotations from a validated corpus directory.
+
+    This function loads the large annotated.json file containing detailed
+    phonetic features for each syllable. These files are typically 10-15MB
+    and contain 400,000+ lines of JSON with feature flags for phonetic analysis.
+
+    File format (JSON array of objects):
+    [
+      {
+        "syllable": "aa",
+        "frequency": 1022,
+        "features": {
+          "starts_with_vowel": true,
+          "starts_with_cluster": false,
+          "starts_with_heavy_cluster": false,
+          "contains_plosive": false,
+          "contains_fricative": false,
+          "contains_liquid": false,
+          "contains_nasal": false,
+          "short_vowel": false,
+          "long_vowel": true,
+          "ends_with_vowel": true,
+          "ends_with_nasal": false,
+          "ends_with_stop": false
+        }
+      },
+      ...
+    ]
+
+    Args:
+        path: Path to validated corpus directory
+
+    Returns:
+        List of dictionaries, each containing:
+        - syllable: The syllable string
+        - frequency: Occurrence count in source corpus
+        - features: Dict of boolean phonetic feature flags
+
+    Raises:
+        ValueError: If directory is invalid or file cannot be loaded
+        FileNotFoundError: If annotated data file is missing
+        json.JSONDecodeError: If JSON is malformed
+
+    Performance Notes:
+        - Files are typically 10-15MB (400,000-600,000 lines)
+        - Loading takes 1-2 seconds on typical hardware
+        - Should be called from background async worker to avoid UI freeze
+
+    Examples:
+        >>> data = load_annotated_data(Path("/path/to/20260110_115601_nltk"))
+        >>> len(data)
+        33640
+        >>> data[0]["syllable"]
+        "aa"
+        >>> data[0]["features"]["starts_with_vowel"]
+        True
+    """
+    # Validate directory first to determine corpus type
+    is_valid, corpus_type, error = validate_corpus_directory(path)
+    if not is_valid:
+        raise ValueError(f"Invalid corpus directory: {error}")
+
+    # Determine which annotated file to load based on corpus type
+    # These files live in the data/ subdirectory
+    if corpus_type == "NLTK":
+        annotated_file = path / "data" / "nltk_syllables_annotated.json"
+    elif corpus_type == "Pyphen":
+        annotated_file = path / "data" / "pyphen_syllables_annotated.json"
+    else:
+        raise ValueError(f"Unknown corpus type: {corpus_type}")
+
+    # Check that the annotated data file exists
+    # (not all corpus directories may have been annotated yet)
+    if not annotated_file.exists():
+        raise FileNotFoundError(
+            f"Annotated data file not found: {annotated_file}\n"
+            f"This corpus directory may not have been processed with "
+            f"syllable_feature_annotator yet."
+        )
+
+    # Load the JSON file
+    # Note: This is a potentially slow operation (1-2 seconds for 15MB files)
+    # The caller should run this in a background worker to avoid blocking the UI
+    try:
+        with open(annotated_file, encoding="utf-8") as f:
+            annotated_data = json.load(f)
+    except FileNotFoundError:
+        # Already checked above, but handle race condition
+        raise FileNotFoundError(f"Annotated data file not found: {annotated_file}")
+    except json.JSONDecodeError as e:
+        raise json.JSONDecodeError(
+            f"Invalid JSON in annotated data file: {e.msg}", e.doc, e.pos
+        ) from e
+    except Exception as e:
+        raise ValueError(f"Error reading annotated data file: {e}") from e
+
+    # Validate that we got a non-empty list
+    if not isinstance(annotated_data, list):
+        raise ValueError(
+            f"Annotated data should be a JSON array, got {type(annotated_data).__name__}"
+        )
+
+    if not annotated_data:
+        raise ValueError("Annotated data file is empty")
+
+    # Sanity check: verify first entry has expected structure
+    # (don't check all entries for performance - that would be expensive)
+    first_entry = annotated_data[0]
+    if not isinstance(first_entry, dict):
+        raise ValueError(
+            f"Annotated data entries should be objects, got {type(first_entry).__name__}"
+        )
+
+    required_keys = {"syllable", "frequency", "features"}
+    missing_keys = required_keys - set(first_entry.keys())
+    if missing_keys:
+        raise ValueError(
+            f"Annotated data entries missing required keys: {missing_keys}\n"
+            f"Found keys: {set(first_entry.keys())}"
+        )
+
+    return annotated_data

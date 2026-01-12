@@ -10,10 +10,16 @@ from pathlib import Path
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
+from textual.events import ScreenResume
 from textual.widgets import Button, Footer, Header, Label, Static, TabbedContent, TabPane
 
 from build_tools.syllable_walk_tui.config import load_keybindings
-from build_tools.syllable_walk_tui.corpus import get_corpus_info, validate_corpus_directory
+from build_tools.syllable_walk_tui.corpus import (
+    get_corpus_info,
+    load_annotated_data,
+    load_corpus_data,
+    validate_corpus_directory,
+)
 from build_tools.syllable_walk_tui.state import AppState
 from build_tools.syllable_walk_tui.widgets import CorpusBrowserScreen
 
@@ -242,6 +248,22 @@ class SyllableWalkerApp(App):
 
         yield Footer()
 
+    def on_screen_resume(self, event: ScreenResume) -> None:
+        """
+        Handle screen resume event (after modal closes or app regains focus).
+
+        This ensures keybindings work properly after:
+        1. Corpus selection modal closes
+        2. Switching back to terminal from another app
+
+        Args:
+            event: The ScreenResume event
+        """
+        # Set focus to self to ensure app-level keybindings work
+        # This prevents the issue where tab switching doesn't work after
+        # corpus selection or when returning to the terminal
+        self.screen.focus()
+
     def action_switch_tab(self, tab_id: str) -> None:
         """
         Switch to a specific tab.
@@ -330,31 +352,72 @@ class SyllableWalkerApp(App):
                     patch.corpus_dir = result
                     patch.corpus_type = corpus_type
 
-                    # Remember this location for next time
-                    self.state.last_browse_dir = result.parent
-
-                    # Update UI
+                    # === PHASE 1: Load quick metadata (FAST - synchronous) ===
+                    # Load syllables list and frequencies (~50KB, <100ms)
+                    # This is fast enough to do immediately without blocking
                     try:
-                        status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                        corpus_info = get_corpus_info(result)
-                        status_label.update(corpus_info)
-                        status_label.remove_class("corpus-status")
-                        status_label.add_class("corpus-status-valid")
-                    except Exception as e:
-                        # Log UI update errors but don't fail
-                        print(f"Warning: Could not update status label: {e}")
+                        syllables, frequencies = load_corpus_data(result)
+                        patch.syllables = syllables
+                        patch.frequencies = frequencies
 
-                    self.notify(f"Patch {patch_name}: Selected {corpus_type} corpus", timeout=3)
+                        # Remember this location for next time
+                        self.state.last_browse_dir = result.parent
+
+                        # Update UI to show quick metadata loaded
+                        try:
+                            status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
+                            corpus_info = get_corpus_info(result)
+
+                            # Build detailed file list showing what was loaded
+                            corpus_prefix = corpus_type.lower() if corpus_type else "nltk"
+                            files_loaded = (
+                                f"{corpus_info}\n"
+                                f"─────────────────\n"
+                                f"✓ {corpus_prefix}_syllables_unique.txt\n"
+                                f"✓ {corpus_prefix}_syllables_frequencies.json\n"
+                                f"⏳ {corpus_prefix}_syllables_annotated.json"
+                            )
+                            status_label.update(files_loaded)
+                            status_label.remove_class("corpus-status")
+                            status_label.add_class("corpus-status-valid")
+                        except Exception as e:
+                            # Log UI update errors but don't fail
+                            print(f"Warning: Could not update status label: {e}")
+
+                        # Notify user that quick metadata loaded successfully
+                        self.notify(
+                            f"Patch {patch_name}: Loaded {len(syllables):,} syllables "
+                            f"from {corpus_type} corpus",
+                            timeout=2,
+                        )
+
+                        # === PHASE 2: Kick off background loading (SLOW - async) ===
+                        # Load annotated data with phonetic features (~15MB, 1-2 seconds)
+                        # This runs in background to avoid freezing the UI
+                        # The _load_annotated_data_background method will:
+                        # - Set is_loading_annotated = True
+                        # - Load data in background thread
+                        # - Update UI when complete
+                        # - Handle errors gracefully
+                        self._load_annotated_data_background(patch_name)
+
+                    except Exception as e:
+                        # Failed to load quick metadata - this is a critical error
+                        # Don't proceed to annotated data loading
+                        self.notify(f"Error loading corpus data: {e}", severity="error", timeout=5)
+                        # Reset patch state since loading failed
+                        patch.corpus_dir = None
+                        patch.corpus_type = None
+                        patch.syllables = None
+                        patch.frequencies = None
+                        patch.annotated_data = None
+                        patch.is_loading_annotated = False
+                        patch.loading_error = str(e)
+
                 else:
                     self.notify(f"Invalid corpus: {error}", severity="error", timeout=5)
 
-            # Ensure focus returns to main screen after modal closes
-            # This prevents keybinding issues after corpus selection
-            try:
-                tabs = self.query_one(TabbedContent)
-                tabs.focus()
-            except Exception:  # nosec B110
-                pass  # Silently fail if we can't set focus
+            # Note: Focus is automatically restored via on_screen_resume() when modal closes
 
         except Exception as e:
             # Catch any errors to prevent silent failures
@@ -362,6 +425,199 @@ class SyllableWalkerApp(App):
             import traceback
 
             traceback.print_exc()
+
+    @work
+    async def _load_annotated_data_background(self, patch_name: str) -> None:
+        """
+        Load annotated phonetic data in background worker (non-blocking).
+
+        This method runs in a background thread to load the large annotated.json
+        file (typically 10-15MB, 400k-600k lines) without freezing the UI.
+
+        The loading process:
+        1. Set patch loading state (is_loading_annotated = True)
+        2. Update UI to show "Loading..." status
+        3. Load annotated data file (1-2 seconds)
+        4. Update patch state with loaded data
+        5. Update UI to show "Ready" status
+        6. Handle any errors and update UI accordingly
+
+        Args:
+            patch_name: "A" or "B" to identify which patch to load for
+
+        Note:
+            This method uses the @work decorator which automatically runs
+            the code in a background worker thread, preventing UI freezing.
+            UI updates are scheduled back to the main thread.
+        """
+        # Get the patch we're loading for
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        # Safety check: ensure corpus directory is set
+        if not patch.corpus_dir:
+            self.notify(
+                f"Patch {patch_name}: Cannot load annotated data - no corpus selected",
+                severity="error",
+                timeout=5,
+            )
+            return
+
+        try:
+            # === STEP 1: Set loading state ===
+            # Mark patch as loading (disables Generate button in UI)
+            patch.is_loading_annotated = True
+            patch.loading_error = None
+
+            # === STEP 2: Update UI to show loading state ===
+            # This tells the user that background loading is happening
+            try:
+                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
+                corpus_info = get_corpus_info(patch.corpus_dir)
+
+                # Show loading progress with file list
+                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+                files_loading = (
+                    f"{corpus_info}\n"
+                    f"─────────────────\n"
+                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
+                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
+                    f"⏳ {corpus_prefix}_syllables_annotated.json (loading...)"
+                )
+                status_label.update(files_loading)
+                status_label.remove_class("corpus-status")
+                status_label.add_class("corpus-status-valid")
+            except Exception as e:
+                # Log UI update errors but don't fail the loading
+                print(f"Warning: Could not update status label (loading): {e}")
+
+            # Notify user that background loading started
+            self.notify(
+                f"Patch {patch_name}: Loading phonetic features...",
+                timeout=2,
+                severity="information",
+            )
+
+            # === STEP 3: Load annotated data (SLOW - 1-2 seconds) ===
+            # This is the expensive operation that happens in the background
+            # The @work decorator ensures this doesn't block the UI
+            annotated_data = load_annotated_data(patch.corpus_dir)
+
+            # === STEP 4: Update patch state with loaded data ===
+            patch.annotated_data = annotated_data
+            patch.is_loading_annotated = False
+
+            # === STEP 5: Update UI to show ready state ===
+            try:
+                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
+                corpus_info = get_corpus_info(patch.corpus_dir)
+                syllable_count = len(annotated_data)
+
+                # Show all files successfully loaded
+                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+                files_ready = (
+                    f"{corpus_info}\n"
+                    f"─────────────────\n"
+                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
+                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
+                    f"✓ {corpus_prefix}_syllables_annotated.json\n"
+                    f"─────────────────\n"
+                    f"Ready: {syllable_count:,} syllables"
+                )
+                status_label.update(files_ready)
+                status_label.remove_class("corpus-status")
+                status_label.add_class("corpus-status-valid")
+            except Exception as e:
+                # Log UI update errors but don't fail the loading
+                print(f"Warning: Could not update status label (complete): {e}")
+
+            # Notify user that loading completed successfully
+            self.notify(
+                f"Patch {patch_name}: Ready ({len(annotated_data):,} syllables with features)",
+                timeout=3,
+                severity="information",
+            )
+
+            # === STEP 6: Restore focus after background loading completes ===
+            # This is critical to ensure keybindings work after loading
+            # Without this, tab switching (P/B/A keys) may not work
+            try:
+                self.screen.focus()
+            except Exception as e:
+                # Log but don't fail if focus restoration has issues
+                print(f"Warning: Could not restore focus after loading: {e}")
+
+        except FileNotFoundError as e:
+            # === ERROR HANDLING: Annotated file doesn't exist ===
+            # This might happen if the corpus hasn't been processed with
+            # syllable_feature_annotator yet
+            patch.is_loading_annotated = False
+            patch.loading_error = "Annotated data file not found"
+
+            # Update UI to show error with file list
+            try:
+                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
+                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+                files_error = (
+                    f"{get_corpus_info(patch.corpus_dir)}\n"
+                    f"─────────────────\n"
+                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
+                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
+                    f"✗ {corpus_prefix}_syllables_annotated.json\n"
+                    f"─────────────────\n"
+                    f"Run syllable_feature_annotator"
+                )
+                status_label.update(files_error)
+                status_label.remove_class("corpus-status-valid")
+                status_label.add_class("corpus-status")
+            except Exception:  # nosec B110
+                pass  # Ignore UI update errors
+
+            self.notify(f"Patch {patch_name}: {str(e)}", severity="error", timeout=5)
+
+            # Restore focus after error
+            try:
+                self.screen.focus()
+            except Exception:  # nosec B110
+                pass  # Silent fail OK - focus restoration is not critical
+
+        except Exception as e:
+            # === ERROR HANDLING: Other errors ===
+            patch.is_loading_annotated = False
+            patch.loading_error = str(e)
+
+            # Update UI to show error with file list
+            try:
+                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
+                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+                files_error = (
+                    f"{get_corpus_info(patch.corpus_dir)}\n"
+                    f"─────────────────\n"
+                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
+                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
+                    f"✗ {corpus_prefix}_syllables_annotated.json\n"
+                    f"─────────────────\n"
+                    f"Error: {str(e)[:30]}..."
+                )
+                status_label.update(files_error)
+                status_label.remove_class("corpus-status-valid")
+                status_label.add_class("corpus-status")
+            except Exception:  # nosec B110
+                pass  # Ignore UI update errors
+
+            self.notify(
+                f"Patch {patch_name}: Error loading annotated data: {e}",
+                severity="error",
+                timeout=5,
+            )
+            import traceback
+
+            traceback.print_exc()
+
+            # Restore focus after error
+            try:
+                self.screen.focus()
+            except Exception:  # nosec B110
+                pass  # Silent fail OK - focus restoration is not critical
 
     def action_help(self) -> None:
         """Show help information."""

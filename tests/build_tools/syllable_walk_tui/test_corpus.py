@@ -6,7 +6,14 @@ Tests validation logic for NLTK and Pyphen corpus directories without loading da
 
 import json
 
-from build_tools.syllable_walk_tui.corpus import get_corpus_info, validate_corpus_directory
+import pytest
+
+from build_tools.syllable_walk_tui.corpus import (
+    get_corpus_info,
+    load_annotated_data,
+    load_corpus_data,
+    validate_corpus_directory,
+)
 
 
 class TestValidateCorpusDirectory:
@@ -75,6 +82,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_missing_frequencies_file_nltk(self, tmp_path):
@@ -89,6 +97,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_missing_unique_file_pyphen(self, tmp_path):
@@ -103,6 +112,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_missing_frequencies_file_pyphen(self, tmp_path):
@@ -117,6 +127,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_nonexistent_directory(self, tmp_path):
@@ -127,6 +138,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "does not exist" in error.lower()
 
     def test_file_instead_of_directory(self, tmp_path):
@@ -138,6 +150,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "not a directory" in error.lower()
 
     def test_empty_directory(self, tmp_path):
@@ -149,6 +162,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_directory_with_wrong_files(self, tmp_path):
@@ -164,6 +178,7 @@ class TestValidateCorpusDirectory:
 
         assert is_valid is False
         assert corpus_type is None
+        assert error is not None
         assert "No corpus files found" in error
 
     def test_invalid_json_in_frequencies(self, tmp_path):
@@ -252,3 +267,392 @@ class TestGetCorpusInfo:
 
         assert "Invalid" in info
         assert "No corpus files found" in info
+
+
+class TestLoadCorpusData:
+    """Tests for corpus data loading."""
+
+    def test_load_nltk_corpus_data(self, tmp_path):
+        """Test loading NLTK corpus data successfully."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Create test corpus files
+        syllables_content = "hel\nlo\nworld\ntest\n"
+        frequencies_content = json.dumps({"hel": 10, "lo": 20, "world": 5, "test": 3})
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text(syllables_content)
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(frequencies_content)
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        assert len(syllables) == 4
+        assert syllables == ["hel", "lo", "world", "test"]
+        assert len(frequencies) == 4
+        assert frequencies["hel"] == 10
+        assert frequencies["lo"] == 20
+        assert frequencies["world"] == 5
+        assert frequencies["test"] == 3
+
+    def test_load_pyphen_corpus_data(self, tmp_path):
+        """Test loading Pyphen corpus data successfully."""
+        corpus_dir = tmp_path / "pyphen_corpus"
+        corpus_dir.mkdir()
+
+        # Create test corpus files
+        syllables_content = "py\nphen\nsyl\nla\nble\n"
+        frequencies_content = json.dumps({"py": 100, "phen": 50, "syl": 30, "la": 40, "ble": 60})
+
+        (corpus_dir / "pyphen_syllables_unique.txt").write_text(syllables_content)
+        (corpus_dir / "pyphen_syllables_frequencies.json").write_text(frequencies_content)
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        assert len(syllables) == 5
+        assert syllables == ["py", "phen", "syl", "la", "ble"]
+        assert len(frequencies) == 5
+        assert frequencies["py"] == 100
+        assert frequencies["ble"] == 60
+
+    def test_load_corpus_data_strips_whitespace(self, tmp_path):
+        """Test that syllable loading strips whitespace correctly."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Create test with various whitespace
+        syllables_content = "  hel  \n\nlo\n\n  world  \n\n"
+        frequencies_content = json.dumps({"hel": 1, "lo": 2, "world": 3})
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text(syllables_content)
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(frequencies_content)
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        # Should have 3 syllables (empty lines filtered)
+        assert len(syllables) == 3
+        assert syllables == ["hel", "lo", "world"]
+
+    def test_load_corpus_data_invalid_directory(self, tmp_path):
+        """Test loading from invalid directory raises ValueError."""
+        invalid_dir = tmp_path / "invalid"
+        invalid_dir.mkdir()
+
+        with pytest.raises(ValueError, match="Invalid corpus directory"):
+            load_corpus_data(invalid_dir)
+
+    def test_load_corpus_data_missing_syllables_file(self, tmp_path):
+        """Test loading with missing syllables file raises ValueError (caught by validation)."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Only create frequencies file
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+
+        # Validation will catch this before file loading
+        with pytest.raises(ValueError, match="Invalid corpus directory"):
+            load_corpus_data(corpus_dir)
+
+    def test_load_corpus_data_missing_frequencies_file(self, tmp_path):
+        """Test loading with missing frequencies file raises ValueError (caught by validation)."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Only create syllables file
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+
+        # Validation will catch this before file loading
+        with pytest.raises(ValueError, match="Invalid corpus directory"):
+            load_corpus_data(corpus_dir)
+
+    def test_load_corpus_data_invalid_json(self, tmp_path):
+        """Test loading with invalid JSON raises JSONDecodeError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text("not valid json {{{")
+
+        with pytest.raises(json.JSONDecodeError):
+            load_corpus_data(corpus_dir)
+
+    def test_load_corpus_data_empty_syllables_file(self, tmp_path):
+        """Test loading with empty syllables file raises ValueError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+
+        with pytest.raises(ValueError, match="Syllables file is empty"):
+            load_corpus_data(corpus_dir)
+
+    def test_load_corpus_data_empty_frequencies_file(self, tmp_path):
+        """Test loading with empty frequencies file raises ValueError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text("{}")
+
+        with pytest.raises(ValueError, match="Frequencies file is empty"):
+            load_corpus_data(corpus_dir)
+
+    def test_load_corpus_data_missing_frequency_entries(self, tmp_path, capsys):
+        """Test loading with missing frequency entries shows warning."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Create syllables with some missing frequency data
+        syllables_content = "hel\nlo\nworld\nmissing\n"
+        frequencies_content = json.dumps({"hel": 10, "lo": 20, "world": 5})
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text(syllables_content)
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(frequencies_content)
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        # Should still load successfully
+        assert len(syllables) == 4
+        assert len(frequencies) == 3
+
+        # Check warning was printed
+        captured = capsys.readouterr()
+        assert "Warning" in captured.out
+        assert "missing frequency data" in captured.out
+
+    def test_load_corpus_data_prefers_nltk_when_both_exist(self, tmp_path):
+        """Test that NLTK corpus is loaded when both types exist."""
+        corpus_dir = tmp_path / "mixed_corpus"
+        corpus_dir.mkdir()
+
+        # Create both NLTK and Pyphen files
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("nltk\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"nltk": 100}))
+        (corpus_dir / "pyphen_syllables_unique.txt").write_text("pyphen\n")
+        (corpus_dir / "pyphen_syllables_frequencies.json").write_text(json.dumps({"pyphen": 50}))
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        # Should load NLTK (preferred)
+        assert syllables == ["nltk"]
+        assert frequencies == {"nltk": 100}
+
+    def test_load_corpus_data_utf8_encoding(self, tmp_path):
+        """Test loading corpus data with UTF-8 characters."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+
+        # Create test with UTF-8 characters
+        syllables_content = "café\nnaïve\nrésumé\n"
+        frequencies_content = json.dumps({"café": 5, "naïve": 3, "résumé": 2})
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text(syllables_content, encoding="utf-8")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(
+            frequencies_content, encoding="utf-8"
+        )
+
+        syllables, frequencies = load_corpus_data(corpus_dir)
+
+        assert len(syllables) == 3
+        assert "café" in syllables
+        assert "naïve" in syllables
+        assert "résumé" in syllables
+        assert frequencies["café"] == 5
+
+
+class TestLoadAnnotatedData:
+    """Tests for annotated data loading."""
+
+    def test_load_nltk_annotated_data(self, tmp_path):
+        """Test loading NLTK annotated data successfully."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        # Create corpus files
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("hel\nlo\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(
+            json.dumps({"hel": 10, "lo": 20})
+        )
+
+        # Create annotated data file
+        annotated = [
+            {
+                "syllable": "hel",
+                "frequency": 10,
+                "features": {
+                    "starts_with_vowel": False,
+                    "ends_with_vowel": False,
+                    "contains_plosive": False,
+                },
+            },
+            {
+                "syllable": "lo",
+                "frequency": 20,
+                "features": {
+                    "starts_with_vowel": False,
+                    "ends_with_vowel": True,
+                    "contains_plosive": False,
+                },
+            },
+        ]
+        (data_dir / "nltk_syllables_annotated.json").write_text(json.dumps(annotated))
+
+        data = load_annotated_data(corpus_dir)
+
+        assert len(data) == 2
+        assert data[0]["syllable"] == "hel"
+        assert data[0]["frequency"] == 10
+        assert "features" in data[0]
+        assert isinstance(data[0]["features"], dict)
+
+    def test_load_pyphen_annotated_data(self, tmp_path):
+        """Test loading Pyphen annotated data successfully."""
+        corpus_dir = tmp_path / "pyphen_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        # Create corpus files
+        (corpus_dir / "pyphen_syllables_unique.txt").write_text("py\nphen\n")
+        (corpus_dir / "pyphen_syllables_frequencies.json").write_text(
+            json.dumps({"py": 100, "phen": 50})
+        )
+
+        # Create annotated data file
+        annotated = [
+            {
+                "syllable": "py",
+                "frequency": 100,
+                "features": {
+                    "starts_with_vowel": False,
+                    "ends_with_vowel": True,
+                },
+            },
+            {
+                "syllable": "phen",
+                "frequency": 50,
+                "features": {
+                    "starts_with_vowel": False,
+                    "ends_with_vowel": False,
+                },
+            },
+        ]
+        (data_dir / "pyphen_syllables_annotated.json").write_text(json.dumps(annotated))
+
+        data = load_annotated_data(corpus_dir)
+
+        assert len(data) == 2
+        assert data[0]["syllable"] == "py"
+        assert data[1]["syllable"] == "phen"
+
+    def test_load_annotated_data_invalid_directory(self, tmp_path):
+        """Test loading from invalid directory raises ValueError."""
+        invalid_dir = tmp_path / "invalid"
+        invalid_dir.mkdir()
+
+        with pytest.raises(ValueError, match="Invalid corpus directory"):
+            load_annotated_data(invalid_dir)
+
+    def test_load_annotated_data_missing_file(self, tmp_path):
+        """Test loading with missing annotated file raises FileNotFoundError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        # Create corpus files but no annotated file
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+
+        with pytest.raises(FileNotFoundError, match="Annotated data file not found"):
+            load_annotated_data(corpus_dir)
+
+    def test_load_annotated_data_invalid_json(self, tmp_path):
+        """Test loading with invalid JSON raises JSONDecodeError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+        (data_dir / "nltk_syllables_annotated.json").write_text("not valid json {{{")
+
+        with pytest.raises(json.JSONDecodeError):
+            load_annotated_data(corpus_dir)
+
+    def test_load_annotated_data_empty_list(self, tmp_path):
+        """Test loading with empty JSON list raises ValueError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+        (data_dir / "nltk_syllables_annotated.json").write_text("[]")
+
+        with pytest.raises(ValueError, match="Annotated data file is empty"):
+            load_annotated_data(corpus_dir)
+
+    def test_load_annotated_data_not_list(self, tmp_path):
+        """Test loading with non-list JSON raises ValueError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+        (data_dir / "nltk_syllables_annotated.json").write_text('{"not": "a list"}')
+
+        with pytest.raises(ValueError, match="should be a JSON array"):
+            load_annotated_data(corpus_dir)
+
+    def test_load_annotated_data_missing_keys(self, tmp_path):
+        """Test loading with missing required keys raises ValueError."""
+        corpus_dir = tmp_path / "nltk_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("test\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"test": 1}))
+
+        # Missing 'features' key
+        annotated = [{"syllable": "test", "frequency": 1}]
+        (data_dir / "nltk_syllables_annotated.json").write_text(json.dumps(annotated))
+
+        with pytest.raises(ValueError, match="missing required keys"):
+            load_annotated_data(corpus_dir)
+
+    def test_load_annotated_data_prefers_nltk_when_both_exist(self, tmp_path):
+        """Test that NLTK annotated data is loaded when both types exist."""
+        corpus_dir = tmp_path / "mixed_corpus"
+        corpus_dir.mkdir()
+        data_dir = corpus_dir / "data"
+        data_dir.mkdir()
+
+        # Create both NLTK and Pyphen corpus files
+        (corpus_dir / "nltk_syllables_unique.txt").write_text("nltk\n")
+        (corpus_dir / "nltk_syllables_frequencies.json").write_text(json.dumps({"nltk": 100}))
+        (corpus_dir / "pyphen_syllables_unique.txt").write_text("pyphen\n")
+        (corpus_dir / "pyphen_syllables_frequencies.json").write_text(json.dumps({"pyphen": 50}))
+
+        # Create both annotated files
+        nltk_annotated = [
+            {"syllable": "nltk", "frequency": 100, "features": {"starts_with_vowel": False}}
+        ]
+        pyphen_annotated = [
+            {"syllable": "pyphen", "frequency": 50, "features": {"starts_with_vowel": False}}
+        ]
+        (data_dir / "nltk_syllables_annotated.json").write_text(json.dumps(nltk_annotated))
+        (data_dir / "pyphen_syllables_annotated.json").write_text(json.dumps(pyphen_annotated))
+
+        data = load_annotated_data(corpus_dir)
+
+        # Should load NLTK (preferred)
+        assert len(data) == 1
+        assert data[0]["syllable"] == "nltk"

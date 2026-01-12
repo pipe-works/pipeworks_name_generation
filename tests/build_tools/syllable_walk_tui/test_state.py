@@ -154,6 +154,91 @@ class TestPatchState:
         assert len(patch2.outputs) == 0
         assert len(patch1.outputs) == 2
 
+    def test_is_ready_for_generation_all_requirements_met(self):
+        """Test is_ready_for_generation returns True when all data is loaded."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.syllables = ["hel", "lo", "world"]
+        patch.frequencies = {"hel": 1, "lo": 2, "world": 1}
+        patch.annotated_data = [
+            {"syllable": "hel", "frequency": 1, "features": {}},
+            {"syllable": "lo", "frequency": 2, "features": {}},
+        ]
+        patch.is_loading_annotated = False
+        patch.loading_error = None
+
+        assert patch.is_ready_for_generation() is True
+
+    def test_is_ready_for_generation_no_corpus_dir(self):
+        """Test is_ready_for_generation returns False when corpus_dir is None."""
+        patch = PatchState(name="A")
+        patch.syllables = ["test"]
+        patch.frequencies = {"test": 1}
+        patch.annotated_data = [{"syllable": "test", "frequency": 1, "features": {}}]
+
+        assert patch.is_ready_for_generation() is False
+
+    def test_is_ready_for_generation_no_syllables(self):
+        """Test is_ready_for_generation returns False when syllables is None."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.frequencies = {"test": 1}
+        patch.annotated_data = [{"syllable": "test", "frequency": 1, "features": {}}]
+
+        assert patch.is_ready_for_generation() is False
+
+    def test_is_ready_for_generation_no_frequencies(self):
+        """Test is_ready_for_generation returns False when frequencies is None."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.syllables = ["test"]
+        patch.annotated_data = [{"syllable": "test", "frequency": 1, "features": {}}]
+
+        assert patch.is_ready_for_generation() is False
+
+    def test_is_ready_for_generation_no_annotated_data(self):
+        """Test is_ready_for_generation returns False when annotated_data is None."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.syllables = ["test"]
+        patch.frequencies = {"test": 1}
+
+        assert patch.is_ready_for_generation() is False
+
+    def test_is_ready_for_generation_currently_loading(self):
+        """Test is_ready_for_generation returns False when loading in progress."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.syllables = ["test"]
+        patch.frequencies = {"test": 1}
+        patch.annotated_data = [{"syllable": "test", "frequency": 1, "features": {}}]
+        patch.is_loading_annotated = True
+
+        assert patch.is_ready_for_generation() is False
+
+    def test_is_ready_for_generation_has_loading_error(self):
+        """Test is_ready_for_generation returns False when there's a loading error."""
+        from pathlib import Path
+
+        patch = PatchState(name="A")
+        patch.corpus_dir = Path("/test/corpus")
+        patch.syllables = ["test"]
+        patch.frequencies = {"test": 1}
+        patch.annotated_data = [{"syllable": "test", "frequency": 1, "features": {}}]
+        patch.loading_error = "Failed to load"
+
+        assert patch.is_ready_for_generation() is False
+
 
 class TestAppState:
     """Tests for AppState dataclass."""
