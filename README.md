@@ -1,7 +1,7 @@
 # pipeworks_name_generation
 
-> A lightweight, phonetic name generator that produces names which *sound right*,
-> without imposing what they *mean*.
+> A corpus linguistics toolkit for procedural name generation, featuring dual syllable
+> extraction pipelines, phonetic analysis, and interactive exploration tools.
 
 [![CI](https://github.com/aa-parky/pipeworks_name_generation/actions/workflows/ci.yml/badge.svg)](https://github.com/aa-parky/pipeworks_name_generation/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/aa-parky/pipeworks_name_generation/branch/main/graph/badge.svg)](https://codecov.io/gh/aa-parky/pipeworks_name_generation)
@@ -12,28 +12,54 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/aa-parky/pipeworks_name_generation)
 
-`pipeworks_name_generation` is a standalone, GPL-3 licensed name generation system based on
-phonetic and syllabic recombination. It generates **pronounceable, neutral names** intended
-to act purely as labels. Any narrative, cultural, or semantic meaning is deliberately left
-to downstream systems.
+`pipeworks_name_generation` is a standalone, GPL-3 licensed toolkit for developers and
+world-builders who want to generate names that *sound right* without being predictable. It
+provides a powerful suite of corpus linguistics tools to extract, analyze, and explore phonetic
+patterns from any text source.
 
-This project is designed to stand on its own and can be used independently of Pipeworks in
-games, simulations, world-building tools, or other generative systems.
+The project also includes a lightweight, deterministic name generator as a reference
+implementation, demonstrating how to use the processed data to create pronounceable, neutral
+names suitable for games, simulations, and other generative systems.
+
+---
+
+## Project Philosophy: The Tools are the Magic
+
+This project began with a simple goal: to create a better name generator. Existing solutions
+often felt repetitive or statistically predictable. The journey to solve this led to a deeper
+realization: the real magic isn't in the final act of assembling a name, but in understanding
+the linguistic ingredients that make it work.
+
+Therefore, the core of this project is the **build tools ecosystem**. This is a comprehensive
+suite of command-line utilities for performing corpus linguistics, from syllable extraction and
+normalization to phonetic feature analysis and interactive visualization. The name generator
+itself is a deliberately simple consumer of the rich, structured data these tools produce.
+
+This structure means the project's value lies in its ability to provide deep, reusable insights
+into the phonetic and syllabic structure of any given text, which can then be used for a wide
+variety of procedural generation tasks, including but not limited to name generation.
 
 ---
 
 ## Key Features
 
-- **Linguistically Plausible**: Generates names that sound right, not random strings.
-- **Deterministic Generation**: The same seed will always produce the same name.
-- **Zero Runtime Dependencies**: Lightweight, predictable, and stable for the core generator.
-- **Context-Free**: Avoids direct copying of real names or source material.
-- **Comprehensive Build Tools**: A full suite for corpus linguistics and data preparation.
-- **Fully Documented & Tested**: High test coverage and automated documentation.
+- **Comprehensive Build Tools**: A full suite for corpus linguistics and data preparation,
+  forming the core of the project.
+- **Dual Extraction Pipelines**: Process text using either typographic (Pyphen, 40+ languages)
+  or phonetic (NLTK, English) syllable extraction.
+- **Linguistically Plausible Generation**: Generate names based on real phonetic patterns,
+  not just random strings.
+- **Deterministic Runtime**: The lightweight generator is fully deterministic; the same seed
+  will always produce the same name.
+- **Zero Runtime Dependencies**: The core generator is a minimal, stable, and predictable
+  library with no external dependencies.
+- **Fully Documented & Tested**: High test coverage (>90%) and automated documentation ensure reliability and ease of use.
 
 ---
 
-## Quick Start
+## Quick Start: The Name Generator
+
+While the build tools are the project's core, the name generator provides a simple, immediate entry point.
 
 ### Installation
 
@@ -46,7 +72,7 @@ pip install pipeworks-name-generation
 ```python
 from pipeworks_name_generation import NameGenerator
 
-# Create a generator
+# Create a generator (the 'simple' pattern uses a small, hardcoded dataset)
 gen = NameGenerator(pattern="simple")
 
 # Generate a name deterministically
@@ -59,9 +85,9 @@ assert gen.generate(seed=42) == name
 
 ---
 
-## Build Tools
+## The Build Tools Ecosystem
 
-The project includes a comprehensive suite of build-time tools for corpus linguistics:
+The true power of the project lies in its command-line tools for corpus analysis.
 
 - **Pyphen Syllable Extractor** - Dictionary-based extraction using pyphen (40+ languages).
 - **NLTK Syllable Extractor** - Phonetically-guided extraction using CMU Pronouncing Dictionary (English only).
@@ -72,7 +98,7 @@ The project includes a comprehensive suite of build-time tools for corpus lingui
 - **Corpus Database** - A build provenance ledger for tracking extraction runs.
 - **Analysis Tools** - Tools for feature analysis, t-SNE visualization, and random sampling.
 
-**Quick example:**
+**Example Workflow:**
 
 ```bash
 # Option 1: Extract syllables with pyphen (typographic hyphenation, 40+ languages)
@@ -84,17 +110,6 @@ python -m build_tools.nltk_syllable_extractor --file input.txt
 # Normalize the extracted syllables (works with either extractor)
 python -m build_tools.pyphen_syllable_normaliser --source _working/output/
 ```
-
-### NLTK Extractor Setup
-
-The NLTK syllable extractor uses the CMU Pronouncing Dictionary:
-
-```bash
-# Install build tools (includes cmudict pip package)
-pip install -e ".[build-tools]"
-```
-
-No additional setup required - CMUDict data is included in the pip package!
 
 📖 **[Full Build Tools Documentation →](https://pipeworks-name-generation.readthedocs.io/en/latest/build_tools/index.html)**
 
@@ -124,17 +139,6 @@ They are designed to feel: plausible, consistent, and pronounceable.
 
 Meaning, history, and interpretation are applied later, elsewhere.
 
-## Non-Goals
-
-This project deliberately does **not**:
-
-- Encode lore, narrative meaning, or symbolism.
-- Distinguish between characters, places, or objects.
-- Imply cultural, regional, or historical identity.
-- Enforce genre-specific naming conventions.
-
-All such concerns are expected to be handled by consuming applications.
-
 ---
 
 ## Development
@@ -156,7 +160,9 @@ pytest
 
 **Status**: Alpha
 
-The project is actively developed with:
+The project is in active development. The build tools and underlying infrastructure are mature
+and production-grade. The "Alpha" status reflects that the core `NameGenerator` API and its
+pattern-loading capabilities are still evolving and subject to change before the 0.5.0 release.
 
 - ✅ Comprehensive test coverage (>90%)
 - ✅ Full CI/CD pipeline with automated checks
