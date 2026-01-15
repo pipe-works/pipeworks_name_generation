@@ -1056,6 +1056,11 @@ class SyllableWalkerApp(App):
             # Widget not found or update failed - log but don't crash
             print(f"Warning: Could not update parameter widgets for profile: {e}")
         finally:
-            # Always clear the flag, even if update fails
-            self.notify("DEBUG: Setting _updating_from_profile = False")
-            self._updating_from_profile = False
+            # Defer clearing the flag until after the event queue processes
+            # Changed events from set_value() are queued and processed asynchronously
+            # If we clear the flag immediately, those handlers see False and switch to custom
+            def clear_flag():
+                self.notify("DEBUG: Setting _updating_from_profile = False (deferred)")
+                self._updating_from_profile = False
+
+            self.call_after_refresh(clear_flag)
