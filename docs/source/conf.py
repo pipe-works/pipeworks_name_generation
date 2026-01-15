@@ -50,6 +50,7 @@ autoapi_ignore = [
     "*/__pycache__/*",
     "*/tests/*",
     "*/test_*",
+    "*/syllable_walk_tui/*",  # Exclude TUI - requires textual which isn't in docs deps
 ]
 autoapi_add_toctree_entry = True
 autoapi_keep_files = False  # Clean up generated files after build
@@ -76,24 +77,6 @@ napoleon_attr_annotations = True
 # -- Autodoc typehints settings ----------------------------------------------
 autodoc_typehints = "description"
 autodoc_typehints_description_target = "documented"
-
-# -- Autodoc mock imports ----------------------------------------------------
-# Mock heavy dependencies that aren't needed for documentation builds
-# This prevents import errors during sphinx-build when optional dependencies
-# (like textual for TUI) aren't installed in the docs environment
-autodoc_mock_imports = [
-    "textual",
-    "textual.app",
-    "textual.binding",
-    "textual.containers",
-    "textual.css.query",
-    "textual.events",
-    "textual.message",
-    "textual.reactive",
-    "textual.screen",
-    "textual.widget",
-    "textual.widgets",
-]
 
 # -- Intersphinx mapping -----------------------------------------------------
 intersphinx_mapping = {

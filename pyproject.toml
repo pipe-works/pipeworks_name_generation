@@ -75,7 +75,7 @@ docs = [
     "sphinx-autoapi>=3.0",
     "myst-parser>=4.0",
     "sphinx-argparse>=0.4.0",
-    # Note: textual is mocked via autodoc_mock_imports in docs/source/conf.py
+    # Note: syllable_walk_tui excluded from autoapi (requires textual)
 ]
 
 # TUI dependencies (for syllable_walk_tui)
