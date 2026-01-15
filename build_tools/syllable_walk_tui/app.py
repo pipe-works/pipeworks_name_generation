@@ -905,7 +905,11 @@ class SyllableWalkerApp(App):
             patch.max_flips = event.value
             # Max flips is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
+            self.notify(
+                f"DEBUG: max-flips changed, _updating_from_profile={self._updating_from_profile}"
+            )
             if not self._updating_from_profile:
+                self.notify("DEBUG: Calling _switch_to_custom_mode for max-flips")
                 self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "neighbors":
             patch.neighbor_limit = event.value
@@ -931,13 +935,21 @@ class SyllableWalkerApp(App):
             patch.temperature = event.value
             # Temperature is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
+            self.notify(
+                f"DEBUG: temperature changed, _updating_from_profile={self._updating_from_profile}"
+            )
             if not self._updating_from_profile:
+                self.notify("DEBUG: Calling _switch_to_custom_mode for temperature")
                 self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "freq-weight":
             patch.frequency_weight = event.value
             # Frequency weight is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
+            self.notify(
+                f"DEBUG: freq-weight changed, _updating_from_profile={self._updating_from_profile}"
+            )
             if not self._updating_from_profile:
+                self.notify("DEBUG: Calling _switch_to_custom_mode for freq-weight")
                 self._switch_to_custom_mode(patch_name, patch)
 
     @on(SeedInput.Changed)
@@ -1022,6 +1034,7 @@ class SyllableWalkerApp(App):
         # CRITICAL: Set flag to prevent auto-switch to custom during profile update
         # When we update parameter widgets below, they'll trigger Changed events.
         # We don't want those to switch us back to "custom" mode.
+        self.notify("DEBUG: Setting _updating_from_profile = True")
         self._updating_from_profile = True
 
         try:
@@ -1044,4 +1057,5 @@ class SyllableWalkerApp(App):
             print(f"Warning: Could not update parameter widgets for profile: {e}")
         finally:
             # Always clear the flag, even if update fails
+            self.notify("DEBUG: Setting _updating_from_profile = False")
             self._updating_from_profile = False
