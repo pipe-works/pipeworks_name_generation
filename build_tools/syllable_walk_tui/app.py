@@ -152,12 +152,14 @@ class PatchPanel(Static):
 
     Args:
         patch_name: Name of the patch ("A" or "B")
+        initial_seed: Initial seed value to display (optional)
     """
 
-    def __init__(self, patch_name: str, *args, **kwargs):
-        """Initialize patch panel with given name."""
+    def __init__(self, patch_name: str, initial_seed: int | None = None, *args, **kwargs):
+        """Initialize patch panel with given name and optional seed."""
         super().__init__(*args, **kwargs)
         self.patch_name = patch_name
+        self.initial_seed = initial_seed
 
     def compose(self) -> ComposeResult:
         """Create child widgets for patch panel."""
@@ -275,7 +277,8 @@ class PatchPanel(Static):
         yield Label("", classes="spacer")
 
         # Global - Seed Input with Random Button
-        yield SeedInput(value=None, id=f"seed-{self.patch_name}")
+        # Use initial_seed if provided, otherwise None (will show "random" placeholder)
+        yield SeedInput(value=self.initial_seed, id=f"seed-{self.patch_name}")
 
         yield Label("", classes="spacer")
         yield Label("     [Generate]", classes="button-label")
@@ -431,13 +434,14 @@ class SyllableWalkerApp(App):
         yield Header(show_clock=False)
 
         # Main view: Three-column layout (always visible)
+        # Pass initial seed values from PatchState so they display immediately
         with Horizontal(id="main-container"):
             with VerticalScroll(classes="column patch-panel"):
-                yield PatchPanel("A", id="patch-a")
+                yield PatchPanel("A", initial_seed=self.state.patch_a.seed, id="patch-a")
             with VerticalScroll(classes="column stats-panel"):
                 yield StatsPanel(id="stats")
             with VerticalScroll(classes="column patch-panel"):
-                yield PatchPanel("B", id="patch-b")
+                yield PatchPanel("B", initial_seed=self.state.patch_b.seed, id="patch-b")
 
         yield Footer()
 
@@ -983,14 +987,9 @@ class SyllableWalkerApp(App):
         patch_name = parts[1]
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
 
-        # Update seed in patch state
-        if event.value is None:
-            # Blank seed = generate new random seed
-            patch.generate_seed()
-        else:
-            # Explicit seed value
-            patch.seed = event.value
-            patch.rng = __import__("random").Random(event.value)
+        # Update seed in patch state with new value
+        patch.seed = event.value
+        patch.rng = __import__("random").Random(event.value)
 
     @on(ProfileOption.Selected)
     def on_profile_selected(self, event: ProfileOption.Selected) -> None:

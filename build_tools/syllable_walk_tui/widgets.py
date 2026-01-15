@@ -525,20 +525,29 @@ class FloatSlider(Static):
 
 class SeedInput(Static):
     """
-    Seed input widget with random generation button.
+    Seed input widget with two-box design.
 
-    Allows direct input of integer seed or clicking dice button for random seed.
-    Blank input means random seed (generated when needed).
+    Box 1 (Input): User enters seed or '-1' for random (default: -1)
+    Box 2 (Display): Shows actual seed being used
 
     Attributes:
-        value: Current seed value (None if blank/random)
+        value: Current seed value being used
+        user_input: User's input (-1 means random)
+
+    Keybindings:
+        r: Set to random (-1)
     """
+
+    # Define widget-level bindings
+    BINDINGS = [
+        ("r", "random", "Random"),
+    ]
 
     class Changed(Message):
         """Message posted when seed changes."""
 
-        def __init__(self, value: int | None, widget_id: str | None) -> None:
-            """Initialize with new seed value (None if blank) and widget ID."""
+        def __init__(self, value: int, widget_id: str | None) -> None:
+            """Initialize with new seed value and widget ID."""
             super().__init__()
             self.value = value
             self.widget_id = widget_id
@@ -546,105 +555,121 @@ class SeedInput(Static):
     DEFAULT_CSS = """
     SeedInput {
         layout: horizontal;
-        height: 1;
+        height: 3;
         width: 100%;
     }
 
     SeedInput .seed-label {
-        width: 7;
+        width: 15;
         text-align: right;
         padding-right: 1;
+        height: 3;
+        content-align: center middle;
     }
 
     SeedInput Input {
+        width: 13;
+        height: 3;
+        border: solid $primary;
+    }
+
+    SeedInput .arrow {
+        width: 3;
+        text-align: center;
+        height: 3;
+        content-align: center middle;
+    }
+
+    SeedInput .seed-used-value {
         width: 12;
-    }
-
-    SeedInput Input:focus {
-        border: tall $accent;
-    }
-
-    SeedInput Button {
-        width: 5;
-        min-width: 5;
-        margin-left: 1;
-    }
-
-    SeedInput Button:focus {
-        text-style: bold;
+        height: 3;
+        text-align: left;
+        content-align: center middle;
+        color: $text-muted;
+        background: $boost;
+        padding-left: 1;
     }
     """
 
     def __init__(self, value: int | None = None, *args, **kwargs):
         """
-        Initialize seed input.
+        Initialize seed input with two-box design.
 
         Args:
-            value: Initial seed value (None for blank/random)
+            value: Initial seed value (generates random if None)
         """
         super().__init__(*args, **kwargs)
-        self.value = value
-
-    def on_mount(self) -> None:
-        """
-        Make widget focusable for keyboard navigation.
-
-        Note: We explicitly blur focus after modal closes in app.py
-        to prevent auto-focus from breaking tab switching bindings.
-        """
-        self.can_focus = True
-
-    def compose(self) -> ComposeResult:
-        """Create seed input layout."""
-        yield Label("Seed:", classes="seed-label")
-        initial_text = str(self.value) if self.value is not None else ""
-        input_widget = Input(
-            placeholder="random",
-            value=initial_text,
-            type="integer",
-            id="seed-input",
-        )
-        # CRITICAL: Disable focus on Input to prevent it from capturing app-level keys
-        # Input widgets capture ALL keyboard input (including b, a, p, q) when focused
-        # This breaks app-level bindings for tab switching and other commands
-        # Users can still click the input to edit, or we can enable focus programmatically
-        input_widget.can_focus = False
-        yield input_widget
-        yield Button("🎲", id="random-button", variant="primary")
-
-    @on(Input.Changed, "#seed-input")
-    def on_seed_input_changed(self, event: Input.Changed) -> None:
-        """Handle seed input text change."""
-        input_text = event.value.strip()
-        if not input_text:
-            # Blank input = random seed
-            self.value = None
-            self.post_message(self.Changed(None, self.id))
-        else:
-            try:
-                seed = int(input_text)
-                self.value = seed
-                self.post_message(self.Changed(seed, self.id))
-            except ValueError:
-                # Invalid input - ignore for now, user still typing
-                pass
-
-    @on(Button.Pressed, "#random-button")
-    def on_random_button_pressed(self) -> None:
-        """Generate new random seed using system entropy."""
+        # Generate initial random seed
         import random
 
-        new_seed = random.SystemRandom().randint(0, 2**32 - 1)
-        self.value = new_seed
+        if value is None:
+            self.value = random.SystemRandom().randint(0, 2**32 - 1)
+        else:
+            self.value = value
+        # User input defaults to -1 (random mode)
+        self.user_input = -1
 
-        # Update input field
+    def compose(self) -> ComposeResult:
+        """Create two-box seed input in single horizontal row."""
+        yield Label("Seed:", classes="seed-label")
+        yield Input(
+            placeholder="-1 (random)",
+            value="-1",
+            id="seed-input",
+        )
+        yield Label("→", classes="arrow")
+        yield Label(f"{self.value}", classes="seed-used-value", id="seed-used")
+
+    def action_random(self) -> None:
+        """Action: Set input to -1 (random mode)."""
         try:
             input_widget = self.query_one("#seed-input", Input)
-            input_widget.value = str(new_seed)
-        except Exception:  # nosec B110
+            input_widget.value = "-1"
+            self._handle_input_change("-1")
+        except Exception:  # nosec B110 - Safe widget query failure, intentionally silent
             pass
 
-        self.post_message(self.Changed(new_seed, self.id))
+    @on(Input.Changed, "#seed-input")
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle user typing in the seed input."""
+        self._handle_input_change(event.value)
+
+    def _handle_input_change(self, input_value: str) -> None:
+        """Process input value and update actual seed."""
+        import random
+
+        input_str = input_value.strip()
+
+        # Handle empty or -1 as random
+        if not input_str or input_str == "-1":
+            self.user_input = -1
+            # Generate new random seed
+            self.value = random.SystemRandom().randint(0, 2**32 - 1)
+        else:
+            # Try to parse as integer
+            try:
+                manual_seed = int(input_str)
+                # Clamp to valid range
+                manual_seed = max(0, min(manual_seed, 2**32 - 1))
+                self.user_input = manual_seed
+                self.value = manual_seed
+            except ValueError:
+                # Invalid input, ignore and keep current value
+                return
+
+        # Update display
+        self._update_display()
+
+        # Post changed message
+        self.post_message(self.Changed(self.value, self.id))
+
+    def _update_display(self) -> None:
+        """Update the 'Using:' display with actual seed value."""
+        try:
+            display = self.query_one("#seed-used", Label)
+            display.update(f"{self.value}")
+        except Exception:  # nosec B110 - Safe widget query failure, intentionally silent
+            pass
 
 
 class ProfileOption(Static):
