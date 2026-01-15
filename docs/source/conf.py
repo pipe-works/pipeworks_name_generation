@@ -50,7 +50,6 @@ autoapi_ignore = [
     "*/__pycache__/*",
     "*/tests/*",
     "*/test_*",
-    "*/syllable_walk_tui/*",  # Exclude TUI - requires textual which isn't in docs deps
 ]
 autoapi_add_toctree_entry = True
 autoapi_keep_files = False  # Clean up generated files after build

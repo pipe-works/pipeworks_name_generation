@@ -75,7 +75,7 @@ docs = [
     "sphinx-autoapi>=3.0",
     "myst-parser>=4.0",
     "sphinx-argparse>=0.4.0",
-    # Note: syllable_walk_tui excluded from autoapi (requires textual)
+    "textual>=0.50.0",  # Required to import syllable_walk_tui modules during autodoc
 ]
 
 # TUI dependencies (for syllable_walk_tui)
