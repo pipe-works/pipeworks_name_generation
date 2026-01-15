@@ -423,6 +423,8 @@ class SyllableWalkerApp(App):
         # Flag to prevent auto-switch to custom when updating parameters from profile selection
         # (prevents feedback loop when profile changes trigger parameter widget updates)
         self._updating_from_profile = False
+        # Counter to track pending parameter updates during profile change
+        self._pending_profile_updates = 0
 
     def compose(self) -> ComposeResult:
         """Create application layout."""
@@ -443,19 +445,16 @@ class SyllableWalkerApp(App):
         """
         Handle app mount event.
 
-        NOTE: Previously disabled focus on container widgets, but this broke Textual's
-        natural hierarchical tab traversal. Containers don't actually capture focus
-        (users tab through children), so leaving them focusable allows proper tab order.
+        NOTE: Previously disabled focus on ALL container widgets, but this broke tab order.
+        Now we only disable focus on the StatsPanel container since it has no focusable
+        children and shouldn't be in the tab navigation path.
         """
-        # REMOVED: Focus disabling on containers - breaks tab navigation order
-        # for scroll_container in self.query(VerticalScroll):
-        #     scroll_container.can_focus = False
-        #
-        # for patch_panel in self.query(PatchPanel):
-        #     patch_panel.can_focus = False
-        # for stats_panel in self.query(StatsPanel):
-        #     stats_panel.can_focus = False
-        pass
+        # Disable focus on StatsPanel's VerticalScroll container only
+        # This prevents tab navigation from going through the empty stats panel
+        # between Patch A and Patch B
+        stats_containers = self.query(".stats-panel")
+        for container in stats_containers:
+            container.can_focus = False
 
     @on(Button.Pressed, "#select-corpus-A")
     def on_button_select_corpus_a(self) -> None:
@@ -581,6 +580,15 @@ class SyllableWalkerApp(App):
                             f"from {corpus_type} corpus",
                             timeout=2,
                         )
+
+                        # Set focus to the first profile option in this patch
+                        # This makes tab navigation start from the patch that was just loaded
+                        try:
+                            first_profile = self.query_one(f"#profile-clerical-{patch_name}")
+                            first_profile.focus()
+                        except Exception:  # nosec B110 - Safe widget query, intentionally silent
+                            # Widget not found during initialization, ignore gracefully
+                            pass
 
                         # === PHASE 2: Kick off background loading (SLOW - async) ===
                         # Load annotated data with phonetic features (~15MB, 1-2 seconds)
@@ -905,11 +913,13 @@ class SyllableWalkerApp(App):
             patch.max_flips = event.value
             # Max flips is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
-            self.notify(
-                f"DEBUG: max-flips changed, _updating_from_profile={self._updating_from_profile}"
-            )
-            if not self._updating_from_profile:
-                self.notify("DEBUG: Calling _switch_to_custom_mode for max-flips")
+            if self._updating_from_profile:
+                # Decrement counter - this is one of the expected profile updates
+                self._pending_profile_updates -= 1
+                if self._pending_profile_updates <= 0:
+                    self._updating_from_profile = False
+                    self._pending_profile_updates = 0
+            elif not self._updating_from_profile:
                 self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "neighbors":
             patch.neighbor_limit = event.value
@@ -935,21 +945,25 @@ class SyllableWalkerApp(App):
             patch.temperature = event.value
             # Temperature is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
-            self.notify(
-                f"DEBUG: temperature changed, _updating_from_profile={self._updating_from_profile}"
-            )
-            if not self._updating_from_profile:
-                self.notify("DEBUG: Calling _switch_to_custom_mode for temperature")
+            if self._updating_from_profile:
+                # Decrement counter - this is one of the expected profile updates
+                self._pending_profile_updates -= 1
+                if self._pending_profile_updates <= 0:
+                    self._updating_from_profile = False
+                    self._pending_profile_updates = 0
+            elif not self._updating_from_profile:
                 self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "freq-weight":
             patch.frequency_weight = event.value
             # Frequency weight is a profile parameter - switch to custom mode
             # UNLESS we're updating from a profile change (prevents feedback loop)
-            self.notify(
-                f"DEBUG: freq-weight changed, _updating_from_profile={self._updating_from_profile}"
-            )
-            if not self._updating_from_profile:
-                self.notify("DEBUG: Calling _switch_to_custom_mode for freq-weight")
+            if self._updating_from_profile:
+                # Decrement counter - this is one of the expected profile updates
+                self._pending_profile_updates -= 1
+                if self._pending_profile_updates <= 0:
+                    self._updating_from_profile = False
+                    self._pending_profile_updates = 0
+            elif not self._updating_from_profile:
                 self._switch_to_custom_mode(patch_name, patch)
 
     @on(SeedInput.Changed)
@@ -1031,11 +1045,12 @@ class SyllableWalkerApp(App):
         patch.temperature = profile.temperature
         patch.frequency_weight = profile.frequency_weight
 
-        # CRITICAL: Set flag to prevent auto-switch to custom during profile update
+        # CRITICAL: Set flag and counter to prevent auto-switch to custom during profile update
         # When we update parameter widgets below, they'll trigger Changed events.
-        # We don't want those to switch us back to "custom" mode.
-        self.notify("DEBUG: Setting _updating_from_profile = True")
+        # We expect 3 Changed events (max_flips, temperature, freq_weight)
+        # Each handler will decrement the counter and clear the flag when it reaches 0
         self._updating_from_profile = True
+        self._pending_profile_updates = 3  # Expecting 3 parameter changes
 
         try:
             # Update all parameter widget displays to match profile
@@ -1055,12 +1070,6 @@ class SyllableWalkerApp(App):
         except Exception as e:  # nosec B110 - Safe widget query failure
             # Widget not found or update failed - log but don't crash
             print(f"Warning: Could not update parameter widgets for profile: {e}")
-        finally:
-            # Defer clearing the flag until after the event queue processes
-            # Changed events from set_value() are queued and processed asynchronously
-            # If we clear the flag immediately, those handlers see False and switch to custom
-            def clear_flag():
-                self.notify("DEBUG: Setting _updating_from_profile = False (deferred)")
-                self._updating_from_profile = False
-
-            self.call_after_refresh(clear_flag)
+            # Reset flag and counter on error to avoid getting stuck
+            self._updating_from_profile = False
+            self._pending_profile_updates = 0

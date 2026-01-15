@@ -750,31 +750,19 @@ class ProfileOption(Static):
 
     def action_select(self) -> None:
         """Action: Select this profile option (Enter/Space)."""
-        # Debug: Log what profile is being selected
-        self.app.notify(
-            f"DEBUG: [KEYBOARD] action_select called on {self.profile_name} (id={self.id})"
-        )
         if not self.is_selected:
             self.post_message(self.Selected(self.profile_name, self.id))
-        else:
-            self.app.notify("DEBUG: [KEYBOARD] Already selected, not posting message")
         # Don't blur - keep focus on selected option like standard radio buttons
         # This prevents focus from jumping unexpectedly
 
     def on_click(self) -> None:
         """Handle click on this profile option."""
-        self.app.notify(f"DEBUG: [MOUSE] on_click called on {self.profile_name} (id={self.id})")
         if not self.is_selected:
             self.post_message(self.Selected(self.profile_name, self.id))
-        else:
-            self.app.notify("DEBUG: [MOUSE] Already selected, not posting message")
         # Don't blur - keep focus on selected option like standard radio buttons
         # This prevents focus from jumping unexpectedly
 
     def set_selected(self, selected: bool) -> None:
         """Update selection state and refresh display."""
-        self.app.notify(
-            f"DEBUG: set_selected on {self.profile_name} (id={self.id}): {self.is_selected} -> {selected}"
-        )
         self.is_selected = selected
         self.refresh()
