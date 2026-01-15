@@ -46,6 +46,7 @@ class PatchState:
 
     name: str
     seed: int = field(default_factory=lambda: random.SystemRandom().randint(0, 2**32 - 1))
+    current_profile: str = "dialect"  # Current profile selection (or "custom" for manual)
     corpus_dir: Path | None = None
     corpus_type: str | None = None
 

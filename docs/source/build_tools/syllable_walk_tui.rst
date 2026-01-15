@@ -24,8 +24,9 @@ rather than generating specific outputs.
 **Key Features:**
 
 - Side-by-side patch configuration (dual oscillator comparison)
+- Modal screens for blended walks and analysis (v/a keys)
 - Keyboard-first navigation (HJKL + arrow keys)
-- Real-time phonetic exploration
+- Real-time phonetic exploration with profile selection
 - Configurable keybindings (TOML-based)
 - Corpus directory selection and browsing
 - Live syllable walk generation
@@ -182,7 +183,7 @@ Keyboard Shortcuts
    * - ``?`` / ``F1``
      - Show help
 
-**Tab Switching:**
+**Modal Screens:**
 
 .. list-table::
    :header-rows: 1
@@ -190,12 +191,12 @@ Keyboard Shortcuts
 
    * - Key
      - Action
-   * - ``p``
-     - Switch to Patch Configuration view
-   * - ``b``
-     - Switch to Blended Walk view
+   * - ``v``
+     - Open Blended Walk modal screen
    * - ``a``
-     - Switch to Analysis view
+     - Open Analysis modal screen
+   * - ``Esc``
+     - Close current modal screen
 
 **Navigation:**
 
@@ -269,10 +270,10 @@ All keyboard shortcuts can be customized via TOML configuration file.
    quit = ["q", "ctrl+q"]
    help = ["question_mark", "f1"]
 
-   [keybindings.tabs]
-   patch_config = ["p"]
-   blended_walk = ["b"]
+   [keybindings.modals]
+   blended_walk = ["v"]
    analysis = ["a"]
+   close_modal = ["escape"]
 
    [keybindings.navigation]
    up = ["k", "up"]

@@ -1,26 +1,13 @@
 """
 Main Textual application for Syllable Walker TUI.
 
-This module contains the primary App class and layout widgets for the
-interactive terminal interface.
+This module contains the primary App class, modal screens, and layout widgets
+for the interactive terminal interface.
 
-FOCUS MANAGEMENT PATTERN
-========================
-
-This app uses a centralized focus management pattern to prevent parameter
-widgets from blocking app-level keybindings (b/a/p for tab switching).
-
-Key Components:
-1. App-level BINDINGS use Binding(..., priority=True) for global navigation
-2. After modals close, explicitly blur focused widgets (line ~408)
-3. Parameter widgets (IntSpinner, FloatSlider, SeedInput) auto-blur after
-   value changes (see widgets.py for implementation)
-
-This pattern ensures app-level bindings always fire correctly, even when
-parameter widgets have focus. Without this pattern, Textual's focus system
-would prevent tab switching after modal closure or parameter adjustment.
-
-See widgets.py module docstring for detailed implementation requirements.
+Architecture:
+- Main view: Side-by-side patch configuration (always visible)
+- Modal screens: Blended Walk (v) and Analysis (a) views
+- Keyboard-first navigation with configurable keybindings
 """
 
 from pathlib import Path
@@ -29,8 +16,10 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
-from textual.widgets import Button, Footer, Header, Label, Static, TabbedContent, TabPane
+from textual.screen import Screen
+from textual.widgets import Button, Footer, Header, Label, Static
 
+from build_tools.syllable_walk.profiles import WALK_PROFILES
 from build_tools.syllable_walk_tui.config import load_keybindings
 from build_tools.syllable_walk_tui.corpus import (
     get_corpus_info,
@@ -38,14 +27,120 @@ from build_tools.syllable_walk_tui.corpus import (
     load_corpus_data,
     validate_corpus_directory,
 )
-from build_tools.syllable_walk_tui.focus_manager import FocusManager
-from build_tools.syllable_walk_tui.state import AppState
+from build_tools.syllable_walk_tui.state import AppState, PatchState
 from build_tools.syllable_walk_tui.widgets import (
     CorpusBrowserScreen,
     FloatSlider,
     IntSpinner,
+    ProfileOption,
     SeedInput,
 )
+
+
+class BlendedWalkScreen(Screen):
+    """
+    Modal screen for viewing blended walk results.
+
+    Displays generated syllable walks from both patches in a full-screen view.
+    Provides detailed walk information and comparison.
+
+    Keybindings:
+        Esc: Close screen and return to main view
+        j/k: Scroll through results
+    """
+
+    BINDINGS = [
+        ("escape", "close_screen", "Close"),
+    ]
+
+    DEFAULT_CSS = """
+    BlendedWalkScreen {
+        background: $surface;
+        border: solid $primary;
+    }
+
+    BlendedWalkScreen Label {
+        margin: 1;
+    }
+
+    .walk-header {
+        text-style: bold;
+        color: $accent;
+        margin-top: 2;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        """Create blended walk screen layout."""
+        yield Label("BLENDED WALK RESULTS", classes="walk-header")
+        yield Label("")
+        yield Label("Patch A Walk:")
+        yield Label("  (Generate to see results)")
+        yield Label("")
+        yield Label("Patch B Walk:")
+        yield Label("  (Generate to see results)")
+        yield Label("")
+        yield Label("Comparison Analysis:")
+        yield Label("  (Generate to see analysis)")
+        yield Label("")
+        yield Label("Press Esc to close")
+
+    def action_close_screen(self) -> None:
+        """Close this screen and return to main view."""
+        self.app.pop_screen()
+
+
+class AnalysisScreen(Screen):
+    """
+    Modal screen for viewing statistical analysis.
+
+    Displays detailed phonetic analysis, frequency distributions,
+    and comparative statistics between patches.
+
+    Keybindings:
+        Esc: Close screen and return to main view
+        j/k: Scroll through results
+    """
+
+    BINDINGS = [
+        ("escape", "close_screen", "Close"),
+    ]
+
+    DEFAULT_CSS = """
+    AnalysisScreen {
+        background: $surface;
+        border: solid $primary;
+    }
+
+    AnalysisScreen Label {
+        margin: 1;
+    }
+
+    .analysis-header {
+        text-style: bold;
+        color: $accent;
+        margin-top: 2;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        """Create analysis screen layout."""
+        yield Label("STATISTICAL ANALYSIS", classes="analysis-header")
+        yield Label("")
+        yield Label("Phonetic Feature Distribution:")
+        yield Label("  (Generate to see analysis)")
+        yield Label("")
+        yield Label("Frequency Analysis:")
+        yield Label("  (Generate to see analysis)")
+        yield Label("")
+        yield Label("Walk Characteristics:")
+        yield Label("  (Generate to see analysis)")
+        yield Label("")
+        yield Label("Press Esc to close")
+
+    def action_close_screen(self) -> None:
+        """Close this screen and return to main view."""
+        self.app.pop_screen()
 
 
 class PatchPanel(Static):
@@ -75,6 +170,40 @@ class PatchPanel(Static):
             "No corpus selected", id=f"corpus-status-{self.patch_name}", classes="corpus-status"
         )
 
+        yield Label("", classes="spacer")
+
+        # Profile selection (radio button style - focusable with Enter/Space to select)
+        yield Label("Profile:", classes="section-header")
+        yield ProfileOption(
+            "clerical",
+            "Conservative, favors common",
+            is_selected=False,
+            id=f"profile-clerical-{self.patch_name}",
+        )
+        yield ProfileOption(
+            "dialect",
+            "Moderate exploration, neutral",
+            is_selected=True,
+            id=f"profile-dialect-{self.patch_name}",
+        )
+        yield ProfileOption(
+            "goblin",
+            "Chaotic, favors rare",
+            is_selected=False,
+            id=f"profile-goblin-{self.patch_name}",
+        )
+        yield ProfileOption(
+            "ritual",
+            "Maximum exploration, strongly rare",
+            is_selected=False,
+            id=f"profile-ritual-{self.patch_name}",
+        )
+        yield ProfileOption(
+            "custom",
+            "Manual parameter configuration",
+            is_selected=False,
+            id=f"profile-custom-{self.patch_name}",
+        )
         yield Label("", classes="spacer")
 
         # Parameter controls - matching Dialect profile defaults
@@ -188,9 +317,10 @@ class SyllableWalkerApp(App):
     Default Keybindings:
         q, Ctrl+Q: Quit application
         ?, F1: Show help
-        P: Switch to Patch Config tab
-        B: Switch to Blended Walk tab
-        A: Switch to Analysis tab
+        v: View blended walk (modal screen)
+        a: View analysis (modal screen)
+        1: Select corpus for Patch A
+        2: Select corpus for Patch B
 
     Note:
         All keybindings are user-configurable via
@@ -205,9 +335,8 @@ class SyllableWalkerApp(App):
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("question_mark", "help", "Help", priority=True),
         Binding("f1", "help", "Help", priority=True),
-        Binding("p", "switch_tab('patch-config')", "Patch", priority=True),
-        Binding("b", "switch_tab('blended-walk')", "Blended", priority=True),
-        Binding("a", "switch_tab('analysis')", "Analysis", priority=True),
+        Binding("v", "view_blended", "Blended", priority=True),
+        Binding("a", "view_analysis", "Analysis", priority=True),
         Binding("1", "select_corpus_a", "Corpus A", priority=True),
         Binding("2", "select_corpus_b", "Corpus B", priority=True),
     ]
@@ -291,28 +420,22 @@ class SyllableWalkerApp(App):
         # Note: Keybindings are now defined in BINDINGS class attribute
         # Config-based overrides can be added in future if needed
 
+        # Flag to prevent auto-switch to custom when updating parameters from profile selection
+        # (prevents feedback loop when profile changes trigger parameter widget updates)
+        self._updating_from_profile = False
+
     def compose(self) -> ComposeResult:
         """Create application layout."""
         yield Header(show_clock=False)
 
-        # Tab bar for multi-screen navigation
-        with TabbedContent(initial="patch-config"):
-            with TabPane("[p] Patch Config", id="patch-config"):
-                # Three-column layout
-                with Horizontal(id="main-container"):
-                    with VerticalScroll(classes="column patch-panel"):
-                        yield PatchPanel("A", id="patch-a")
-                    with VerticalScroll(classes="column stats-panel"):
-                        yield StatsPanel(id="stats")
-                    with VerticalScroll(classes="column patch-panel"):
-                        yield PatchPanel("B", id="patch-b")
-
-            # Placeholder tabs for future screens
-            with TabPane("[b] Blended Walk", id="blended-walk"):
-                yield Label("Blended Walk screen (Phase 3+)", classes="placeholder")
-
-            with TabPane("[a] Analysis", id="analysis"):
-                yield Label("Analysis screen (Phase 4+)", classes="placeholder")
+        # Main view: Three-column layout (always visible)
+        with Horizontal(id="main-container"):
+            with VerticalScroll(classes="column patch-panel"):
+                yield PatchPanel("A", id="patch-a")
+            with VerticalScroll(classes="column stats-panel"):
+                yield StatsPanel(id="stats")
+            with VerticalScroll(classes="column patch-panel"):
+                yield PatchPanel("B", id="patch-b")
 
         yield Footer()
 
@@ -320,41 +443,17 @@ class SyllableWalkerApp(App):
         """
         Handle app mount event.
 
-        Disables focus on VerticalScroll containers to prevent them from
-        stealing focus when clicked. This ensures tab switching keybindings
-        always work, even after mouse clicks.
-
-        The issue: VerticalScroll.can_focus = True by default. When users
-        click anywhere in the scroll area, it captures focus and doesn't
-        release it. This breaks tab switching because the App's bindings
-        only work when a focusable ancestor has focus.
-
-        Solution: Disable focus on all VerticalScroll containers. They
-        still scroll correctly, but they can't capture keyboard focus.
+        Disables focus on container widgets to keep tab navigation clean.
         """
-        # Initialize centralized focus manager
-        # Set debug=True and use `textual console` for focus debugging
-        self.focus_manager = FocusManager(self, debug=False)
-
+        # Disable focus on scroll containers - they still scroll, but don't capture focus
         for scroll_container in self.query(VerticalScroll):
             scroll_container.can_focus = False
 
-        # Also disable focus on PatchPanel and StatsPanel containers
-        # to prevent them from capturing focus during TAB navigation
+        # Disable focus on panel containers to prevent them capturing tab navigation
         for patch_panel in self.query(PatchPanel):
             patch_panel.can_focus = False
         for stats_panel in self.query(StatsPanel):
             stats_panel.can_focus = False
-
-    def action_switch_tab(self, tab_id: str) -> None:
-        """
-        Switch to a specific tab.
-
-        Args:
-            tab_id: ID of the tab to switch to
-        """
-        tabs = self.query_one(TabbedContent)
-        tabs.active = tab_id
 
     @on(Button.Pressed, "#select-corpus-A")
     def on_button_select_corpus_a(self) -> None:
@@ -373,6 +472,14 @@ class SyllableWalkerApp(App):
     def action_select_corpus_b(self) -> None:
         """Action: Open corpus selector for Patch B (keybinding: 2)."""
         self._select_corpus_for_patch("B")
+
+    def action_view_blended(self) -> None:
+        """Action: Open blended walk modal screen (keybinding: v)."""
+        self.push_screen(BlendedWalkScreen())
+
+    def action_view_analysis(self) -> None:
+        """Action: Open analysis modal screen (keybinding: a)."""
+        self.push_screen(AnalysisScreen())
 
     def _get_initial_browse_dir(self, patch_name: str) -> Path:
         """
@@ -423,11 +530,6 @@ class SyllableWalkerApp(App):
 
             # Open browser modal
             result = await self.push_screen_wait(CorpusBrowserScreen(initial_dir))
-
-            # CRITICAL FIX: Clear focus after modal closes using FocusManager
-            # This prevents Textual from auto-focusing a parameter widget,
-            # which would block app-level tab switching bindings (b/a/p)
-            self.focus_manager.clear_focus_after_modal()
 
             if result:
                 # Validate and store selection
@@ -736,6 +838,43 @@ class SyllableWalkerApp(App):
     # Parameter Change Handlers - Wire widgets to PatchState
     # =========================================================================
 
+    def _switch_to_custom_mode(self, patch_name: str, patch: "PatchState") -> None:
+        """
+        Switch patch to custom mode when user manually adjusts profile parameters.
+
+        This is called when the user manually changes max_flips, temperature, or
+        frequency_weight - the three parameters that define walk profiles. When
+        manually adjusted, the patch switches from a named profile to "custom" mode.
+
+        Args:
+            patch_name: "A" or "B"
+            patch: PatchState instance to update
+
+        Note:
+            Only switches to custom if currently using a named profile.
+            If already in custom mode, does nothing.
+        """
+        # Only switch if we're currently using a named profile (not already custom)
+        if patch.current_profile == "custom":
+            return
+
+        # Update state to custom mode
+        old_profile = patch.current_profile
+        patch.current_profile = "custom"
+
+        # Update ProfileOption widgets: deselect old, select custom
+        try:
+            # Deselect the previously selected profile
+            old_option = self.query_one(f"#profile-{old_profile}-{patch_name}", ProfileOption)
+            old_option.set_selected(False)
+
+            # Select the custom option
+            custom_option = self.query_one(f"#profile-custom-{patch_name}", ProfileOption)
+            custom_option.set_selected(True)
+        except Exception as e:  # nosec B110 - Safe widget query failure
+            # Widget not found or update failed - log but don't crash
+            print(f"Warning: Could not update profile selection to custom: {e}")
+
     @on(IntSpinner.Changed)
     def on_int_spinner_changed(self, event: IntSpinner.Changed) -> None:
         """Handle integer spinner value changes and update patch state."""
@@ -762,12 +901,12 @@ class SyllableWalkerApp(App):
             patch.walk_length = event.value
         elif param_name == "max-flips":
             patch.max_flips = event.value
+            # Max flips is a profile parameter - switch to custom mode
+            # UNLESS we're updating from a profile change (prevents feedback loop)
+            if not self._updating_from_profile:
+                self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "neighbors":
             patch.neighbor_limit = event.value
-
-        # CRITICAL: Prevent auto-focus after parameter change
-        # The widget already called blur(), but ensure nothing else gets focused
-        self.focus_manager.prevent_auto_focus()
 
     @on(FloatSlider.Changed)
     def on_float_slider_changed(self, event: FloatSlider.Changed) -> None:
@@ -788,11 +927,16 @@ class SyllableWalkerApp(App):
         # Update the appropriate parameter in patch state
         if param_name == "temperature":
             patch.temperature = event.value
+            # Temperature is a profile parameter - switch to custom mode
+            # UNLESS we're updating from a profile change (prevents feedback loop)
+            if not self._updating_from_profile:
+                self._switch_to_custom_mode(patch_name, patch)
         elif param_name == "freq-weight":
             patch.frequency_weight = event.value
-
-        # CRITICAL: Prevent auto-focus after parameter change
-        self.focus_manager.prevent_auto_focus()
+            # Frequency weight is a profile parameter - switch to custom mode
+            # UNLESS we're updating from a profile change (prevents feedback loop)
+            if not self._updating_from_profile:
+                self._switch_to_custom_mode(patch_name, patch)
 
     @on(SeedInput.Changed)
     def on_seed_changed(self, event: SeedInput.Changed) -> None:
@@ -820,5 +964,73 @@ class SyllableWalkerApp(App):
             patch.seed = event.value
             patch.rng = __import__("random").Random(event.value)
 
-        # CRITICAL: Prevent auto-focus after seed change
-        self.focus_manager.prevent_auto_focus()
+    @on(ProfileOption.Selected)
+    def on_profile_selected(self, event: ProfileOption.Selected) -> None:
+        """Handle profile option selection (radio button click)."""
+        # Parse widget ID to determine patch
+        # Format: "profile-<profile_name>-<patch>" e.g., "profile-clerical-A"
+        widget_id = event.widget_id
+        if not widget_id:
+            return
+
+        parts = widget_id.rsplit("-", 1)
+        if len(parts) != 2:
+            return
+
+        patch_name = parts[1]
+        profile_name = event.profile_name
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        # Deselect all other profile options for this patch
+        for profile_key in ["clerical", "dialect", "goblin", "ritual", "custom"]:
+            try:
+                option = self.query_one(f"#profile-{profile_key}-{patch_name}", ProfileOption)
+                option.set_selected(profile_key == profile_name)
+            except Exception:  # nosec B110, B112 - Widget query can fail safely
+                # Widget not found during initialization, ignore
+                pass
+
+        # Update current profile in state
+        patch.current_profile = profile_name
+
+        # If "custom" selected, don't update parameters - user will set them manually
+        if profile_name == "custom":
+            return
+
+        # Load profile parameters and update all controls
+        profile = WALK_PROFILES.get(profile_name)
+        if not profile:
+            # Unknown profile, ignore
+            return
+
+        # Update patch state with profile parameters
+        patch.max_flips = profile.max_flips
+        patch.temperature = profile.temperature
+        patch.frequency_weight = profile.frequency_weight
+
+        # CRITICAL: Set flag to prevent auto-switch to custom during profile update
+        # When we update parameter widgets below, they'll trigger Changed events.
+        # We don't want those to switch us back to "custom" mode.
+        self._updating_from_profile = True
+
+        try:
+            # Update all parameter widget displays to match profile
+            # These will trigger Changed events, but handlers will skip custom switch
+            # Update Max Flips
+            max_flips_widget = self.query_one(f"#max-flips-{patch_name}", IntSpinner)
+            max_flips_widget.set_value(profile.max_flips)
+
+            # Update Temperature
+            temperature_widget = self.query_one(f"#temperature-{patch_name}", FloatSlider)
+            temperature_widget.set_value(profile.temperature)
+
+            # Update Frequency Weight
+            freq_weight_widget = self.query_one(f"#freq-weight-{patch_name}", FloatSlider)
+            freq_weight_widget.set_value(profile.frequency_weight)
+
+        except Exception as e:  # nosec B110 - Safe widget query failure
+            # Widget not found or update failed - log but don't crash
+            print(f"Warning: Could not update parameter widgets for profile: {e}")
+        finally:
+            # Always clear the flag, even if update fails
+            self._updating_from_profile = False

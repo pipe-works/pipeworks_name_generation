@@ -243,6 +243,25 @@ class TestPatchState:
 
         assert patch.is_ready_for_generation() is False
 
+    def test_current_profile_defaults_to_dialect(self):
+        """Test that current_profile defaults to 'dialect'."""
+        patch = PatchState(name="A")
+
+        assert patch.current_profile == "dialect"
+
+    def test_current_profile_can_be_changed(self):
+        """Test that current_profile can be changed to other profiles."""
+        patch = PatchState(name="A")
+
+        patch.current_profile = "clerical"
+        assert patch.current_profile == "clerical"
+
+        patch.current_profile = "goblin"
+        assert patch.current_profile == "goblin"
+
+        patch.current_profile = "custom"
+        assert patch.current_profile == "custom"
+
 
 class TestAppState:
     """Tests for AppState dataclass."""

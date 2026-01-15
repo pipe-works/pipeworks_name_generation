@@ -1,37 +1,12 @@
 """
 Custom widgets for Syllable Walker TUI.
 
-This module contains reusable UI widgets including the corpus
-directory browser and parameter control widgets.
-
-FOCUS MANAGEMENT PATTERN
-========================
-
-To prevent parameter widgets from blocking app-level keybindings (b/a/p for tab
-switching), all parameter widgets (IntSpinner, FloatSlider, SeedInput) follow
-this pattern:
-
-1. Widgets ARE focusable (can_focus = True) to support keyboard navigation
-2. Widgets define BINDINGS for parameter adjustment (j/k, +/-, etc.)
-3. After value changes, widgets IMMEDIATELY call self.blur()
-4. After modals close, app.py explicitly blurs focused widgets
-
-This ensures app-level bindings with priority=True can always fire, even
-immediately after parameter adjustments.
-
-WHY THIS IS NECESSARY:
-
-Textual's binding system has a focus precedence issue where even with
-priority=True, app-level bindings don't reliably fire when child widgets
-have focus. The blur() pattern ensures no widget holds focus long enough
-to interfere with global navigation.
-
-ADDING NEW PARAMETER WIDGETS:
-
-If you create a new parameter widget, ensure it follows this pattern:
-- Make it focusable: self.can_focus = True
-- After any value change action: self.blur()
-- See IntSpinner.action_increment() for reference implementation
+This module contains reusable UI widgets including:
+- CorpusBrowserScreen: Modal file browser for corpus selection
+- IntSpinner: Integer parameter control with keyboard navigation
+- FloatSlider: Float parameter control with keyboard navigation
+- SeedInput: Random seed input with validation
+- ProfileOption: Radio-button style profile selector
 """
 
 from pathlib import Path
@@ -376,9 +351,6 @@ class IntSpinner(Static):
         if self.value != old_value:
             self._update_display()
             self.post_message(self.Changed(self.value, self.id))
-            # CRITICAL: Blur after value change to restore app-level bindings
-            # This allows tab switching (b/a/p) to work immediately after adjustment
-            self.blur()
 
     def action_decrement(self) -> None:
         """Action: Decrement value by step, clamped to min."""
@@ -387,9 +359,6 @@ class IntSpinner(Static):
         if self.value != old_value:
             self._update_display()
             self.post_message(self.Changed(self.value, self.id))
-            # CRITICAL: Blur after value change to restore app-level bindings
-            # This allows tab switching (b/a/p) to work immediately after adjustment
-            self.blur()
 
     def set_value(self, value: int) -> None:
         """Set value directly, clamped to range."""
@@ -527,9 +496,6 @@ class FloatSlider(Static):
         if self.value != old_value:
             self._update_display()
             self.post_message(self.Changed(self.value, self.id))
-            # CRITICAL: Blur after value change to restore app-level bindings
-            # This allows tab switching (b/a/p) to work immediately after adjustment
-            self.blur()
 
     def action_decrement(self) -> None:
         """Action: Decrement value by step, clamped to min."""
@@ -538,9 +504,6 @@ class FloatSlider(Static):
         if self.value != old_value:
             self._update_display()
             self.post_message(self.Changed(self.value, self.id))
-            # CRITICAL: Blur after value change to restore app-level bindings
-            # This allows tab switching (b/a/p) to work immediately after adjustment
-            self.blur()
 
     def set_value(self, value: float) -> None:
         """Set value directly, clamped to range."""
@@ -683,6 +646,119 @@ class SeedInput(Static):
 
         self.post_message(self.Changed(new_seed, self.id))
 
-        # CRITICAL: Blur after seed change to restore app-level bindings
-        # This allows tab switching (b/a/p) to work immediately after adjustment
-        self.blur()
+
+class ProfileOption(Static):
+    """
+    Single profile option widget (radio button style).
+
+    Displays as a checkbox-style option that can be clicked or activated with keyboard.
+    Follows focus management pattern: focusable, but blurs immediately after selection.
+
+    Attributes:
+        profile_name: Name of this profile ("clerical", "dialect", etc.)
+        is_selected: Whether this option is currently selected
+        description: Brief description shown after profile name
+    """
+
+    # Define widget-level bindings for selection
+    BINDINGS = [
+        ("enter", "select", "Select Profile"),
+        ("space", "select", "Select Profile"),
+    ]
+
+    class Selected(Message):
+        """Message posted when this profile option is selected."""
+
+        def __init__(self, profile_name: str, widget_id: str | None) -> None:
+            """Initialize with profile name and widget ID."""
+            super().__init__()
+            self.profile_name = profile_name
+            self.widget_id = widget_id
+
+    DEFAULT_CSS = """
+    ProfileOption {
+        height: 1;
+        width: 100%;
+    }
+
+    ProfileOption:hover {
+        background: $boost;
+    }
+
+    ProfileOption:focus {
+        background: $accent;
+    }
+
+    .profile-selected {
+        color: $success;
+        text-style: bold;
+    }
+
+    .profile-unselected {
+        color: $text-muted;
+    }
+    """
+
+    def __init__(
+        self,
+        profile_name: str,
+        description: str,
+        is_selected: bool = False,
+        *args,
+        **kwargs,
+    ):
+        """
+        Initialize profile option.
+
+        Args:
+            profile_name: Profile name (e.g., "clerical")
+            description: Brief description to show
+            is_selected: Whether this option starts selected
+        """
+        super().__init__(*args, **kwargs)
+        self.profile_name = profile_name
+        self.description = description
+        self.is_selected = is_selected
+
+    def on_mount(self) -> None:
+        """
+        Make widget focusable for keyboard navigation.
+
+        Note: We explicitly blur focus after selection to prevent
+        auto-focus from breaking tab switching bindings.
+        """
+        self.can_focus = True
+
+    def render(self):
+        """Render the profile option as text with Rich markup."""
+        from rich.text import Text
+
+        # Build the display text
+        # Note: We escape the square brackets to prevent Rich from interpreting them as markup
+        checkbox = "\\[x]" if self.is_selected else "\\[ ]"
+        label = self.profile_name.capitalize()
+
+        # Apply styling based on selection state
+        if self.is_selected:
+            # Selected: bold green with [x]
+            return Text.from_markup(
+                f"[bold green]{checkbox}[/bold green] [bold]{label}[/bold]: {self.description}"
+            )
+        else:
+            # Unselected: muted gray with [ ]
+            return Text.from_markup(f"[dim]{checkbox}[/dim] {label}: [dim]{self.description}[/dim]")
+
+    def action_select(self) -> None:
+        """Action: Select this profile option (Enter/Space)."""
+        if not self.is_selected:
+            self.post_message(self.Selected(self.profile_name, self.id))
+
+    def on_click(self) -> None:
+        """Handle click on this profile option."""
+        if not self.is_selected:
+            self.post_message(self.Selected(self.profile_name, self.id))
+
+    def set_selected(self, selected: bool) -> None:
+        """Update selection state and refresh display."""
+        self.is_selected = selected
+        self.refresh()
