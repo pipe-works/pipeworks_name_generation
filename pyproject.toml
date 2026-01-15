@@ -47,7 +47,7 @@ dev = [
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "plotly>=5.0.0",
-    "sphinx>=8.0",
+    "sphinx>=8.0,<9.0",  # Pin to 8.x: sphinx-argparse incompatible with 9.0.0/9.0.1
     "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=3.5",
     "sphinx-autoapi>=3.0",
@@ -69,7 +69,7 @@ build-tools = [
 
 # Documentation dependencies (for ReadTheDocs)
 docs = [
-    "sphinx>=8.0",
+    "sphinx>=8.0,<9.0",  # Pin to 8.x: sphinx-argparse incompatible with 9.0.0/9.0.1
     "sphinx-rtd-theme>=3.0",
     "sphinx-autodoc-typehints>=3.5",
     "sphinx-autoapi>=3.0",
