@@ -1,6 +1,9 @@
 myst-parser>=4.0
 # Documentation build requirements for ReadTheDocs
-sphinx>=8.0
+# Pin to Sphinx 8.x to avoid breaking changes in Sphinx 9.0.0/9.0.1
+# where sphinx.ext.autodoc.mock was removed (issue #14142)
+# sphinx-argparse 0.5.2 depends on sphinx.ext.autodoc.mock being available
+sphinx>=8.0,<9.0
 sphinx-argparse>=0.4.0
 sphinx-autoapi>=3.0
 sphinx-autodoc-typehints>=3.5
