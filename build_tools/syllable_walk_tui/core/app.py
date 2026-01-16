@@ -26,6 +26,7 @@ from build_tools.syllable_walk_tui.controls import (
     ProfileOption,
     SeedInput,
 )
+from build_tools.syllable_walk_tui.core.state import AppState
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
@@ -36,7 +37,6 @@ from build_tools.syllable_walk_tui.services import (
     load_keybindings,
     validate_corpus_directory,
 )
-from build_tools.syllable_walk_tui.state import AppState
 
 # BlendedWalkScreen moved to modules.blender.screen.BlendedWalkScreen
 # AnalysisScreen moved to modules.analyzer.screen.AnalysisScreen

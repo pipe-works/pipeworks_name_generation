@@ -4,4 +4,7 @@ Core application framework for Syllable Walker TUI.
 This module contains the main application class and global state management.
 """
 
-# TODO: Export SyllableWalkerApp and AppState after refactoring
+from build_tools.syllable_walk_tui.core.app import SyllableWalkerApp
+from build_tools.syllable_walk_tui.core.state import AppState
+
+__all__ = ["SyllableWalkerApp", "AppState"]

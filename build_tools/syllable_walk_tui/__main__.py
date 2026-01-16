@@ -5,7 +5,7 @@ Usage:
     python -m build_tools.syllable_walk_tui
 """
 
-from build_tools.syllable_walk_tui.app import SyllableWalkerApp
+from build_tools.syllable_walk_tui.core import SyllableWalkerApp
 
 
 def main():

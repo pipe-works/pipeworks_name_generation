@@ -7,7 +7,8 @@ Critical: Tests RNG isolation to ensure TUI state doesn't contaminate global ran
 import random
 from pathlib import Path
 
-from build_tools.syllable_walk_tui.state import AppState, PatchState
+from build_tools.syllable_walk_tui.core.state import AppState
+from build_tools.syllable_walk_tui.modules.oscillator import PatchState
 
 
 class TestPatchState:
