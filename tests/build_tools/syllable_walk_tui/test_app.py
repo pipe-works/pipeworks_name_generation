@@ -14,11 +14,14 @@ from textual.widgets import Footer, Header, Label
 from build_tools.syllable_walk_tui.app import (
     AnalysisScreen,
     BlendedWalkScreen,
-    PatchPanel,
     StatsPanel,
     SyllableWalkerApp,
 )
+from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
 from build_tools.syllable_walk_tui.state import AppState
+
+# Backward compatibility alias for tests
+PatchPanel = OscillatorPanel
 
 
 class TestSyllableWalkerApp:

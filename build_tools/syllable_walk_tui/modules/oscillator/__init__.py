@@ -5,4 +5,7 @@ The oscillator module provides the main syllable generation interface, with
 configurable parameters and independent RNG state.
 """
 
-# TODO: Export OscillatorPanel and OscillatorState after refactoring
+from build_tools.syllable_walk_tui.modules.oscillator.panel import OscillatorPanel
+from build_tools.syllable_walk_tui.modules.oscillator.state import PatchState
+
+__all__ = ["OscillatorPanel", "PatchState"]
