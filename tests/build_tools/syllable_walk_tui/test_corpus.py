@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from build_tools.syllable_walk_tui.corpus import (
+from build_tools.syllable_walk_tui.services.corpus import (
     get_corpus_info,
     load_annotated_data,
     load_corpus_data,

@@ -12,7 +12,7 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Label, Static
 
-from build_tools.syllable_walk_tui.corpus import validate_corpus_directory
+from build_tools.syllable_walk_tui.services.corpus import validate_corpus_directory
 
 
 class CorpusBrowserScreen(ModalScreen[Path | None]):

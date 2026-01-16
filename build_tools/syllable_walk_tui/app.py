@@ -19,7 +19,6 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, Footer, Header, Label
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
-from build_tools.syllable_walk_tui.config import load_keybindings
 from build_tools.syllable_walk_tui.controls import (
     CorpusBrowserScreen,
     FloatSlider,
@@ -27,15 +26,16 @@ from build_tools.syllable_walk_tui.controls import (
     ProfileOption,
     SeedInput,
 )
-from build_tools.syllable_walk_tui.corpus import (
-    get_corpus_info,
-    load_annotated_data,
-    load_corpus_data,
-    validate_corpus_directory,
-)
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
+from build_tools.syllable_walk_tui.services import (
+    get_corpus_info,
+    load_annotated_data,
+    load_corpus_data,
+    load_keybindings,
+    validate_corpus_directory,
+)
 from build_tools.syllable_walk_tui.state import AppState
 
 # BlendedWalkScreen moved to modules.blender.screen.BlendedWalkScreen

@@ -6,7 +6,7 @@ Tests keybinding loading, conflict detection, and default fallback behavior.
 
 from pathlib import Path
 
-from build_tools.syllable_walk_tui.config import (
+from build_tools.syllable_walk_tui.services.config import (
     KeybindingConfig,
     detect_conflicts,
     load_config_file,
