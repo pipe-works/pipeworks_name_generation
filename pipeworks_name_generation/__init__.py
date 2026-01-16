@@ -6,4 +6,4 @@ This is the proof of concept version with minimal functionality.
 from pipeworks_name_generation.generator import NameGenerator
 
 __all__ = ["NameGenerator"]
-__version__ = "0.4.0"
+__version__ = "0.5.0"
