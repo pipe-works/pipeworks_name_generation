@@ -10,6 +10,10 @@ Architecture:
 - Keyboard-first navigation with configurable keybindings
 """
 
+import json
+import os
+import tempfile
+import traceback
 from pathlib import Path
 
 from textual import on, work
@@ -19,6 +23,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, Footer, Header, Label
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
+from build_tools.syllable_walk.walker import SyllableWalker
 from build_tools.syllable_walk_tui.controls import (
     CorpusBrowserScreen,
     FloatSlider,
@@ -203,6 +208,104 @@ class SyllableWalkerApp(App):
     def on_button_select_corpus_b(self) -> None:
         """Handle Patch B corpus selection button press."""
         self._select_corpus_for_patch("B")
+
+    @on(Button.Pressed, "#generate-A")
+    def on_button_generate_a(self) -> None:
+        """Generate walks for patch A."""
+        self._generate_walks_for_patch("A")
+
+    @on(Button.Pressed, "#generate-B")
+    def on_button_generate_b(self) -> None:
+        """Generate walks for patch B."""
+        self._generate_walks_for_patch("B")
+
+    def _generate_walks_for_patch(self, patch_name: str) -> None:
+        """
+        Generate walks for a patch using SyllableWalker.
+
+        This method:
+        1. Checks if patch has corpus loaded (annotated_data)
+        2. Creates SyllableWalker from annotated data
+        3. Filters syllables by min/max length constraints
+        4. Generates 10 walks with current patch parameters
+        5. Stores results in patch.outputs
+        6. Updates UI to display walks
+
+        Args:
+            patch_name: "A" or "B"
+        """
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        # Validate patch is ready
+        if not patch.is_ready_for_generation():
+            self.notify(f"Patch {patch_name}: Corpus not loaded", severity="warning")
+            return
+
+        try:
+            # Create temporary JSON file for SyllableWalker
+            # (SyllableWalker expects a file path, not in-memory data)
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+                json.dump(patch.annotated_data, f)
+                temp_path = f.name
+
+            # Create walker (this will pre-compute neighbor graph)
+            # Note: This can take 1-2 seconds for large corpora (500k+ syllables)
+            self.notify(
+                f"Patch {patch_name}: Initializing walker...",
+                timeout=2,
+                severity="information",
+            )
+            walker = SyllableWalker(temp_path, verbose=False)
+
+            # Filter syllables by length (simple filtering)
+            valid_syllables = [
+                syl for syl in walker.syllables if patch.min_length <= len(syl) <= patch.max_length
+            ]
+
+            if not valid_syllables:
+                self.notify(
+                    f"Patch {patch_name}: No syllables match length constraints",
+                    severity="error",
+                )
+                os.unlink(temp_path)
+                return
+
+            # Generate 10 walks
+            walks = []
+            for i in range(10):
+                # Pick random starting syllable
+                start = patch.rng.choice(valid_syllables)
+
+                # Generate walk using patch parameters
+                walk = walker.walk(
+                    start=start,
+                    steps=patch.walk_length,
+                    max_flips=patch.max_flips,
+                    temperature=patch.temperature,
+                    frequency_weight=patch.frequency_weight,
+                    seed=patch.seed + i,  # Offset seed for variety
+                )
+
+                # Format walk as string: "syl1 → syl2 → syl3"
+                walk_text = " → ".join(step["syllable"] for step in walk)
+                walks.append(walk_text)
+
+            # Store in patch state
+            patch.outputs = walks
+
+            # Update UI - find output label and update it
+            output_label = self.query_one(f"#output-{patch_name}", Label)
+            output_label.update("\n".join(walks))
+            output_label.remove_class("output-placeholder")
+
+            # Clean up temp file
+            os.unlink(temp_path)
+
+            self.notify(f"Patch {patch_name}: Generated {len(walks)} walks", severity="information")
+
+        except Exception as e:
+            self.notify(f"Patch {patch_name}: Generation failed: {e}", severity="error")
+            traceback.print_exc()
 
     def action_select_corpus_a(self) -> None:
         """Action: Open corpus selector for Patch A (keybinding: 1)."""

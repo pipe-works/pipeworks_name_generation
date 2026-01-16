@@ -45,16 +45,30 @@ class BlendedWalkScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Create blended walk screen layout."""
+        # Access app state (type: ignore needed since Screen.app is App[Any])
+        app_state = self.app.state  # type: ignore[attr-defined]
+
         yield Label("BLENDED WALK RESULTS", classes="walk-header")
         yield Label("")
-        yield Label("Patch A Walk:")
-        yield Label("  (Generate to see results)")
+
+        # Show Patch A walks
+        yield Label("Patch A Walks:", classes="walk-header")
+        if app_state.patch_a.outputs:
+            for walk in app_state.patch_a.outputs[:5]:  # Show first 5
+                yield Label(f"  {walk}")
+        else:
+            yield Label("  (Generate to see results)")
+
         yield Label("")
-        yield Label("Patch B Walk:")
-        yield Label("  (Generate to see results)")
-        yield Label("")
-        yield Label("Comparison Analysis:")
-        yield Label("  (Generate to see analysis)")
+
+        # Show Patch B walks
+        yield Label("Patch B Walks:", classes="walk-header")
+        if app_state.patch_b.outputs:
+            for walk in app_state.patch_b.outputs[:5]:  # Show first 5
+                yield Label(f"  {walk}")
+        else:
+            yield Label("  (Generate to see results)")
+
         yield Label("")
         yield Label("Press Esc to close")
 
