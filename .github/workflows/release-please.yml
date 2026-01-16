@@ -15,18 +15,8 @@ jobs:
     steps:
     - uses: googleapis/release-please-action@v4
       with:
-          # Type of release (Python)
-        release-type: python
-
-          # Package name (must match pyproject.toml name)
-        package-name: pipeworks-name-generation
-
-          # Changelog sections (conventional commits mapping)
-        changelog-types: |
-          [
-            {"type":"feat","section":"Features","hidden":false},
-            {"type":"fix","section":"Fixes","hidden":false},
-            {"type":"docs","section":"Documentation","hidden":false},
-            {"type":"refactor","section":"Internal Changes","hidden":false},
-            {"type":"chore","section":"Maintenance","hidden":true}
-          ]
+        # Use config files for versioning strategy
+        # This keeps us in 0.x mode until we're ready for 1.0.0
+        # (breaking changes bump minor: 0.x.0, not major: x.0.0)
+        config-file: release-please-config.json
+        manifest-file: .release-please-manifest.json
