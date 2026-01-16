@@ -11,8 +11,9 @@ from unittest.mock import Mock, patch
 import pytest
 from textual.widgets import Footer, Header, Label
 
-from build_tools.syllable_walk_tui.app import BlendedWalkScreen, SyllableWalkerApp
+from build_tools.syllable_walk_tui.app import SyllableWalkerApp
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
+from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
 from build_tools.syllable_walk_tui.state import AppState
 

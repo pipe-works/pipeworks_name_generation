@@ -16,7 +16,6 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
-from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
@@ -28,6 +27,7 @@ from build_tools.syllable_walk_tui.corpus import (
     validate_corpus_directory,
 )
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
+from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.state import AppState
 from build_tools.syllable_walk_tui.widgets import (
@@ -38,60 +38,7 @@ from build_tools.syllable_walk_tui.widgets import (
     SeedInput,
 )
 
-
-class BlendedWalkScreen(Screen):
-    """
-    Modal screen for viewing blended walk results.
-
-    Displays generated syllable walks from both patches in a full-screen view.
-    Provides detailed walk information and comparison.
-
-    Keybindings:
-        Esc: Close screen and return to main view
-        j/k: Scroll through results
-    """
-
-    BINDINGS = [
-        ("escape", "close_screen", "Close"),
-    ]
-
-    DEFAULT_CSS = """
-    BlendedWalkScreen {
-        background: $surface;
-        border: solid $primary;
-    }
-
-    BlendedWalkScreen Label {
-        margin: 1;
-    }
-
-    .walk-header {
-        text-style: bold;
-        color: $accent;
-        margin-top: 2;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        """Create blended walk screen layout."""
-        yield Label("BLENDED WALK RESULTS", classes="walk-header")
-        yield Label("")
-        yield Label("Patch A Walk:")
-        yield Label("  (Generate to see results)")
-        yield Label("")
-        yield Label("Patch B Walk:")
-        yield Label("  (Generate to see results)")
-        yield Label("")
-        yield Label("Comparison Analysis:")
-        yield Label("  (Generate to see analysis)")
-        yield Label("")
-        yield Label("Press Esc to close")
-
-    def action_close_screen(self) -> None:
-        """Close this screen and return to main view."""
-        self.app.pop_screen()
-
-
+# BlendedWalkScreen moved to modules.blender.screen.BlendedWalkScreen
 # AnalysisScreen moved to modules.analyzer.screen.AnalysisScreen
 # StatsPanel moved to modules.analyzer.panel.StatsPanel
 # PatchPanel moved to modules.oscillator.panel.OscillatorPanel

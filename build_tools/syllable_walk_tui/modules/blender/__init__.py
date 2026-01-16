@@ -5,4 +5,6 @@ The blender module combines multiple patch outputs to generate blended
 syllable walks with configurable mixing ratios.
 """
 
-# TODO: Export BlendedWalkScreen after refactoring
+from build_tools.syllable_walk_tui.modules.blender.screen import BlendedWalkScreen
+
+__all__ = ["BlendedWalkScreen"]
