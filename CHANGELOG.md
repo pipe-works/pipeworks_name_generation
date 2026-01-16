@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.4.0...v1.0.0) (2026-01-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **syllable_walk_tui:** Replace TabbedContent architecture with modal screens for Blended Walk and Analysis views to eliminate focus management bugs.
+
+### Features
+
+* **build_tools:** Add auto-detection of output paths for syllable feature annotator ([ecab975](https://github.com/aa-parky/pipeworks_name_generation/commit/ecab9755e74c9df79182d6f68484fb1c422b61c3))
+* **build_tools:** Add corpus_sqlite_builder for TUI performance optimization ([93a3a3e](https://github.com/aa-parky/pipeworks_name_generation/commit/93a3a3eaea96f8a3f48dad77b3ef4216e86abd25))
+* **build_tools:** Add keyboard-driven TUI for syllable walk exploration ([838aa26](https://github.com/aa-parky/pipeworks_name_generation/commit/838aa26b983456b569036540a042e61f7bf7cabe))
+* **build_tools:** Add light/dark theme and conservative UI to syllable walker ([cc48ba6](https://github.com/aa-parky/pipeworks_name_generation/commit/cc48ba659061bc8ec20e68594be37333cc63188e))
+* **build_tools:** Add multi-walker caching for instant dataset switching ([fb9b8cb](https://github.com/aa-parky/pipeworks_name_generation/commit/fb9b8cb9a2755d92b99a56231fbbc62ba984801e))
+* **build_tools:** Add smart dataset discovery and selection for syllable walker ([2a675d6](https://github.com/aa-parky/pipeworks_name_generation/commit/2a675d6e6a776cba7d4fed27e7c92037f7ff3dba))
+* **build_tools:** Add split-pane UI for syllable walker web interface ([76c39c1](https://github.com/aa-parky/pipeworks_name_generation/commit/76c39c1dc011d042db70faee714c4c1a6fe8596e))
+* **syllable_walk_tui:** Add centralized focus management to fix tab switching ([0dfbbb5](https://github.com/aa-parky/pipeworks_name_generation/commit/0dfbbb52c59931307220a8d5d25782903b1f8df7))
+* **syllable_walk_tui:** implement background async loading for annotated corpus data ([1029698](https://github.com/aa-parky/pipeworks_name_generation/commit/1029698b689dc39c5ac0394484947b80615a0be3))
+* **syllable_walk_tui:** Implement two-box seed input with manual and random modes ([616179e](https://github.com/aa-parky/pipeworks_name_generation/commit/616179e9228b660ca2bc51fe76a650e9bd67c46b))
+* **syllable_walk_tui:** Replace tabbed interface with modal screens ([66b80e5](https://github.com/aa-parky/pipeworks_name_generation/commit/66b80e55cc2b3159c938475361223f9a10276cce))
+
+
+### Bug Fixes
+
+* **build_tools:** Make TUI tests optional when textual is not installed ([4592425](https://github.com/aa-parky/pipeworks_name_generation/commit/4592425faaf114092ce14e8e682bf9d8a7a54102))
+* **ci:** Add textual to docs deps and update tests for modal screens ([119f1e9](https://github.com/aa-parky/pipeworks_name_generation/commit/119f1e9a098c5b014aebb7d799d4a56c623758ad))
+* **deps:** Add pytest-asyncio to dev dependencies in pyproject.toml ([ddccda4](https://github.com/aa-parky/pipeworks_name_generation/commit/ddccda43cfef16316c987df5c18846a0a859c8c7))
+* **docs:** Exclude syllable_walk_tui from autoapi instead of mocking ([e0f901f](https://github.com/aa-parky/pipeworks_name_generation/commit/e0f901fc8b63a64d874b42d63d5b5e6d8202ff64))
+* **docs:** Install textual in docs deps - proper solution, not monkey patch ([3192466](https://github.com/aa-parky/pipeworks_name_generation/commit/3192466822b4dfa3ff48be9bbdfe16b6d062ed2a))
+* **docs:** Mock textual in Sphinx config instead of installing ([d75f0b8](https://github.com/aa-parky/pipeworks_name_generation/commit/d75f0b8fc4c4528448e48771a0ebc71685cd9d9f))
+* **docs:** Pin Sphinx to 8.x in pyproject.toml (actual fix for CI) ([cdfec07](https://github.com/aa-parky/pipeworks_name_generation/commit/cdfec07b0bf144febc82ec6b297a8ba91520b389))
+* **docs:** Pin Sphinx to 8.x to avoid sphinx-argparse incompatibility ([7420fb3](https://github.com/aa-parky/pipeworks_name_generation/commit/7420fb3791d52f2ffe418c29035219f5c9de9f37))
+* **syllable_walk_tui:** Defer clearing _updating_from_profile flag ([22dff98](https://github.com/aa-parky/pipeworks_name_generation/commit/22dff98d771a6bba1ade02392b70b0c7873674b6))
+* **syllable_walk_tui:** Fix keyboard profile selection and tab navigation ([fe33455](https://github.com/aa-parky/pipeworks_name_generation/commit/fe3345557b9d3b6b35047804fa9ee472a908e4b5))
+* **syllable_walk_tui:** Fix tab navigation and profile selection ([98eee59](https://github.com/aa-parky/pipeworks_name_generation/commit/98eee5988c39d32be93ee5c44b4afa0445026863))
+* **syllable_walk_tui:** Remove remaining debug notifications ([5872377](https://github.com/aa-parky/pipeworks_name_generation/commit/587237758a788517bde295619f7b05cd90280ed2))
+* **tests:** Correct pilot variable naming and Textual API usage in async tests ([414ac73](https://github.com/aa-parky/pipeworks_name_generation/commit/414ac730d301fa0dfdccf3d46265938b4a76513c))
+* **tests:** Make path assertions cross-platform for Windows CI ([f717d7f](https://github.com/aa-parky/pipeworks_name_generation/commit/f717d7fa24b27870e6b8d56f1a292dde3752831e))
+* **tests:** Update test_state.py for renamed frequency_weight parameter ([fc52930](https://github.com/aa-parky/pipeworks_name_generation/commit/fc5293055f864f2d541a0e6adf623d9bb09bf755))
+* **tests:** Update TUI test for dual oscillator refactoring ([0bcac7a](https://github.com/aa-parky/pipeworks_name_generation/commit/0bcac7ac38909a14b009ae6c50aa1545e94a8909))
+
+
+### Documentation
+
+* **build_tools:** Add Sphinx documentation for syllable_walk_tui ([a9506ff](https://github.com/aa-parky/pipeworks_name_generation/commit/a9506ff82e6300093ea481516a0b17ee4ae0353e))
+* **build_tools:** Update syllable_walk documentation for Phase 1 features ([4301a8b](https://github.com/aa-parky/pipeworks_name_generation/commit/4301a8bd602317f7d8cc361a45d827dd6e561126))
+* **corpus_sqlite_builder:** Fix CLI epilog RST formatting ([012cad8](https://github.com/aa-parky/pipeworks_name_generation/commit/012cad8618c3ae89153030b0fbbc91c9887467ca))
+* **corpus_sqlite_builder:** Fix module docstring RST formatting ([7ffc3a6](https://github.com/aa-parky/pipeworks_name_generation/commit/7ffc3a672df53715f179328c4070a0edec0aa679))
+* Reframe README to emphasize build tools ecosystem over name generator ([238042d](https://github.com/aa-parky/pipeworks_name_generation/commit/238042df0feeedce9bb1513813fff537949c330c))
+
 ## [0.4.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.3.0...v0.4.0) (2026-01-10)
 
 
