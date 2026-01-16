@@ -17,7 +17,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Label, Static
+from textual.widgets import Button, Footer, Header, Label
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
 from build_tools.syllable_walk_tui.config import load_keybindings
@@ -27,6 +27,7 @@ from build_tools.syllable_walk_tui.corpus import (
     load_corpus_data,
     validate_corpus_directory,
 )
+from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.state import AppState
 from build_tools.syllable_walk_tui.widgets import (
@@ -91,82 +92,9 @@ class BlendedWalkScreen(Screen):
         self.app.pop_screen()
 
 
-class AnalysisScreen(Screen):
-    """
-    Modal screen for viewing statistical analysis.
-
-    Displays detailed phonetic analysis, frequency distributions,
-    and comparative statistics between patches.
-
-    Keybindings:
-        Esc: Close screen and return to main view
-        j/k: Scroll through results
-    """
-
-    BINDINGS = [
-        ("escape", "close_screen", "Close"),
-    ]
-
-    DEFAULT_CSS = """
-    AnalysisScreen {
-        background: $surface;
-        border: solid $primary;
-    }
-
-    AnalysisScreen Label {
-        margin: 1;
-    }
-
-    .analysis-header {
-        text-style: bold;
-        color: $accent;
-        margin-top: 2;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        """Create analysis screen layout."""
-        yield Label("STATISTICAL ANALYSIS", classes="analysis-header")
-        yield Label("")
-        yield Label("Phonetic Feature Distribution:")
-        yield Label("  (Generate to see analysis)")
-        yield Label("")
-        yield Label("Frequency Analysis:")
-        yield Label("  (Generate to see analysis)")
-        yield Label("")
-        yield Label("Walk Characteristics:")
-        yield Label("  (Generate to see analysis)")
-        yield Label("")
-        yield Label("Press Esc to close")
-
-    def action_close_screen(self) -> None:
-        """Close this screen and return to main view."""
-        self.app.pop_screen()
-
-
+# AnalysisScreen moved to modules.analyzer.screen.AnalysisScreen
+# StatsPanel moved to modules.analyzer.panel.StatsPanel
 # PatchPanel moved to modules.oscillator.panel.OscillatorPanel
-
-
-class StatsPanel(Static):
-    """
-    Panel displaying comparison statistics between patches.
-
-    Shows parameter differences, output metrics, and phonetic analysis.
-    """
-
-    def compose(self) -> ComposeResult:
-        """Create child widgets for statistics panel."""
-        yield Label("COMPARISON STATS", classes="stats-header")
-        yield Label("", classes="spacer")
-        yield Label("Differences:")
-        yield Label("  (generate to compare)")
-        yield Label("", classes="spacer")
-        yield Label("Outputs:")
-        yield Label("  A: 0 generated")
-        yield Label("  B: 0 generated")
-        yield Label("", classes="spacer")
-        yield Label("(More stats as we")
-        yield Label(" discover needs)")
 
 
 class SyllableWalkerApp(App):
