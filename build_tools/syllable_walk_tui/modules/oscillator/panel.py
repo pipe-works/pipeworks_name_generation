@@ -8,7 +8,7 @@ configuration controls in the TUI.
 from textual.app import ComposeResult
 from textual.widgets import Button, Label, Static
 
-from build_tools.syllable_walk_tui.widgets import FloatSlider, IntSpinner, ProfileOption, SeedInput
+from build_tools.syllable_walk_tui.controls import FloatSlider, IntSpinner, ProfileOption, SeedInput
 
 
 class OscillatorPanel(Static):

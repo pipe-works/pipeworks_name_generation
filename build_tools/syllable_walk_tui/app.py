@@ -20,6 +20,13 @@ from textual.widgets import Button, Footer, Header, Label
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
 from build_tools.syllable_walk_tui.config import load_keybindings
+from build_tools.syllable_walk_tui.controls import (
+    CorpusBrowserScreen,
+    FloatSlider,
+    IntSpinner,
+    ProfileOption,
+    SeedInput,
+)
 from build_tools.syllable_walk_tui.corpus import (
     get_corpus_info,
     load_annotated_data,
@@ -30,13 +37,6 @@ from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, Stats
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.state import AppState
-from build_tools.syllable_walk_tui.widgets import (
-    CorpusBrowserScreen,
-    FloatSlider,
-    IntSpinner,
-    ProfileOption,
-    SeedInput,
-)
 
 # BlendedWalkScreen moved to modules.blender.screen.BlendedWalkScreen
 # AnalysisScreen moved to modules.analyzer.screen.AnalysisScreen
