@@ -1,34 +1,40 @@
 """
-Configuration management for Syllable Walker TUI.
+Configuration management for Syllable Walker TUI - Re-export from tui_common.
 
-This module handles loading and validating user-configurable keybindings
-from TOML files, with fallback to sensible defaults.
+**DEPRECATED**: This module re-exports configuration utilities from tui_common
+for backward compatibility. New code should import directly from tui_common:
+
+.. code-block:: python
+
+    # Preferred
+    from build_tools.tui_common.services import KeybindingConfig, load_keybindings
+
+    # Deprecated (still works)
+    from build_tools.syllable_walk_tui.services.config import KeybindingConfig
+
+**Note**: The tui_common KeybindingConfig uses ``action_bindings`` instead of
+``patch_bindings``. This module provides a backward-compatible subclass that
+maps the old ``patch_bindings`` attribute.
 """
 
-import sys
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-# Python 3.11+ has tomllib built-in, otherwise use tomli
-if sys.version_info >= (3, 11):
-    import tomllib as tomli
-
-    TOMLI_AVAILABLE = True
-else:
-    try:
-        import tomli
-
-        TOMLI_AVAILABLE = True
-    except ImportError:
-        TOMLI_AVAILABLE = False
-        tomli = None  # type: ignore
+# Re-export from shared package
+from build_tools.tui_common.services.config import TOMLI_AVAILABLE
+from build_tools.tui_common.services.config import KeybindingConfig as BaseKeybindingConfig
+from build_tools.tui_common.services.config import detect_conflicts, load_config_file, merge_config
 
 
 @dataclass
-class KeybindingConfig:
+class KeybindingConfig(BaseKeybindingConfig):
     """
-    Keybinding configuration for the TUI application.
+    Keybinding configuration for Syllable Walker TUI.
+
+    This is a backward-compatible subclass that adds the ``patch_bindings``
+    attribute expected by the syllable_walk_tui codebase.
 
     Attributes:
         global_bindings: Global actions (quit, help)
@@ -38,43 +44,28 @@ class KeybindingConfig:
         patch_bindings: Patch operations (generate, copy, paste, reset, swap)
     """
 
-    global_bindings: dict[str, list[str]] = field(default_factory=dict)
-    tab_bindings: dict[str, list[str]] = field(default_factory=dict)
-    navigation_bindings: dict[str, list[str]] = field(default_factory=dict)
-    control_bindings: dict[str, list[str]] = field(default_factory=dict)
+    # Syllable Walk TUI uses patch_bindings for patch-specific operations
     patch_bindings: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def default(cls) -> "KeybindingConfig":
+    def default(cls) -> KeybindingConfig:
         """
-        Create default keybinding configuration.
+        Create default keybinding configuration for Syllable Walker TUI.
 
         Returns:
-            KeybindingConfig with sensible defaults
+            KeybindingConfig with sensible defaults including patch bindings
         """
+        base = BaseKeybindingConfig.default()
         return cls(
-            global_bindings={
-                "quit": ["q", "ctrl+q"],
-                "help": ["question_mark", "f1"],
-            },
+            global_bindings=base.global_bindings,
             tab_bindings={
                 "patch_config": ["p"],
                 "blended_walk": ["b"],
                 "analysis": ["a"],
             },
-            navigation_bindings={
-                "up": ["k", "up"],
-                "down": ["j", "down"],
-                "left": ["h", "left"],
-                "right": ["l", "right"],
-                "next_panel": ["tab", "ctrl+n"],
-                "prev_panel": ["shift+tab", "ctrl+p"],
-            },
-            control_bindings={
-                "activate": ["enter", "space"],
-                "increment": ["plus", "equal", "right_square_bracket"],
-                "decrement": ["minus", "left_square_bracket"],
-            },
+            navigation_bindings=base.navigation_bindings,
+            control_bindings=base.control_bindings,
+            action_bindings=base.action_bindings,
             patch_bindings={
                 "generate": ["g", "f5"],
                 "copy": ["y", "ctrl+c"],
@@ -88,173 +79,32 @@ class KeybindingConfig:
         """
         Get the primary (first) keybinding for an action.
 
+        Extends base class to support 'patch' context.
+
         Args:
-            context: Keybinding context ("global", "tabs", "navigation", etc.)
+            context: Keybinding context ("global", "tabs", "navigation", "patch", etc.)
             action: Action name (e.g., "quit", "patch_config")
 
         Returns:
             Primary key string, or None if not found
         """
-        bindings_map = {
-            "global": self.global_bindings,
-            "tabs": self.tab_bindings,
-            "navigation": self.navigation_bindings,
-            "controls": self.control_bindings,
-            "patch": self.patch_bindings,
-        }
-
-        bindings = bindings_map.get(context, {})
-        keys = bindings.get(action, [])
-        return keys[0] if keys else None
-
-    def get_display_key(self, context: str, action: str) -> str:
-        """
-        Get human-readable key name for display in UI.
-
-        Args:
-            context: Keybinding context
-            action: Action name
-
-        Returns:
-            Display-friendly key name (e.g., "q", "Ctrl+Q", "Enter")
-        """
-        key = self.get_primary_key(context, action)
-        if not key:
-            return "?"
-
-        # Convert Textual key names to display-friendly names
-        key_display_map = {
-            "question_mark": "?",
-            "ctrl+q": "Ctrl+Q",
-            "ctrl+c": "Ctrl+C",
-            "ctrl+v": "Ctrl+V",
-            "ctrl+n": "Ctrl+N",
-            "ctrl+p": "Ctrl+P",
-            "f1": "F1",
-            "f5": "F5",
-            "enter": "Enter",
-            "space": "Space",
-            "tab": "Tab",
-            "shift+tab": "Shift+Tab",
-            "plus": "+",
-            "equal": "=",
-            "minus": "-",
-            "left_square_bracket": "[",
-            "right_square_bracket": "]",
-            "up": "↑",
-            "down": "↓",
-            "left": "←",
-            "right": "→",
-        }
-
-        return key_display_map.get(key, key.upper())
-
-
-def detect_conflicts(config: KeybindingConfig) -> list[str]:
-    """
-    Detect conflicting keybindings within each context.
-
-    Args:
-        config: Keybinding configuration to validate
-
-    Returns:
-        List of conflict warning messages (empty if no conflicts)
-    """
-    conflicts = []
-
-    contexts = {
-        "global": config.global_bindings,
-        "tabs": config.tab_bindings,
-        "navigation": config.navigation_bindings,
-        "controls": config.control_bindings,
-        "patch": config.patch_bindings,
-    }
-
-    for context_name, bindings in contexts.items():
-        seen: dict[str, str] = {}
-
-        for action, keys in bindings.items():
-            for key in keys:
-                if key in seen:
-                    conflicts.append(
-                        f"Conflict in '{context_name}': key '{key}' is bound to both "
-                        f"'{action}' and '{seen[key]}'"
-                    )
-                else:
-                    seen[key] = action
-
-    return conflicts
-
-
-def load_config_file(config_path: Path | None = None) -> dict[str, Any] | None:
-    """
-    Load keybinding configuration from TOML file.
-
-    Args:
-        config_path: Path to config file, or None to use default location
-                     (~/.config/pipeworks_tui/keybindings.toml)
-
-    Returns:
-        Parsed TOML configuration as dict, or None if file doesn't exist
-        or tomli is not available
-    """
-    if not TOMLI_AVAILABLE:
-        return None
-
-    if config_path is None:
-        config_dir = Path.home() / ".config" / "pipeworks_tui"
-        config_path = config_dir / "keybindings.toml"
-
-    if not config_path.exists():
-        return None
-
-    try:
-        with open(config_path, "rb") as f:
-            return tomli.load(f)
-    except Exception as e:
-        print(f"Warning: Failed to load config from {config_path}: {e}")
-        return None
-
-
-def merge_config(defaults: KeybindingConfig, user_config: dict[str, Any]) -> KeybindingConfig:
-    """
-    Merge user configuration with defaults.
-
-    Args:
-        defaults: Default keybinding configuration
-        user_config: User-provided configuration from TOML file
-
-    Returns:
-        Merged configuration (user overrides defaults)
-    """
-    # Extract keybindings section
-    keybindings = user_config.get("keybindings", {})
-
-    # Merge each context
-    merged = KeybindingConfig(
-        global_bindings=keybindings.get("global", defaults.global_bindings),
-        tab_bindings=keybindings.get("tabs", defaults.tab_bindings),
-        navigation_bindings=keybindings.get("navigation", defaults.navigation_bindings),
-        control_bindings=keybindings.get("controls", defaults.control_bindings),
-        patch_bindings=keybindings.get("patch", defaults.patch_bindings),
-    )
-
-    return merged
+        if context == "patch":
+            keys = self.patch_bindings.get(action, [])
+            return keys[0] if keys else None
+        return super().get_primary_key(context, action)
 
 
 def load_keybindings(config_path: Path | None = None) -> KeybindingConfig:
     """
     Load keybindings from config file with fallback to defaults.
 
+    This version returns a KeybindingConfig subclass with patch_bindings support.
+
     Args:
         config_path: Optional path to config file
 
     Returns:
-        Keybinding configuration (user config merged with defaults)
-
-    Note:
-        If config file doesn't exist or has errors, returns defaults.
-        Prints conflicts to stderr if detected.
+        KeybindingConfig (user config merged with defaults)
     """
     defaults = KeybindingConfig.default()
 
@@ -262,13 +112,21 @@ def load_keybindings(config_path: Path | None = None) -> KeybindingConfig:
     user_config = load_config_file(config_path)
 
     if user_config is None:
-        # No user config, use defaults
         config = defaults
     else:
-        # Merge user config with defaults
-        config = merge_config(defaults, user_config)
+        # Extract keybindings section
+        keybindings = user_config.get("keybindings", {})
 
-    # Check for conflicts
+        config = KeybindingConfig(
+            global_bindings=keybindings.get("global", defaults.global_bindings),
+            tab_bindings=keybindings.get("tabs", defaults.tab_bindings),
+            navigation_bindings=keybindings.get("navigation", defaults.navigation_bindings),
+            control_bindings=keybindings.get("controls", defaults.control_bindings),
+            action_bindings=keybindings.get("actions", defaults.action_bindings),
+            patch_bindings=keybindings.get("patch", defaults.patch_bindings),
+        )
+
+    # Check for conflicts (from shared module)
     conflicts = detect_conflicts(config)
     if conflicts:
         print("Warning: Keybinding conflicts detected:")
@@ -276,3 +134,14 @@ def load_keybindings(config_path: Path | None = None) -> KeybindingConfig:
             print(f"  - {conflict}")
 
     return config
+
+
+# Re-export for backward compatibility
+__all__ = [
+    "KeybindingConfig",
+    "load_keybindings",
+    "load_config_file",
+    "merge_config",
+    "detect_conflicts",
+    "TOMLI_AVAILABLE",
+]

@@ -30,11 +30,11 @@ class TestValidateCorpusDirectory:
             json.dumps({"hel": 1, "lo": 2, "world": 1})
         )
 
-        is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
+        is_valid, corpus_type, message = validate_corpus_directory(corpus_dir)
 
         assert is_valid is True
         assert corpus_type == "NLTK"
-        assert error is None
+        assert "Valid NLTK corpus" in message
 
     def test_valid_pyphen_corpus(self, tmp_path):
         """Test validation of valid Pyphen corpus directory."""
@@ -47,11 +47,11 @@ class TestValidateCorpusDirectory:
             json.dumps({"hel": 1, "lo": 2, "world": 1})
         )
 
-        is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
+        is_valid, corpus_type, message = validate_corpus_directory(corpus_dir)
 
         assert is_valid is True
         assert corpus_type == "Pyphen"
-        assert error is None
+        assert "Valid Pyphen corpus" in message
 
     def test_both_corpus_types_present_prefers_nltk(self, tmp_path):
         """Test that NLTK is preferred when both corpus types exist."""
@@ -64,11 +64,11 @@ class TestValidateCorpusDirectory:
         (corpus_dir / "pyphen_syllables_unique.txt").write_text("pyphen\n")
         (corpus_dir / "pyphen_syllables_frequencies.json").write_text(json.dumps({"pyphen": 1}))
 
-        is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
+        is_valid, corpus_type, message = validate_corpus_directory(corpus_dir)
 
         assert is_valid is True
         assert corpus_type == "NLTK"  # Should prefer NLTK
-        assert error is None
+        assert "Valid NLTK corpus" in message
 
     def test_missing_unique_file_nltk(self, tmp_path):
         """Test invalid corpus with missing NLTK unique file."""
@@ -81,7 +81,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -96,7 +96,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -111,7 +111,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -126,7 +126,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -137,7 +137,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(nonexistent)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "does not exist" in error.lower()
 
@@ -149,7 +149,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(file_path)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "not a directory" in error.lower()
 
@@ -161,7 +161,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(empty_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -177,7 +177,7 @@ class TestValidateCorpusDirectory:
         is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
 
         assert is_valid is False
-        assert corpus_type is None
+        assert corpus_type == ""
         assert error is not None
         assert "No corpus files found" in error
 
@@ -191,11 +191,11 @@ class TestValidateCorpusDirectory:
         (corpus_dir / "nltk_syllables_frequencies.json").write_text("not valid json {{{")
 
         # Validation only checks file existence, not content
-        is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
+        is_valid, corpus_type, message = validate_corpus_directory(corpus_dir)
 
         assert is_valid is True
         assert corpus_type == "NLTK"
-        assert error is None
+        assert "Valid NLTK corpus" in message
 
     def test_empty_unique_file(self, tmp_path):
         """Test validation with empty unique syllables file."""
@@ -207,11 +207,11 @@ class TestValidateCorpusDirectory:
         (corpus_dir / "nltk_syllables_frequencies.json").write_text("{}")
 
         # Validation only checks existence, not content
-        is_valid, corpus_type, error = validate_corpus_directory(corpus_dir)
+        is_valid, corpus_type, message = validate_corpus_directory(corpus_dir)
 
         assert is_valid is True
         assert corpus_type == "NLTK"
-        assert error is None
+        assert "Valid NLTK corpus" in message
 
 
 class TestGetCorpusInfo:

@@ -1,40 +1,64 @@
 """
-Corpus browser modal widget.
+Corpus browser modal widget for Syllable Walker TUI.
 
-This module provides the CorpusBrowserScreen modal for selecting corpus directories.
+This module provides the CorpusBrowserScreen modal for selecting corpus
+directories. It wraps the shared DirectoryBrowserScreen from tui_common
+with corpus-specific validation.
+
+**Migration Note:**
+
+This module now uses the shared DirectoryBrowserScreen from tui_common.
+The CorpusBrowserScreen is a convenience wrapper that pre-configures
+the browser with corpus validation.
+
+For custom directory browsers, use DirectoryBrowserScreen directly:
+
+.. code-block:: python
+
+    from build_tools.tui_common.controls import DirectoryBrowserScreen
+
+    result = await app.push_screen_wait(
+        DirectoryBrowserScreen(
+            title="Select Directory",
+            validator=my_validator,
+        )
+    )
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
-from textual import on
-from textual.app import ComposeResult
-from textual.containers import Container, Horizontal
-from textual.screen import ModalScreen
-from textual.widgets import Button, DirectoryTree, Label, Static
-
 from build_tools.syllable_walk_tui.services.corpus import validate_corpus_directory
+from build_tools.tui_common.controls import DirectoryBrowserScreen
 
 
-class CorpusBrowserScreen(ModalScreen[Path | None]):
+class CorpusBrowserScreen(DirectoryBrowserScreen):
     """
     Modal screen for browsing and selecting a corpus directory.
 
-    Returns the selected directory path when user confirms selection,
-    or None if cancelled.
+    This is a convenience wrapper around DirectoryBrowserScreen that
+    pre-configures it for corpus selection with appropriate validation.
 
-    Usage:
-        result = await self.app.push_screen_wait(CorpusBrowserScreen())
-        if result:
-            print(f"Selected: {result}")
+    A valid corpus directory contains either NLTK or pyphen normalized output:
+
+    - NLTK corpus: ``nltk_syllables_unique.txt`` + ``nltk_syllables_frequencies.json``
+    - Pyphen corpus: ``pyphen_syllables_unique.txt`` + ``pyphen_syllables_frequencies.json``
+
+    Returns:
+        Selected Path when "Select" is pressed, or None if cancelled
+
+    Example:
+        .. code-block:: python
+
+            result = await self.app.push_screen_wait(
+                CorpusBrowserScreen(initial_dir=Path.home() / "corpora")
+            )
+            if result:
+                self.load_corpus(result)
     """
 
-    BINDINGS = [
-        ("j", "cursor_down", "Down"),
-        ("k", "cursor_up", "Up"),
-        ("h", "cursor_left", "Left"),
-        ("l", "cursor_right", "Right"),
-    ]
-
+    # CSS must be redeclared for subclass - Textual CSS selectors are class-name specific
     CSS = """
     CorpusBrowserScreen {
         align: center middle;
@@ -101,129 +125,16 @@ class CorpusBrowserScreen(ModalScreen[Path | None]):
     }
     """
 
-    def __init__(self, initial_dir: Path | None = None):
+    def __init__(self, initial_dir: Path | None = None) -> None:
         """
-        Initialize corpus browser.
+        Initialize corpus browser with corpus validation.
 
         Args:
             initial_dir: Starting directory for browser (defaults to home directory)
         """
-        super().__init__()
-        self.initial_dir = initial_dir or Path.home()
-        self.selected_path: Path | None = None
-
-    def compose(self) -> ComposeResult:
-        """Create browser UI."""
-        with Container(id="browser-container"):
-            yield Label("Select Corpus Directory", id="browser-header")
-
-            # Help text
-            yield Label(
-                "Navigate with hjkl/arrows. Select the DIRECTORY (not files inside it).",
-                id="help-text",
-            )
-
-            # Directory tree
-            yield DirectoryTree(str(self.initial_dir), id="directory-tree")
-
-            # Validation status
-            with Static(id="validation-status", classes="status-none"):
-                yield Label("Select a directory to validate", id="status-text")
-
-            # Buttons
-            with Horizontal(id="button-bar"):
-                yield Button("Select", variant="primary", id="select-button", disabled=True)
-                yield Button("Cancel", variant="default", id="cancel-button")
-
-    @on(DirectoryTree.DirectorySelected)
-    def directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
-        """
-        Handle directory selection in tree.
-
-        Args:
-            event: Directory selection event
-        """
-        path = Path(event.path)
-        self.selected_path = path
-
-        # Validate directory
-        is_valid, corpus_type, error = validate_corpus_directory(path)
-
-        # Update status display
-        status_container = self.query_one("#validation-status", Static)
-        status_text = self.query_one("#status-text", Label)
-        select_button = self.query_one("#select-button", Button)
-
-        if is_valid:
-            status_container.remove_class("status-invalid", "status-none")
-            status_container.add_class("status-valid")
-            status_text.update(f"✓ Valid {corpus_type} corpus\n{path.name}")
-            select_button.disabled = False
-        else:
-            status_container.remove_class("status-valid", "status-none")
-            status_container.add_class("status-invalid")
-            status_text.update(f"✗ Invalid corpus\n{error}")
-            select_button.disabled = True
-
-    @on(DirectoryTree.FileSelected)
-    def file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        """
-        Handle file selection in tree.
-
-        Provides helpful feedback that directories (not files) should be selected.
-
-        Args:
-            event: File selection event
-        """
-        file_path = Path(event.path)
-
-        # Update status to explain the issue
-        status_container = self.query_one("#validation-status", Static)
-        status_text = self.query_one("#status-text", Label)
-        select_button = self.query_one("#select-button", Button)
-
-        status_container.remove_class("status-valid", "status-none")
-        status_container.add_class("status-invalid")
-        status_text.update(
-            f"✗ File selected: {file_path.name}\n" f"Please select the parent directory instead"
+        super().__init__(
+            title="Select Corpus Directory",
+            validator=validate_corpus_directory,
+            initial_dir=initial_dir,
+            help_text="Navigate with hjkl/arrows. Select the DIRECTORY (not files inside it).",
         )
-        select_button.disabled = True
-        self.selected_path = None
-
-    @on(Button.Pressed, "#select-button")
-    def select_pressed(self) -> None:
-        """Handle Select button press."""
-        if self.selected_path:
-            self.dismiss(self.selected_path)
-
-    @on(Button.Pressed, "#cancel-button")
-    def cancel_pressed(self) -> None:
-        """Handle Cancel button press."""
-        self.dismiss(None)
-
-    def action_cursor_down(self) -> None:
-        """Move cursor down in directory tree (j key)."""
-        tree = self.query_one("#directory-tree", DirectoryTree)
-        tree.action_cursor_down()
-
-    def action_cursor_up(self) -> None:
-        """Move cursor up in directory tree (k key)."""
-        tree = self.query_one("#directory-tree", DirectoryTree)
-        tree.action_cursor_up()
-
-    def action_cursor_left(self) -> None:
-        """Collapse directory in tree (h key)."""
-        tree = self.query_one("#directory-tree", DirectoryTree)
-        # For DirectoryTree, left collapses the current node
-        tree.action_cursor_left()  # type: ignore[attr-defined]
-
-    def action_cursor_right(self) -> None:
-        """Expand directory in tree (l key)."""
-        tree = self.query_one("#directory-tree", DirectoryTree)
-        # For DirectoryTree, right expands the current node
-        tree.action_cursor_right()  # type: ignore[attr-defined]
-
-
-# =============================================================================
-# Parameter Control Widgets
-# =============================================================================

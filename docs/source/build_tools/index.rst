@@ -37,6 +37,10 @@ Tool Overview
      - Interactive TUI for viewing corpus database provenance records
    * - :doc:`analysis_tools`
      - Post-annotation analysis (feature signatures, t-SNE visualization, random sampling)
+   * - :doc:`tui_common`
+     - Shared TUI components (controls, browsers, keybinding config) for Textual-based tools
+   * - :doc:`pipeline_tui`
+     - Interactive TUI for running extraction, normalization, and annotation pipelines
 
 Quick Start
 -----------
@@ -91,3 +95,5 @@ Detailed Documentation
    corpus_db
    corpus_db_viewer
    analysis_tools
+   tui_common
+   pipeline_tui

@@ -162,12 +162,11 @@ from build_tools.syllable_analysis.feature_signatures import (
     analyze_feature_signatures,
     extract_signature,
     format_signature_report,
-    run_analysis,
-    save_report,
 )
 from build_tools.syllable_analysis.feature_signatures import (
     parse_args as parse_feature_signatures_args,
 )
+from build_tools.syllable_analysis.feature_signatures import run_analysis, save_report
 
 # Random sampler exports
 # Note: load_annotated_syllables is now imported from common (above)

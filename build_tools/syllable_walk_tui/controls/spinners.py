@@ -1,162 +1,19 @@
 """
-Integer spinner control widget.
+Integer spinner control widget - Re-export from tui_common.
 
-This module provides the IntSpinner widget for integer parameter control.
+**DEPRECATED**: This module re-exports IntSpinner from tui_common for
+backward compatibility. New code should import directly from tui_common:
+
+.. code-block:: python
+
+    # Preferred
+    from build_tools.tui_common.controls import IntSpinner
+
+    # Deprecated (still works)
+    from build_tools.syllable_walk_tui.controls.spinners import IntSpinner
 """
 
-from collections.abc import Callable
-from typing import Optional
+# Re-export from shared package
+from build_tools.tui_common.controls.spinners import IntSpinner
 
-from textual.app import ComposeResult
-from textual.message import Message
-from textual.widgets import Label, Static
-
-
-class IntSpinner(Static):
-    """
-    Integer spinner widget with increment/decrement buttons.
-
-    Allows keyboard navigation: +/- or j/k to adjust value, Enter to edit directly.
-    Also supports mouse clicks on +/- buttons.
-
-    Attributes:
-        label: Display label for the parameter
-        value: Current integer value
-        min_val: Minimum allowed value
-        max_val: Maximum allowed value
-        step: Increment/decrement step size
-    """
-
-    # Define widget-level bindings for parameter adjustment only
-    # These won't interfere with app-level bindings (b, a, p, q, etc.)
-    BINDINGS = [
-        ("+", "increment", "Increment"),
-        ("=", "increment", "Increment"),
-        ("j", "increment", "Increment"),
-        ("down", "increment", "Increment"),
-        ("-", "decrement", "Decrement"),
-        ("_", "decrement", "Decrement"),
-        ("k", "decrement", "Decrement"),
-        ("up", "decrement", "Decrement"),
-    ]
-
-    class Changed(Message):
-        """Message posted when spinner value changes."""
-
-        def __init__(self, value: int, widget_id: str | None) -> None:
-            """Initialize with new value and widget ID."""
-            super().__init__()
-            self.value = value
-            self.widget_id = widget_id
-
-    DEFAULT_CSS = """
-    IntSpinner {
-        layout: horizontal;
-        height: 1;
-        width: 100%;
-    }
-
-    IntSpinner .spinner-label {
-        width: 15;
-        text-align: right;
-        padding-right: 1;
-    }
-
-    IntSpinner .spinner-value {
-        width: 6;
-        text-align: center;
-        background: $boost;
-    }
-
-    IntSpinner:focus .spinner-value {
-        background: $accent;
-        text-style: bold;
-    }
-
-    IntSpinner .spinner-suffix {
-        width: auto;
-        padding-left: 1;
-        color: $text-muted;
-    }
-    """
-
-    def __init__(
-        self,
-        label: str,
-        value: int,
-        min_val: int,
-        max_val: int,
-        step: int = 1,
-        suffix_fn: Optional[Callable[[int], str]] = None,
-        *args,
-        **kwargs,
-    ):
-        """
-        Initialize integer spinner.
-
-        Args:
-            label: Display label
-            value: Initial value
-            min_val: Minimum allowed value
-            max_val: Maximum allowed value
-            step: Increment/decrement step size
-            suffix_fn: Optional callback to generate suffix text from value
-        """
-        super().__init__(*args, **kwargs)
-        self.label_text = label
-        self.value = value
-        self.min_val = min_val
-        self.max_val = max_val
-        self.step = step
-        self.suffix_fn = suffix_fn
-
-    def compose(self) -> ComposeResult:
-        """Create spinner layout."""
-        yield Label(f"{self.label_text}:", classes="spinner-label")
-        yield Label(f"[{self.value:2d}]", classes="spinner-value", id="value-display")
-        suffix_text = self.suffix_fn(self.value) if self.suffix_fn else ""
-        yield Label(suffix_text, classes="spinner-suffix", id="suffix-display")
-
-    def on_mount(self) -> None:
-        """
-        Make widget focusable for keyboard navigation.
-
-        Note: We explicitly blur focus after modal closes in app.py
-        to prevent auto-focus from breaking tab switching bindings.
-        """
-        self.can_focus = True
-
-    def action_increment(self) -> None:
-        """Action: Increment value by step, clamped to max."""
-        old_value = self.value
-        self.value = min(self.value + self.step, self.max_val)
-        if self.value != old_value:
-            self._update_display()
-            self.post_message(self.Changed(self.value, self.id))
-
-    def action_decrement(self) -> None:
-        """Action: Decrement value by step, clamped to min."""
-        old_value = self.value
-        self.value = max(self.value - self.step, self.min_val)
-        if self.value != old_value:
-            self._update_display()
-            self.post_message(self.Changed(self.value, self.id))
-
-    def set_value(self, value: int) -> None:
-        """Set value directly, clamped to range."""
-        old_value = self.value
-        self.value = max(self.min_val, min(value, self.max_val))
-        if self.value != old_value:
-            self._update_display()
-            self.post_message(self.Changed(self.value, self.id))
-
-    def _update_display(self) -> None:
-        """Update the displayed value and suffix."""
-        try:
-            display = self.query_one("#value-display", Label)
-            display.update(f"[{self.value:2d}]")
-            if self.suffix_fn:
-                suffix = self.query_one("#suffix-display", Label)
-                suffix.update(self.suffix_fn(self.value))
-        except Exception:  # nosec B110
-            pass  # Widget may not be mounted yet
+__all__ = ["IntSpinner"]

@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.4.0...pipeworks-name-generation-v0.5.0) (2026-01-16)
 
-
 ### ⚠ BREAKING CHANGES
 
 * **syllable_walk_tui:** Replace TabbedContent architecture with modal screens for Blended Walk and Analysis views to eliminate focus management bugs.
@@ -52,7 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **syllable_walk_tui:** Move walk output to center panel with configurable count ([ec91a51](https://github.com/aa-parky/pipeworks_name_generation/commit/ec91a51ae1ad33dc05926a16af26f33b954f0d9e))
 * **syllable_walk_tui:** Replace tabbed interface with modal screens ([66b80e5](https://github.com/aa-parky/pipeworks_name_generation/commit/66b80e55cc2b3159c938475361223f9a10276cce))
 
-
 ### Fixes
 
 * Add missing sphinx-argparse dependency for ReadTheDocs ([a73bf2f](https://github.com/aa-parky/pipeworks_name_generation/commit/a73bf2f11983a548363e14a4255c87c2365f6aee))
@@ -94,7 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **tests:** Update TUI test for dual oscillator refactoring ([0bcac7a](https://github.com/aa-parky/pipeworks_name_generation/commit/0bcac7ac38909a14b009ae6c50aa1545e94a8909))
 * Use time.perf_counter() for higher precision timing on Windows ([8d32817](https://github.com/aa-parky/pipeworks_name_generation/commit/8d32817fcff22d9dd07cf4863b71aae0a90ec543))
 
-
 ### Documentation
 
 * Add corpus_db to Claude Code documentation ([a261826](https://github.com/aa-parky/pipeworks_name_generation/commit/a2618269ecb7983e449b32ec99be5414d0ad45ba))
@@ -130,7 +127,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Update README and CLAUDE.md with NLTK extractor setup instructions ([8beb55c](https://github.com/aa-parky/pipeworks_name_generation/commit/8beb55c019560aaffdc445fb9a67ce502eb376f9))
 * Update README with new syllable_extractor package usage ([3f06376](https://github.com/aa-parky/pipeworks_name_generation/commit/3f06376d2b4ffa4b2774227d5b7cdfd16659b13a))
 
-
 ### Internal Changes
 
 * **build_tools:** Align pyphen normaliser CLI with NLTK pattern ([a5c5a45](https://github.com/aa-parky/pipeworks_name_generation/commit/a5c5a45b83627b814b0e2769f9e021de2434117e))
@@ -150,10 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **syllable_walk_tui:** Extract shared controls ([51d9254](https://github.com/aa-parky/pipeworks_name_generation/commit/51d9254b8d9ee334aed1fb217dd43e7dd601a4b9))
 * **syllable_walk_tui:** Finalize core app structure ([11e7945](https://github.com/aa-parky/pipeworks_name_generation/commit/11e79452c9550ad325fead81a0fe69b8d665e975))
 * **syllable_walk_tui:** Move services to services directory ([34d3d78](https://github.com/aa-parky/pipeworks_name_generation/commit/34d3d78a600bba9420e25d02ea20e74b344ad428))
-* Use proper sys import instead of __import__ hack ([cbf2066](https://github.com/aa-parky/pipeworks_name_generation/commit/cbf2066318e1347eb2372632db300756dbbd94de))
+* Use proper sys import instead of **import** hack ([cbf2066](https://github.com/aa-parky/pipeworks_name_generation/commit/cbf2066318e1347eb2372632db300756dbbd94de))
 
 ## [0.4.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.3.0...v0.4.0) (2026-01-10)
-
 
 ### Features
 
@@ -164,7 +159,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **build_tools:** Add NLTK syllable normaliser with fragment cleaning ([baf223a](https://github.com/aa-parky/pipeworks_name_generation/commit/baf223a0e7d08efe7678c4c6b821abfa03679942))
 * **build_tools:** Add pyphen_ prefix to syllable normaliser outputs ([c1c2b8a](https://github.com/aa-parky/pipeworks_name_generation/commit/c1c2b8abea384a94b8c1bf49bedef8cfe10b5df1))
 * **build_tools:** Make pyphen extractor language argument optional ([deeb4c7](https://github.com/aa-parky/pipeworks_name_generation/commit/deeb4c739c0bf7d841dff7e89d436bb2375a10e7))
-
 
 ### Documentation
 
@@ -182,7 +176,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Update README and CLAUDE.md with NLTK extractor setup instructions ([8beb55c](https://github.com/aa-parky/pipeworks_name_generation/commit/8beb55c019560aaffdc445fb9a67ce502eb376f9))
 
 ## [0.3.0](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.2.0...v0.3.0) (2026-01-08)
-
 
 ### Features
 
@@ -203,7 +196,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Complete Phase 5-6 of analysis refactoring - add plotting modules and refactor tsne_visualizer ([d8d4097](https://github.com/aa-parky/pipeworks_name_generation/commit/d8d40976d09f20deedcd2c0205fe186aeea22585))
 * Improve test coverage for syllable_extractor from 41% to 43% ([a149cb4](https://github.com/aa-parky/pipeworks_name_generation/commit/a149cb433c32e78de606169621fe056ea968342c))
 * Make interactive t-SNE visualization responsive with min-width constraint ([9b8305a](https://github.com/aa-parky/pipeworks_name_generation/commit/9b8305a5c8d0bc684d4b57d1846339eef895014b))
-
 
 ### Bug Fixes
 
@@ -229,7 +221,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Skip permission test on Windows (different permission model) ([6ddef3c](https://github.com/aa-parky/pipeworks_name_generation/commit/6ddef3c2845c65727f3f20cdc3d8b48a4338b737))
 * Suppress expected Sphinx warnings for dataclass attributes and underscores ([495d5e3](https://github.com/aa-parky/pipeworks_name_generation/commit/495d5e3cd21fb444546bb265e5fac0d395ebd6c9))
 * Use time.perf_counter() for higher precision timing on Windows ([8d32817](https://github.com/aa-parky/pipeworks_name_generation/commit/8d32817fcff22d9dd07cf4863b71aae0a90ec543))
-
 
 ### Documentation
 
@@ -250,7 +241,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.1](https://github.com/aa-parky/pipeworks_name_generation/compare/v0.1.0...v0.2.1) (2026-01-08)
 
-
 ### Features
 
 * Add batch processing CLI for syllable extractor ([1b6f1f8](https://github.com/aa-parky/pipeworks_name_generation/commit/1b6f1f85d8e576ee0891af506d278152a1cc2106))
@@ -270,7 +260,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Complete Phase 5-6 of analysis refactoring - add plotting modules and refactor tsne_visualizer ([d8d4097](https://github.com/aa-parky/pipeworks_name_generation/commit/d8d40976d09f20deedcd2c0205fe186aeea22585))
 * Improve test coverage for syllable_extractor from 41% to 43% ([a149cb4](https://github.com/aa-parky/pipeworks_name_generation/commit/a149cb433c32e78de606169621fe056ea968342c))
 * Make interactive t-SNE visualization responsive with min-width constraint ([9b8305a](https://github.com/aa-parky/pipeworks_name_generation/commit/9b8305a5c8d0bc684d4b57d1846339eef895014b))
-
 
 ### Bug Fixes
 
@@ -296,7 +285,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Skip permission test on Windows (different permission model) ([6ddef3c](https://github.com/aa-parky/pipeworks_name_generation/commit/6ddef3c2845c65727f3f20cdc3d8b48a4338b737))
 * Suppress expected Sphinx warnings for dataclass attributes and underscores ([495d5e3](https://github.com/aa-parky/pipeworks_name_generation/commit/495d5e3cd21fb444546bb265e5fac0d395ebd6c9))
 * Use time.perf_counter() for higher precision timing on Windows ([8d32817](https://github.com/aa-parky/pipeworks_name_generation/commit/8d32817fcff22d9dd07cf4863b71aae0a90ec543))
-
 
 ### Documentation
 
@@ -317,7 +305,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.2.1 (2026-01-08)
 
-
 ### Features
 
 * Add batch processing CLI for syllable extractor ([1b6f1f8](https://github.com/aa-parky/pipeworks_name_generation/commit/1b6f1f85d8e576ee0891af506d278152a1cc2106))
@@ -337,7 +324,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Complete Phase 5-6 of analysis refactoring - add plotting modules and refactor tsne_visualizer ([d8d4097](https://github.com/aa-parky/pipeworks_name_generation/commit/d8d40976d09f20deedcd2c0205fe186aeea22585))
 * Improve test coverage for syllable_extractor from 41% to 43% ([a149cb4](https://github.com/aa-parky/pipeworks_name_generation/commit/a149cb433c32e78de606169621fe056ea968342c))
 * Make interactive t-SNE visualization responsive with min-width constraint ([9b8305a](https://github.com/aa-parky/pipeworks_name_generation/commit/9b8305a5c8d0bc684d4b57d1846339eef895014b))
-
 
 ### Bug Fixes
 
@@ -363,7 +349,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Skip permission test on Windows (different permission model) ([6ddef3c](https://github.com/aa-parky/pipeworks_name_generation/commit/6ddef3c2845c65727f3f20cdc3d8b48a4338b737))
 * Suppress expected Sphinx warnings for dataclass attributes and underscores ([495d5e3](https://github.com/aa-parky/pipeworks_name_generation/commit/495d5e3cd21fb444546bb265e5fac0d395ebd6c9))
 * Use time.perf_counter() for higher precision timing on Windows ([8d32817](https://github.com/aa-parky/pipeworks_name_generation/commit/8d32817fcff22d9dd07cf4863b71aae0a90ec543))
-
 
 ### Documentation
 
@@ -392,77 +377,77 @@ extraction, normalization, feature annotation, and phonetic space analysis.
 
 #### Build Tools Suite
 
-- **Syllable Extractor**: Dictionary-based hyphenation using pyphen (LibreOffice dictionaries)
-  - Support for 40+ languages
-  - Automatic language detection with langdetect
-  - Batch processing capabilities
-  - Configurable syllable length constraints
-  - Multi-language output file support
+* **Syllable Extractor**: Dictionary-based hyphenation using pyphen (LibreOffice dictionaries)
+  * Support for 40+ languages
+  * Automatic language detection with langdetect
+  * Batch processing capabilities
+  * Configurable syllable length constraints
+  * Multi-language output file support
 
-- **Syllable Normalizer**: 3-step normalization pipeline
-  - Character decomposition and normalization
-  - Phoneme-based normalization
-  - Length and structure filtering
+* **Syllable Normalizer**: 3-step normalization pipeline
+  * Character decomposition and normalization
+  * Phoneme-based normalization
+  * Length and structure filtering
 
-- **Syllable Feature Annotator**: Phonetic feature detection system
-  - 12 phonetic feature detectors (consonant clusters, vowel patterns, etc.)
-  - Binary feature signatures for each syllable
-  - JSON output with metadata
+* **Syllable Feature Annotator**: Phonetic feature detection system
+  * 12 phonetic feature detectors (consonant clusters, vowel patterns, etc.)
+  * Binary feature signatures for each syllable
+  * JSON output with metadata
 
-- **Syllable Walker**: Phonetic space exploration tool
-  - Navigate through similar syllables based on feature signatures
-  - Step-by-step phonetic transformations
-  - Interactive exploration of syllable relationships
+* **Syllable Walker**: Phonetic space exploration tool
+  * Navigate through similar syllables based on feature signatures
+  * Step-by-step phonetic transformations
+  * Interactive exploration of syllable relationships
 
 #### Analysis Tools
 
-- **Feature Signature Analysis**: Statistical analysis of annotated syllables
-  - Feature frequency distributions
-  - Correlation analysis
-  - Comprehensive reporting
+* **Feature Signature Analysis**: Statistical analysis of annotated syllables
+  * Feature frequency distributions
+  * Correlation analysis
+  * Comprehensive reporting
 
-- **t-SNE Visualization**: Dimensionality reduction and visualization
-  - Interactive HTML visualizations with plotly
-  - Static matplotlib plots
-  - Parameter logging and syllable mapping
-  - Responsive design with min-width constraints
-  - Optional dependencies for CI compatibility
+* **t-SNE Visualization**: Dimensionality reduction and visualization
+  * Interactive HTML visualizations with plotly
+  * Static matplotlib plots
+  * Parameter logging and syllable mapping
+  * Responsive design with min-width constraints
+  * Optional dependencies for CI compatibility
 
-- **Random Sampler**: Stratified random sampling of annotated syllables
+* **Random Sampler**: Stratified random sampling of annotated syllables
 
 ### Documentation
 
-- **Automated CLI Documentation**: Integration with sphinx-argparse for auto-generated command-line reference
-- **Modular Documentation Structure**: Reorganized CLAUDE.md into topic-specific files in `claude/` directory
-  - Architecture and Design
-  - Development Guide
-  - CI/CD Pipeline
-  - Build Tools Documentation
-- **Documentation Content Rules**: Single source of truth policy for docstrings vs RST files
-- **Pre-commit Hook**: Reminders for CLI documentation synchronization
+* **Automated CLI Documentation**: Integration with sphinx-argparse for auto-generated command-line reference
+* **Modular Documentation Structure**: Reorganized CLAUDE.md into topic-specific files in `claude/` directory
+  * Architecture and Design
+  * Development Guide
+  * CI/CD Pipeline
+  * Build Tools Documentation
+* **Documentation Content Rules**: Single source of truth policy for docstrings vs RST files
+* **Pre-commit Hook**: Reminders for CLI documentation synchronization
 
 ### Internal Changes
 
-- **Analysis Tools Reorganization**: Moved to top-level `build_tools/syllable_analysis/` structure
-- **Syllable Extractor Modularization**: Extracted into proper package structure
-- **CI Improvements**: Optional dependencies handling for matplotlib and dimensionality modules
-- **Test Coverage Improvements**: Expanded coverage across build tools
+* **Analysis Tools Reorganization**: Moved to top-level `build_tools/syllable_analysis/` structure
+* **Syllable Extractor Modularization**: Extracted into proper package structure
+* **CI Improvements**: Optional dependencies handling for matplotlib and dimensionality modules
+* **Test Coverage Improvements**: Expanded coverage across build tools
 
 ### Fixes
 
-- Platform compatibility fixes (Windows permission handling, matplotlib backend configuration)
-- Sphinx documentation warnings resolution
-- ReadTheDocs build improvements (optional pyphen import, dependency handling)
-- Interactive visualization improvements (colorbar overlap fix, responsive design)
-- Test suite cleanup and CI stability improvements
+* Platform compatibility fixes (Windows permission handling, matplotlib backend configuration)
+* Sphinx documentation warnings resolution
+* ReadTheDocs build improvements (optional pyphen import, dependency handling)
+* Interactive visualization improvements (colorbar overlap fix, responsive design)
+* Test suite cleanup and CI stability improvements
 
 ## [0.1.0] - Initial Release
 
 Initial proof-of-concept release with Phase 1 generator:
 
-- Basic `NameGenerator` class with deterministic seeding
-- "simple" pattern with hardcoded syllables
-- Zero runtime dependencies
-- Comprehensive CI/CD infrastructure (GitHub Actions, pre-commit hooks)
-- Sphinx documentation with ReadTheDocs integration
-- GPL-3.0-or-later license
+* Basic `NameGenerator` class with deterministic seeding
+* "simple" pattern with hardcoded syllables
+* Zero runtime dependencies
+* Comprehensive CI/CD infrastructure (GitHub Actions, pre-commit hooks)
+* Sphinx documentation with ReadTheDocs integration
+* GPL-3.0-or-later license
