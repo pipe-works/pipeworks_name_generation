@@ -296,6 +296,52 @@ The TUI automatically scans for annotated datasets in:
 Corpus data loads asynchronously in the background, preventing UI freezing
 for large datasets. A loading indicator shows progress during data loading.
 
+Corpus Shape Analysis
+~~~~~~~~~~~~~~~~~~~~~
+
+Press ``a`` to open the Analysis modal screen, which displays raw corpus shape
+metrics for both loaded patches side-by-side. This screen provides objective,
+numerical data about corpus structure without interpretation.
+
+**Design Philosophy:**
+
+- Raw numbers only, no value judgments
+- Observable facts about corpus structure
+- Users draw their own conclusions through observation
+
+**Metrics Displayed:**
+
+*Inventory Metrics:*
+
+- Total syllables, length min/max/mean/median/std
+- Length distribution (count per character length)
+
+*Frequency Metrics:*
+
+- Total occurrences, frequency min/max/mean/median/std
+- Percentiles (P10, P25, P50, P75, P90, P99)
+- Unique frequency count, hapax count (frequency=1)
+- Top 5 syllables by frequency
+
+*Feature Saturation (per phonetic feature):*
+
+- Count and percentage of syllables with each feature
+- Grouped by category: Onset, Internal, Nucleus, Coda
+
+**Why Corpus Shape Matters:**
+
+Understanding corpus shape is essential for effective syllable walks:
+
+- **Corpus size** describes how many syllables exist
+- **Corpus shape** describes how those syllables are connected
+
+A syllable walk never sees the entire corpus at once - it only sees a local
+neighbourhood around the current syllable. Two corpora with different sizes
+can behave identically if their local neighbourhoods are similar.
+
+The metrics help you understand why walks feel different across corpora,
+even with identical parameters.
+
 Database Viewer
 ~~~~~~~~~~~~~~~
 

@@ -330,8 +330,41 @@ class SyllableWalkerApp(App):
         self.push_screen(BlendedWalkScreen())
 
     def action_view_analysis(self) -> None:
-        """Action: Open analysis modal screen (keybinding: a)."""
-        self.push_screen(AnalysisScreen())
+        """Action: Open analysis modal screen (keybinding: a).
+
+        Computes corpus shape metrics for loaded patches before displaying.
+        """
+        # Compute metrics for loaded patches
+        metrics_a = self._compute_metrics_for_patch(self.state.patch_a)
+        metrics_b = self._compute_metrics_for_patch(self.state.patch_b)
+
+        self.push_screen(AnalysisScreen(metrics_a=metrics_a, metrics_b=metrics_b))
+
+    def _compute_metrics_for_patch(self, patch: "PatchState"):
+        """
+        Compute corpus shape metrics for a patch.
+
+        Args:
+            patch: PatchState to compute metrics for
+
+        Returns:
+            CorpusShapeMetrics if patch has loaded data, None otherwise
+        """
+        from build_tools.syllable_walk_tui.services.metrics import compute_corpus_shape_metrics
+
+        # Check if patch has required data
+        if not patch.syllables or not patch.frequencies or not patch.annotated_data:
+            return None
+
+        try:
+            return compute_corpus_shape_metrics(
+                patch.syllables,
+                patch.frequencies,
+                patch.annotated_data,
+            )
+        except Exception:
+            # Computation failed
+            return None
 
     def action_view_database(self) -> None:
         """Action: Open database viewer modal screen (keybinding: d).
