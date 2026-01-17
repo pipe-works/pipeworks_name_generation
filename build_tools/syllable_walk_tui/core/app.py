@@ -165,6 +165,8 @@ class SyllableWalkerApp(App):
         super().__init__()
         self.state = AppState()
         self.keybindings = load_keybindings()
+        # Set theme (nord provides better contrast for highlighted areas)
+        self.theme = "nord"
         # Note: Keybindings are now defined in BINDINGS class attribute
         # Config-based overrides can be added in future if needed
 
