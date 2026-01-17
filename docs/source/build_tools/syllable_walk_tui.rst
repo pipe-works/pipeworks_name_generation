@@ -381,6 +381,13 @@ configuration file for duplicate key assignments within the same context.
 - UI remains responsive during corpus loading and walk generation
 - Memory usage depends on corpus size (typically 50-300 MB)
 
+**Walk Steps vs Syllables:**
+
+The "Walk Steps" parameter controls edge traversal, not output count. See
+:ref:`Walk Structure <syllable_walk:Walk Structure>` in the Syllable Walker docs for the
+invariant: *steps + 1 = syllables produced*. The TUI displays this dynamically
+(e.g., ``[5] → 6 syl``).
+
 **Build-time tool:**
 
 This is a build-time exploration tool - not used during runtime name generation.

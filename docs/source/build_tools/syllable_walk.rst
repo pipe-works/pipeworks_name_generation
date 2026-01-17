@@ -38,6 +38,34 @@ Determinism
 The same seed always produces the same walk. This is essential for reproducible experiments, testing,
 and debugging. Each walk uses an isolated RNG instance to avoid global state contamination.
 
+Walk Structure
+~~~~~~~~~~~~~~
+
+**Invariant:** A syllable walk always produces one more syllable than the number of steps,
+as each step represents a transition (edge) between syllables (vertices).
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 30 50
+
+   * - Steps
+     - Syllables Produced
+     - Example
+   * - 0
+     - 1
+     - Starting syllable only (no transitions)
+   * - 1
+     - 2
+     - Start → one neighbor
+   * - 5
+     - 6
+     - Start → 5 transitions
+   * - 10
+     - 11
+     - Start → 10 transitions
+
+This follows from graph theory: a path with *n* edges connects *n+1* vertices.
+
 Walk Profiles
 ~~~~~~~~~~~~~
 

@@ -83,6 +83,7 @@ class OscillatorPanel(Static):
             value=2,
             min_val=1,
             max_val=10,
+            suffix_fn=lambda v: "chars",
             id=f"min-length-{self.patch_name}",
         )
         yield IntSpinner(
@@ -90,15 +91,17 @@ class OscillatorPanel(Static):
             value=5,
             min_val=1,
             max_val=10,
+            suffix_fn=lambda v: "chars",
             id=f"max-length-{self.patch_name}",
         )
 
-        # Envelope Module - Walk Length
+        # Envelope Module - Walk Steps (steps=edges traversed, output=steps+1 syllables)
         yield IntSpinner(
-            "Walk Length",
+            "Walk Steps",
             value=5,
-            min_val=2,
+            min_val=0,
             max_val=20,
+            suffix_fn=lambda v: f"→ {v + 1} syl",
             id=f"walk-length-{self.patch_name}",
         )
 
@@ -108,6 +111,7 @@ class OscillatorPanel(Static):
             value=2,
             min_val=1,
             max_val=3,
+            suffix_fn=lambda v: "per step",
             id=f"max-flips-{self.patch_name}",
         )
 
@@ -130,6 +134,7 @@ class OscillatorPanel(Static):
             max_val=2.0,
             step=0.1,
             precision=1,
+            suffix="bias",
             id=f"freq-weight-{self.patch_name}",
         )
 
@@ -139,6 +144,7 @@ class OscillatorPanel(Static):
             value=10,
             min_val=5,
             max_val=50,
+            suffix_fn=lambda v: "max",
             id=f"neighbors-{self.patch_name}",
         )
 
@@ -156,6 +162,7 @@ class OscillatorPanel(Static):
             value=2,
             min_val=1,
             max_val=20,
+            suffix_fn=lambda v: "walks",
             id=f"walk-count-{self.patch_name}",
         )
 

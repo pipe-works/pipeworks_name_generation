@@ -4,6 +4,8 @@ Float slider control widget.
 This module provides the FloatSlider widget for float parameter control.
 """
 
+from typing import Optional
+
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Label, Static
@@ -69,9 +71,10 @@ class FloatSlider(Static):
         text-style: bold;
     }
 
-    FloatSlider .slider-bar {
-        width: 3;
+    FloatSlider .slider-suffix {
+        width: auto;
         padding-left: 1;
+        color: $text-muted;
     }
     """
 
@@ -83,6 +86,7 @@ class FloatSlider(Static):
         max_val: float,
         step: float = 0.1,
         precision: int = 1,
+        suffix: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -96,6 +100,7 @@ class FloatSlider(Static):
             max_val: Maximum allowed value
             step: Increment/decrement step size
             precision: Number of decimal places to display
+            suffix: Optional static suffix text to display after value
         """
         super().__init__(*args, **kwargs)
         self.label_text = label
@@ -104,13 +109,14 @@ class FloatSlider(Static):
         self.max_val = max_val
         self.step = step
         self.precision = precision
+        self.suffix = suffix or ""
 
     def compose(self) -> ComposeResult:
         """Create slider layout."""
         yield Label(f"{self.label_text}:", classes="slider-label")
-        format_str = f"[{{:.{self.precision}f}}"
+        format_str = f"[{{:.{self.precision}f}}]"
         yield Label(format_str.format(self.value), classes="slider-value", id="value-display")
-        yield Label("─]", classes="slider-bar")
+        yield Label(self.suffix, classes="slider-suffix")
 
     def on_mount(self) -> None:
         """
@@ -149,7 +155,7 @@ class FloatSlider(Static):
         """Update the displayed value."""
         try:
             display = self.query_one("#value-display", Label)
-            format_str = f"[{{:.{self.precision}f}}"
+            format_str = f"[{{:.{self.precision}f}}]"
             display.update(format_str.format(self.value))
         except Exception:  # nosec B110
             pass  # Widget may not be mounted yet

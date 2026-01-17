@@ -4,6 +4,9 @@ Integer spinner control widget.
 This module provides the IntSpinner widget for integer parameter control.
 """
 
+from collections.abc import Callable
+from typing import Optional
+
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Label, Static
@@ -70,9 +73,10 @@ class IntSpinner(Static):
         text-style: bold;
     }
 
-    IntSpinner .spinner-buttons {
-        width: 3;
+    IntSpinner .spinner-suffix {
+        width: auto;
         padding-left: 1;
+        color: $text-muted;
     }
     """
 
@@ -83,6 +87,7 @@ class IntSpinner(Static):
         min_val: int,
         max_val: int,
         step: int = 1,
+        suffix_fn: Optional[Callable[[int], str]] = None,
         *args,
         **kwargs,
     ):
@@ -95,6 +100,7 @@ class IntSpinner(Static):
             min_val: Minimum allowed value
             max_val: Maximum allowed value
             step: Increment/decrement step size
+            suffix_fn: Optional callback to generate suffix text from value
         """
         super().__init__(*args, **kwargs)
         self.label_text = label
@@ -102,12 +108,14 @@ class IntSpinner(Static):
         self.min_val = min_val
         self.max_val = max_val
         self.step = step
+        self.suffix_fn = suffix_fn
 
     def compose(self) -> ComposeResult:
         """Create spinner layout."""
         yield Label(f"{self.label_text}:", classes="spinner-label")
-        yield Label(f"[{self.value:2d}", classes="spinner-value", id="value-display")
-        yield Label("±]", classes="spinner-buttons")
+        yield Label(f"[{self.value:2d}]", classes="spinner-value", id="value-display")
+        suffix_text = self.suffix_fn(self.value) if self.suffix_fn else ""
+        yield Label(suffix_text, classes="spinner-suffix", id="suffix-display")
 
     def on_mount(self) -> None:
         """
@@ -143,9 +151,12 @@ class IntSpinner(Static):
             self.post_message(self.Changed(self.value, self.id))
 
     def _update_display(self) -> None:
-        """Update the displayed value."""
+        """Update the displayed value and suffix."""
         try:
             display = self.query_one("#value-display", Label)
-            display.update(f"[{self.value:2d}")
+            display.update(f"[{self.value:2d}]")
+            if self.suffix_fn:
+                suffix = self.query_one("#suffix-display", Label)
+                suffix.update(self.suffix_fn(self.value))
         except Exception:  # nosec B110
             pass  # Widget may not be mounted yet
