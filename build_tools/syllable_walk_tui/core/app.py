@@ -34,6 +34,7 @@ from build_tools.syllable_walk_tui.controls import (
 from build_tools.syllable_walk_tui.core.state import AppState
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
+from build_tools.syllable_walk_tui.modules.database import DatabaseScreen
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
@@ -79,6 +80,7 @@ class SyllableWalkerApp(App):
         Binding("f1", "help", "Help", priority=True),
         Binding("v", "view_blended", "Blended", priority=True),
         Binding("a", "view_analysis", "Analysis", priority=True),
+        Binding("d", "view_database", "Database", priority=True),
         Binding("1", "select_corpus_a", "Corpus A", priority=True),
         Binding("2", "select_corpus_b", "Corpus B", priority=True),
     ]
@@ -330,6 +332,32 @@ class SyllableWalkerApp(App):
     def action_view_analysis(self) -> None:
         """Action: Open analysis modal screen (keybinding: a)."""
         self.push_screen(AnalysisScreen())
+
+    def action_view_database(self) -> None:
+        """Action: Open database viewer modal screen (keybinding: d).
+
+        Shows the corpus.db for the first patch that has a corpus loaded,
+        preferring patch A.
+        """
+        # Find a loaded corpus - prefer patch A
+        # corpus.db is at corpus_dir/data/corpus.db
+        db_path = None
+        patch_name = ""
+
+        if self.state.patch_a.corpus_dir:
+            db_path = self.state.patch_a.corpus_dir / "data" / "corpus.db"
+            patch_name = "A"
+        elif self.state.patch_b.corpus_dir:
+            db_path = self.state.patch_b.corpus_dir / "data" / "corpus.db"
+            patch_name = "B"
+
+        if db_path and db_path.exists():
+            self.push_screen(DatabaseScreen(db_path=db_path, patch_name=patch_name))
+        else:
+            self.notify(
+                "No corpus database loaded. Select a corpus directory first.",
+                severity="warning",
+            )
 
     def _get_initial_browse_dir(self, patch_name: str) -> Path:
         """

@@ -216,6 +216,8 @@ Keyboard Shortcuts
      - Open Blended Walk modal screen
    * - ``a``
      - Open Analysis modal screen
+   * - ``d``
+     - Open Database Viewer modal screen
    * - ``Esc``
      - Close current modal screen
 
@@ -293,6 +295,54 @@ The TUI automatically scans for annotated datasets in:
 
 Corpus data loads asynchronously in the background, preventing UI freezing
 for large datasets. A loading indicator shows progress during data loading.
+
+Database Viewer
+~~~~~~~~~~~~~~~
+
+Press ``d`` to open the Database Viewer modal, which provides direct access
+to the corpus SQLite database (``corpus.db``). This allows inspection of
+syllables and their phonetic features.
+
+**Features:**
+
+- Paginated table view (50 rows per page)
+- Column sorting (cycle with ``[``/``]``, toggle order with ``f``)
+- Sort indicator shows active column and direction (↑/↓)
+- Row details modal (press ``Enter`` on any row)
+
+**Database Viewer Keybindings:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Key(s)
+     - Action
+   * - ``j`` / ``k``
+     - Navigate rows down/up
+   * - ``Enter``
+     - Show detailed feature breakdown for selected row
+   * - ``[`` / ``]``
+     - Cycle sort column (previous/next)
+   * - ``f``
+     - Toggle sort order (ascending/descending)
+   * - ``h`` / ``←``
+     - Previous page
+   * - ``l`` / ``→``
+     - Next page
+   * - ``Home`` / ``End``
+     - First/Last page
+   * - ``Esc``
+     - Close database viewer
+
+**Row Details Modal:**
+
+Pressing ``Enter`` on a row opens a detail modal showing:
+
+- Syllable text and frequency
+- All 12 phonetic features with full readable names
+- Features grouped by category (Onset, Body, Coda)
+- Visual indicators (● Yes / ○ No)
 
 Design Philosophy
 ~~~~~~~~~~~~~~~~~
