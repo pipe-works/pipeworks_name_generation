@@ -330,13 +330,10 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                 break
 
         # Move cursor to the final node if we got there
+        # Note: We only move the cursor, we don't validate. Validation should
+        # happen when the user explicitly selects a directory (via click or Enter).
         if current_node and current_node != tree.root:
             tree.select_node(current_node)
-            # Also validate and update status for the initial directory
-            if current_node.data and hasattr(current_node.data, "path"):
-                path = Path(current_node.data.path)
-                if path.is_dir():
-                    self._validate_and_update_status(path)
 
     def _validate_and_update_status(self, path: Path) -> None:
         """
