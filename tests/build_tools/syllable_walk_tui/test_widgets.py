@@ -223,9 +223,9 @@ class TestCorpusBrowserScreen:
             select_button = screen.query_one("#select-button", Button)
             assert select_button.disabled is True
 
-            # Status should show file error
+            # Status should show file error (message updated for better UX)
             status_text = screen.query_one("#status-text", Label)
-            assert "File selected" in str(status_text.render())
+            assert "cannot be selected" in str(status_text.render())
 
     @pytest.mark.asyncio
     async def test_hjkl_keybindings_registered(self, tmp_path):
