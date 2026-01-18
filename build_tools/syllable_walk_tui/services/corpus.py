@@ -228,8 +228,7 @@ def load_annotated_data_from_sqlite(db_path: Path) -> list[dict]:
         cursor = conn.cursor()
 
         # Query all syllables with features, ordered by syllable for determinism
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT
                 syllable, frequency,
                 starts_with_vowel, starts_with_cluster, starts_with_heavy_cluster,
@@ -238,8 +237,7 @@ def load_annotated_data_from_sqlite(db_path: Path) -> list[dict]:
                 ends_with_vowel, ends_with_nasal, ends_with_stop
             FROM syllables
             ORDER BY syllable
-            """
-        )
+            """)
 
         # Convert rows to the expected dictionary format
         data = []

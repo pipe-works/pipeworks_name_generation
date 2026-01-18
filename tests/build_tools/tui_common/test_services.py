@@ -184,13 +184,11 @@ class TestConfigLoading:
     def test_load_config_file_parses_toml(self, tmp_path):
         """Test load_config_file correctly parses TOML."""
         config_path = tmp_path / "keybindings.toml"
-        config_path.write_text(
-            """
+        config_path.write_text("""
 [keybindings.global]
 quit = ["x", "ctrl+x"]
 help = ["?"]
-"""
-        )
+""")
 
         result = load_config_file(config_path)
 
@@ -263,8 +261,7 @@ class TestConfigIntegration:
         """Test complete configuration loading flow."""
         # Create config file
         config_path = tmp_path / "test_config.toml"
-        config_path.write_text(
-            """
+        config_path.write_text("""
 [keybindings.global]
 quit = ["escape", "ctrl+q"]
 help = ["h"]
@@ -274,8 +271,7 @@ up = ["w"]
 down = ["s"]
 left = ["a"]
 right = ["d"]
-"""
-        )
+""")
 
         config = load_keybindings(config_path)
 

@@ -117,8 +117,7 @@ class TestLoadConfigFile:
     def test_load_valid_toml(self, tmp_path):
         """Test loading valid TOML configuration file."""
         config_file = tmp_path / "keybindings.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [keybindings.global]
 quit = ["q", "ctrl+q"]
 help = ["?", "f1"]
@@ -127,8 +126,7 @@ help = ["?", "f1"]
 patch_config = ["p"]
 blended_walk = ["b"]
 analysis = ["a"]
-"""
-        )
+""")
 
         result = load_config_file(config_file)
 
@@ -258,8 +256,7 @@ class TestLoadKeybindings:
     def test_load_custom_keybindings(self, tmp_path):
         """Test loading custom keybindings from file."""
         config_file = tmp_path / "keybindings.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [keybindings.global]
 quit = ["x"]
 help = ["h"]
@@ -282,8 +279,7 @@ randomize = ["r"]
 [keybindings.patch]
 select_corpus_a = ["a"]
 select_corpus_b = ["b"]
-"""
-        )
+""")
 
         config = load_keybindings(config_file)
 
@@ -295,12 +291,10 @@ select_corpus_b = ["b"]
     def test_load_partial_config_merges_with_defaults(self, tmp_path):
         """Test that partial config merges with defaults for missing sections."""
         config_file = tmp_path / "keybindings.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [keybindings.global]
 quit = ["x"]
-"""
-        )
+""")
 
         config = load_keybindings(config_file)
         defaults = KeybindingConfig.default()
@@ -314,13 +308,11 @@ quit = ["x"]
     def test_load_config_with_conflicts_shows_warning(self, tmp_path):
         """Test that config with conflicts still loads but shows warning."""
         config_file = tmp_path / "keybindings.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [keybindings.global]
 quit = ["q"]
 help = ["q"]
-"""
-        )  # Conflict!
+""")  # Conflict!
 
         # Config loads but conflicts are printed
         config = load_keybindings(config_file)

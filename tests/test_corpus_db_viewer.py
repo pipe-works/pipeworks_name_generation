@@ -32,8 +32,7 @@ def test_db(tmp_path: Path) -> Path:
     conn = sqlite3.connect(db_path)
 
     # Create test table with some data
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE test_runs (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
@@ -41,12 +40,10 @@ def test_db(tmp_path: Path) -> Path:
             count INTEGER,
             timestamp TEXT
         )
-    """
-    )
+    """)
 
     # Create another test table
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE test_outputs (
             id INTEGER PRIMARY KEY,
             run_id INTEGER,
@@ -54,8 +51,7 @@ def test_db(tmp_path: Path) -> Path:
             size INTEGER,
             FOREIGN KEY (run_id) REFERENCES test_runs(id)
         )
-    """
-    )
+    """)
 
     # Create an index
     conn.execute("CREATE INDEX idx_status ON test_runs(status)")

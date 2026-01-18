@@ -267,16 +267,14 @@ def test_convert_json_to_sqlite_data_integrity(
     cursor = conn.cursor()
 
     # Get all syllables
-    rows = cursor.execute(
-        """
+    rows = cursor.execute("""
         SELECT syllable, frequency,
                starts_with_vowel, starts_with_cluster, starts_with_heavy_cluster,
                contains_plosive, contains_fricative, contains_liquid, contains_nasal,
                short_vowel, long_vowel,
                ends_with_vowel, ends_with_nasal, ends_with_stop
         FROM syllables ORDER BY syllable
-        """
-    ).fetchall()
+        """).fetchall()
 
     # Sort sample data for comparison
     sorted_sample = sorted(sample_annotated_data, key=lambda x: x["syllable"])

@@ -172,8 +172,7 @@ def test_syllables_primary_key(tmp_path: Path) -> None:
     cursor = conn.cursor()
 
     # Try to insert duplicate syllable
-    cursor.execute(
-        """
+    cursor.execute("""
         INSERT INTO syllables (
             syllable, frequency,
             starts_with_vowel, starts_with_cluster, starts_with_heavy_cluster,
@@ -181,13 +180,11 @@ def test_syllables_primary_key(tmp_path: Path) -> None:
             short_vowel, long_vowel,
             ends_with_vowel, ends_with_nasal, ends_with_stop
         ) VALUES ('test', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        """
-    )
+        """)
 
     # Second insert should fail
     with pytest.raises(sqlite3.IntegrityError):
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT INTO syllables (
                 syllable, frequency,
                 starts_with_vowel, starts_with_cluster, starts_with_heavy_cluster,
@@ -195,8 +192,7 @@ def test_syllables_primary_key(tmp_path: Path) -> None:
                 short_vowel, long_vowel,
                 ends_with_vowel, ends_with_nasal, ends_with_stop
             ) VALUES ('test', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-            """
-        )
+            """)
 
     conn.close()
 

@@ -1,7 +1,7 @@
 # Development dependencies
 
 bandit[toml]>=1.7.0
-black>=25.1.0
+black==26.1.0
 
 # Build
 build>=1.0.0
