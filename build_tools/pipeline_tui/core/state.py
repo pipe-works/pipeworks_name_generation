@@ -53,7 +53,8 @@ class ExtractionConfig:
         extractor_type: Which extractor to use (pyphen or nltk)
         source_path: Input file or directory path
         output_dir: Output directory for results
-        language: Language code for pyphen (e.g., "en_US", "de_DE")
+        language: Language code for pyphen (e.g., "en_US", "de_DE") or "auto"
+                  for automatic detection via langdetect
         min_syllable_length: Minimum syllable length filter
         max_syllable_length: Maximum syllable length filter
         file_pattern: Glob pattern for input files (e.g., "*.txt")
@@ -62,7 +63,7 @@ class ExtractionConfig:
     extractor_type: ExtractorType = ExtractorType.PYPHEN
     source_path: Path | None = None
     output_dir: Path | None = None
-    language: str = "en_US"
+    language: str = "auto"
     min_syllable_length: int = 2
     max_syllable_length: int = 8
     file_pattern: str = "*.txt"

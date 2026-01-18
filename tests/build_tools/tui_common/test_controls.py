@@ -579,7 +579,7 @@ class TestDirectoryBrowserScreen:
 
     @pytest.mark.asyncio
     async def test_file_selection_shows_error(self, tmp_path):
-        """Test that selecting a file shows helpful error message."""
+        """Test that selecting a file shows helpful error message when no directory selected."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
 
@@ -599,8 +599,56 @@ class TestDirectoryBrowserScreen:
             select_button = screen.query_one("#select-button", Button)
             assert select_button.disabled is True
 
+            # Error message now says "Files cannot be selected" for better UX
             status_text = screen.query_one("#status-text", Label)
-            assert "File selected" in str(status_text.render())
+            assert "cannot be selected" in str(status_text.render())
+
+    @pytest.mark.asyncio
+    async def test_file_selection_keeps_valid_directory(self, tmp_path):
+        """Test that clicking a file doesn't clear a valid parent directory selection.
+
+        When user expands into a directory and it validates, then clicks a file,
+        the selection should remain on the parent directory.
+        """
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("content")
+
+        # Validator that accepts tmp_path (has a .txt file)
+        def validator(path: Path) -> tuple[bool, str, str]:
+            if list(path.glob("*.txt")):
+                return (True, "source", "Found text files")
+            return (False, "", "No text files")
+
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path, validator=validator)
+
+        class TestApp(App):
+            async def on_mount(self):
+                await self.push_screen(screen)
+
+        async with TestApp().run_test() as pilot:
+            # First, validate the directory (as if expanded)
+            dir_event = Mock()
+            dir_event.path = tmp_path
+            screen.directory_selected(dir_event)
+
+            await pilot.pause()
+
+            # Verify directory is valid and selectable
+            select_button = screen.query_one("#select-button", Button)
+            assert select_button.disabled is False
+            assert screen.selected_path == tmp_path
+
+            # Now click a file - should NOT clear the selection
+            file_event = Mock()
+            file_event.path = test_file
+            screen.file_selected(file_event)
+
+            await pilot.pause()
+
+            # Selection should remain on parent directory
+            assert screen.selected_path == tmp_path
+            # Select button should still be enabled
+            assert select_button.disabled is False
 
     @pytest.mark.asyncio
     async def test_hjkl_keybindings_registered(self, tmp_path: Path) -> None:

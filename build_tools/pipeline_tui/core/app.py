@@ -34,10 +34,10 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal
 from textual.widgets import Footer, Header, Label, Static, TabbedContent, TabPane
 
-from build_tools.pipeline_tui.core.state import PipelineState
+from build_tools.pipeline_tui.core.state import ExtractorType, PipelineState
 
 if TYPE_CHECKING:
-    pass
+    from build_tools.pipeline_tui.screens.configure import ConfigurePanel
 
 
 class PipelineTuiApp(App):
@@ -104,6 +104,17 @@ class PipelineTuiApp(App):
     }
 
     .status-label {
+        width: 1fr;
+    }
+
+    /* Ensure TabPane content fills available space */
+    TabPane {
+        height: 1fr;
+        width: 1fr;
+    }
+
+    ContentSwitcher {
+        height: 1fr;
         width: 1fr;
     }
 
@@ -184,25 +195,31 @@ class PipelineTuiApp(App):
         """
         Compose the Configure tab content.
 
-        This tab will contain:
-        - Source selection
-        - Output selection
-        - Extractor type selection
-        - Language selection
+        This tab contains the ConfigurePanel widget which provides:
+        - Source/output directory selection
+        - Extractor type selection (pyphen/NLTK)
+        - Language selection for pyphen
         - Syllable length constraints
-        - Pipeline stage toggles
+        - Pipeline stage toggles (normalize, annotate)
 
         Yields:
-            Configure tab widgets
+            ConfigurePanel widget initialized with current state
         """
-        # Placeholder - will be replaced with actual controls
-        yield Static(
-            "Configure Tab\n\n"
-            "Press [s] to select source directory\n"
-            "Press [o] to select output directory\n"
-            "Press [r] to run pipeline\n\n"
-            "(Full implementation coming soon)",
-            classes="placeholder-content",
+        # Lazy import to avoid circular dependency
+        from build_tools.pipeline_tui.screens.configure import ConfigurePanel
+
+        # Create ConfigurePanel with current state values
+        yield ConfigurePanel(
+            source_path=self.state.config.source_path,
+            output_dir=self.state.config.output_dir,
+            extractor_type=self.state.config.extractor_type,
+            language=self.state.config.language,
+            min_syllable_length=self.state.config.min_syllable_length,
+            max_syllable_length=self.state.config.max_syllable_length,
+            file_pattern=self.state.config.file_pattern,
+            run_normalize=self.state.run_normalize,
+            run_annotate=self.state.run_annotate,
+            id="configure-panel",
         )
 
     def _compose_monitor_tab(self) -> ComposeResult:
@@ -321,6 +338,15 @@ class PipelineTuiApp(App):
             self._update_status()
             self.notify(f"Source selected: {result.name}")
 
+            # Update the ConfigurePanel display
+            try:
+                from build_tools.pipeline_tui.screens.configure import ConfigurePanel
+
+                panel = self.query_one("#configure-panel", ConfigurePanel)
+                panel.update_source_path(result)
+            except Exception:  # nosec B110 - Panel may not exist yet
+                pass
+
     @work
     async def action_select_output(self) -> None:
         """
@@ -346,6 +372,15 @@ class PipelineTuiApp(App):
             self.state.last_output_dir = result
             self._update_status()
             self.notify(f"Output selected: {result.name}")
+
+            # Update the ConfigurePanel display
+            try:
+                from build_tools.pipeline_tui.screens.configure import ConfigurePanel
+
+                panel = self.query_one("#configure-panel", ConfigurePanel)
+                panel.update_output_path(result)
+            except Exception:  # nosec B110 - Panel may not exist yet
+                pass
 
     def action_run_pipeline(self) -> None:
         """
@@ -385,3 +420,94 @@ class PipelineTuiApp(App):
         """Show help screen."""
         # TODO: Implement help screen
         self.notify("Help screen coming soon")
+
+    # -------------------------------------------------------------------------
+    # ConfigurePanel Message Handlers
+    # -------------------------------------------------------------------------
+    # Note: Using Textual's auto-routing convention (on_<widget>_<message>)
+    # instead of @on decorators to avoid circular import issues.
+
+    def on_configure_panel_source_selected(self, event: "ConfigurePanel.SourceSelected") -> None:
+        """
+        Handle source directory selection request from ConfigurePanel.
+
+        Triggers the directory browser modal via the existing action.
+        The browse button in ConfigurePanel posts this message.
+
+        Args:
+            event: Source selected event
+        """
+        # Use the existing action which handles the directory browser
+        self.action_select_source()
+
+    def on_configure_panel_output_selected(self, event: "ConfigurePanel.OutputSelected") -> None:
+        """
+        Handle output directory selection request from ConfigurePanel.
+
+        Triggers the directory browser modal via the existing action.
+
+        Args:
+            event: Output selected event
+        """
+        self.action_select_output()
+
+    def on_configure_panel_extractor_changed(
+        self, event: "ConfigurePanel.ExtractorChanged"
+    ) -> None:
+        """
+        Handle extractor type change from ConfigurePanel.
+
+        Updates the application state with the new extractor type.
+        NLTK is English-only, so language setting is ignored for NLTK.
+
+        Args:
+            event: Extractor changed event with new extractor type
+        """
+        self.state.config.extractor_type = event.extractor_type
+        self._update_status()
+
+        # Notify user of the change
+        extractor_name = "pyphen" if event.extractor_type == ExtractorType.PYPHEN else "NLTK"
+        self.notify(f"Extractor: {extractor_name}")
+
+    def on_configure_panel_language_changed(self, event: "ConfigurePanel.LanguageChanged") -> None:
+        """
+        Handle language selection change from ConfigurePanel.
+
+        Updates the application state with the new language code.
+        Only applies to pyphen extractor.
+
+        Args:
+            event: Language changed event with new language code
+        """
+        self.state.config.language = event.language
+        self.notify(f"Language: {event.language}")
+
+    def on_configure_panel_constraints_changed(
+        self, event: "ConfigurePanel.ConstraintsChanged"
+    ) -> None:
+        """
+        Handle constraints change from ConfigurePanel.
+
+        Updates syllable length constraints and file pattern in state.
+
+        Args:
+            event: Constraints changed event with new values
+        """
+        self.state.config.min_syllable_length = event.min_length
+        self.state.config.max_syllable_length = event.max_length
+        self.state.config.file_pattern = event.file_pattern
+
+    def on_configure_panel_pipeline_stages_changed(
+        self, event: "ConfigurePanel.PipelineStagesChanged"
+    ) -> None:
+        """
+        Handle pipeline stage toggle changes from ConfigurePanel.
+
+        Updates which pipeline stages (normalize, annotate) will run.
+
+        Args:
+            event: Pipeline stages changed event with toggle states
+        """
+        self.state.run_normalize = event.run_normalize
+        self.state.run_annotate = event.run_annotate

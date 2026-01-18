@@ -48,7 +48,7 @@ from typing import TYPE_CHECKING
 from textual import on
 from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
-from textual.widgets import Button, DirectoryTree, Label, Static
+from textual.widgets import Button, DirectoryTree, Label, Static, Tree
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
@@ -223,7 +223,7 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         self.browser_title = title
         self.validator = validator or default_validator
         self.initial_dir = initial_dir or Path.home()
-        self.help_text = help_text or "Navigate with hjkl/arrows. Select a DIRECTORY."
+        self.help_text = help_text or "Expand a directory to validate it. Click Select when valid."
         self.selected_path: Path | None = None
 
     def compose(self) -> ComposeResult:
@@ -263,18 +263,16 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                 )
                 yield Button("Cancel", variant="default", id="cancel-button")
 
-    @on(DirectoryTree.DirectorySelected)
-    def directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+    def _validate_and_update_status(self, path: Path) -> None:
         """
-        Handle directory selection in tree.
+        Validate a directory and update the UI status accordingly.
 
-        Validates the selected directory using the configured validator
-        and updates the UI accordingly.
+        This is the core validation logic used by both DirectorySelected
+        and NodeExpanded handlers to provide consistent behavior.
 
         Args:
-            event: Directory selection event from DirectoryTree
+            path: Directory path to validate
         """
-        path = Path(event.path)
         self.selected_path = path
 
         # Validate directory using configured validator
@@ -298,30 +296,88 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
             status_text.update(f"[x] Invalid selection\n{message}")
             select_button.disabled = True
 
+    @on(DirectoryTree.DirectorySelected)
+    def directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+        """
+        Handle directory selection in tree.
+
+        Validates the selected directory using the configured validator
+        and updates the UI accordingly. Triggered when user clicks on
+        a directory NAME (not the expand arrow).
+
+        Args:
+            event: Directory selection event from DirectoryTree
+        """
+        self._validate_and_update_status(Path(event.path))
+
+    @on(Tree.NodeExpanded)
+    def node_expanded(self, event: Tree.NodeExpanded) -> None:
+        """
+        Handle directory expansion in tree.
+
+        When a user expands a directory (via arrow click or 'l' key),
+        validate it and allow selection if valid. This improves UX by
+        letting users select a directory after navigating into it,
+        without needing to click on the directory name again.
+
+        Note: We use Tree.NodeExpanded because DirectoryTree inherits from
+        Tree and doesn't define its own NodeExpanded message class.
+
+        Args:
+            event: Node expanded event from Tree (parent class of DirectoryTree)
+        """
+        # NodeExpanded provides the tree node, get the path from it
+        node = event.node
+        if node.data and hasattr(node.data, "path"):
+            # DirectoryTree nodes have DirEntry data with a path attribute
+            path = Path(node.data.path)
+            if path.is_dir():
+                self._validate_and_update_status(path)
+
     @on(DirectoryTree.FileSelected)
     def file_selected(self, event: DirectoryTree.FileSelected) -> None:
         """
         Handle file selection in tree.
 
-        Provides helpful feedback that directories (not files) should be selected.
+        When a file is clicked, we don't clear the current selection since
+        the user may have already validated the parent directory by expanding
+        into it. Instead, we provide a gentle reminder that the parent
+        directory is what will be selected.
 
         Args:
             event: File selection event from DirectoryTree
         """
         file_path = Path(event.path)
+        parent_dir = file_path.parent
 
-        # Update status to explain the issue
+        # If the parent directory is currently selected and valid, just remind
+        # the user that they can click Select
+        if self.selected_path == parent_dir:
+            # Don't change validation state - parent is still selected
+            status_container = self.query_one("#validation-status", Static)
+            status_text = self.query_one("#status-text", Label)
+
+            # Keep the valid status but update the message
+            if status_container.has_class("status-valid"):
+                status_text.update(
+                    f"[checkmark] Directory ready to select\n"
+                    f"Click Select to use: {parent_dir.name}"
+                )
+                return
+
+        # Otherwise show a helpful message without disrupting valid selection
         status_container = self.query_one("#validation-status", Static)
         status_text = self.query_one("#status-text", Label)
-        select_button = self.query_one("#select-button", Button)
 
-        status_container.remove_class("status-valid", "status-none")
-        status_container.add_class("status-invalid")
-        status_text.update(
-            f"[x] File selected: {file_path.name}\n" f"Please select the parent directory instead"
-        )
-        select_button.disabled = True
-        self.selected_path = None
+        # Only show warning if we don't have a valid selection
+        select_button = self.query_one("#select-button", Button)
+        if select_button.disabled:
+            status_container.remove_class("status-valid", "status-none")
+            status_container.add_class("status-invalid")
+            status_text.update(
+                "[x] Files cannot be selected\n" "Expand into the parent directory first"
+            )
+            self.selected_path = None
 
     @on(Button.Pressed, "#select-button")
     def select_pressed(self) -> None:

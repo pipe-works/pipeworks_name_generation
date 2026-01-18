@@ -206,7 +206,8 @@ Architecture
     │   ├── app.py            # Main PipelineTuiApp class
     │   └── state.py          # Application state management
     ├── screens/
-    │   └── __init__.py       # Screen modules (future)
+    │   ├── __init__.py       # Screen exports
+    │   └── configure.py      # ConfigurePanel widget
     └── services/
         ├── __init__.py
         └── validators.py     # Directory validation functions
@@ -231,8 +232,8 @@ Notes
 
 **Current Status:**
 
-The Pipeline TUI is currently a scaffold with working directory selection.
-Full pipeline execution is planned for a future release.
+The Pipeline TUI has a working Configure tab with full settings UI.
+Monitor and History tabs are placeholders. Pipeline execution is planned for a future release.
 
 **Dependencies:**
 
