@@ -7,6 +7,7 @@ parts of the pipeline TUI interface.
 **Available Components:**
 
 - :class:`ConfigurePanel` - Pipeline configuration panel with all settings
+- :class:`FileSelectorScreen` - Modal for selecting specific files
 
 **Planned Screens:**
 
@@ -17,7 +18,9 @@ These screens will be extracted to separate modules as implementation grows.
 """
 
 from build_tools.pipeline_tui.screens.configure import ConfigurePanel
+from build_tools.pipeline_tui.screens.file_selector import FileSelectorScreen
 
 __all__ = [
     "ConfigurePanel",
+    "FileSelectorScreen",
 ]

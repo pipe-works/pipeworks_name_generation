@@ -137,4 +137,5 @@ class CorpusBrowserScreen(DirectoryBrowserScreen):
             validator=validate_corpus_directory,
             initial_dir=initial_dir,
             help_text="Navigate with hjkl/arrows. Select the DIRECTORY (not files inside it).",
+            root_dir=Path.home(),  # Allow navigating up to home from any initial_dir
         )

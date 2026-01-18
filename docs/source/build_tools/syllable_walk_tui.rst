@@ -217,7 +217,9 @@ Keyboard Shortcuts
    * - ``a``
      - Open Analysis modal screen
    * - ``d``
-     - Open Database Viewer modal screen
+     - Open Database Viewer for Patch A
+   * - ``D`` (Shift+d)
+     - Open Database Viewer for Patch B
    * - ``Esc``
      - Close current modal screen
 
@@ -235,6 +237,12 @@ Keyboard Shortcuts
      - Previous control
    * - ``hjkl``
      - Vi-style navigation in corpus browser
+   * - ``Space``
+     - Toggle expand/collapse in browser
+   * - ``Enter``
+     - Select directory in browser
+   * - ``Esc``
+     - Cancel/close browser
 
 **Control Actions:**
 
@@ -385,9 +393,9 @@ even with identical parameters.
 Database Viewer
 ~~~~~~~~~~~~~~~
 
-Press ``d`` to open the Database Viewer modal, which provides direct access
-to the corpus SQLite database (``corpus.db``). This allows inspection of
-syllables and their phonetic features.
+Press ``d`` to open the Database Viewer for Patch A, or ``D`` (Shift+d) for
+Patch B. The modal provides direct access to the corpus SQLite database
+(``corpus.db``), allowing inspection of syllables and their phonetic features.
 
 **Features:**
 

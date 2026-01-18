@@ -51,7 +51,9 @@ class ExtractionConfig:
 
     Attributes:
         extractor_type: Which extractor to use (pyphen or nltk)
-        source_path: Input file or directory path
+        source_path: Source directory path (for browsing and as fallback)
+        selected_files: List of specific files to process. If empty, uses
+                       source_path with file_pattern.
         output_dir: Output directory for results
         language: Language code for pyphen (e.g., "en_US", "de_DE") or "auto"
                   for automatic detection via langdetect
@@ -62,11 +64,17 @@ class ExtractionConfig:
 
     extractor_type: ExtractorType = ExtractorType.PYPHEN
     source_path: Path | None = None
+    selected_files: list[Path] = field(default_factory=list)
     output_dir: Path | None = None
     language: str = "auto"
     min_syllable_length: int = 2
     max_syllable_length: int = 8
     file_pattern: str = "*.txt"
+
+    @property
+    def has_file_selection(self) -> bool:
+        """Check if specific files are selected (vs using directory scan)."""
+        return len(self.selected_files) > 0
 
     def is_valid(self) -> tuple[bool, str]:
         """
@@ -75,10 +83,19 @@ class ExtractionConfig:
         Returns:
             Tuple of (is_valid, error_message). Error message is empty if valid.
         """
-        if self.source_path is None:
-            return (False, "No source path selected")
-        if not self.source_path.exists():
-            return (False, f"Source path does not exist: {self.source_path}")
+        # Check we have some input source
+        if self.has_file_selection:
+            # Validate selected files
+            for file_path in self.selected_files:
+                if not file_path.exists():
+                    return (False, f"Selected file does not exist: {file_path.name}")
+        else:
+            # Validate source directory
+            if self.source_path is None:
+                return (False, "No source path selected")
+            if not self.source_path.exists():
+                return (False, f"Source path does not exist: {self.source_path}")
+
         if self.output_dir is None:
             return (False, "No output directory selected")
         if self.min_syllable_length > self.max_syllable_length:

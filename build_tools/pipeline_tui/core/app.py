@@ -34,7 +34,8 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal
 from textual.widgets import Footer, Header, Label, Static, TabbedContent, TabPane
 
-from build_tools.pipeline_tui.core.state import ExtractorType, PipelineState
+from build_tools.pipeline_tui.core.state import ExtractorType, JobStatus, PipelineState
+from build_tools.pipeline_tui.services.pipeline import PipelineExecutor
 
 if TYPE_CHECKING:
     from build_tools.pipeline_tui.screens.configure import ConfigurePanel
@@ -79,7 +80,8 @@ class PipelineTuiApp(App):
         Binding("3", "tab_history", "History", priority=True),
         Binding("r", "run_pipeline", "Run", priority=True),
         Binding("c", "cancel_job", "Cancel", priority=True),
-        Binding("s", "select_source", "Source", priority=True),
+        Binding("d", "select_source", "Directory", priority=True),
+        Binding("f", "select_files", "Select", priority=True),
         Binding("o", "select_output", "Output", priority=True),
     ]
 
@@ -145,6 +147,9 @@ class PipelineTuiApp(App):
 
         # Initialize application state
         self.state = PipelineState()
+
+        # Initialize pipeline executor
+        self._executor = PipelineExecutor()
 
         # Apply initial directories if provided
         if source_dir:
@@ -275,7 +280,16 @@ class PipelineTuiApp(App):
             Formatted status string showing config summary
         """
         config = self.state.config
-        source = config.source_path.name if config.source_path else "Not selected"
+
+        # Determine source display
+        if config.selected_files:
+            count = len(config.selected_files)
+            source = f"{count} file{'s' if count != 1 else ''}"
+        elif config.source_path:
+            source = config.source_path.name
+        else:
+            source = "Not selected"
+
         extractor = config.extractor_type.name.lower()
         status = self.state.job.status.name.lower()
 
@@ -329,11 +343,13 @@ class PipelineTuiApp(App):
                 validator=validate_source_directory,
                 initial_dir=self.state.last_source_dir,
                 help_text="Select a directory containing .txt files for extraction.",
+                root_dir=Path.home(),  # Allow navigating up to home
             )
         )
 
         if result:
             self.state.config.source_path = result
+            self.state.config.selected_files = []  # Clear file selection when directory is set
             self.state.last_source_dir = result
             self._update_status()
             self.notify(f"Source selected: {result.name}")
@@ -364,6 +380,7 @@ class PipelineTuiApp(App):
                 validator=validate_output_directory,
                 initial_dir=self.state.last_output_dir,
                 help_text="Select output directory for pipeline results.",
+                root_dir=Path.home(),  # Allow navigating up to home
             )
         )
 
@@ -382,12 +399,60 @@ class PipelineTuiApp(App):
             except Exception:  # nosec B110 - Panel may not exist yet
                 pass
 
+    @work
+    async def action_select_files(self) -> None:
+        """
+        Open file selector to choose specific files.
+
+        Uses FileSelectorScreen for selecting individual files.
+        Runs as a worker to support push_screen_wait.
+        """
+        from build_tools.pipeline_tui.screens.file_selector import FileSelectorScreen
+
+        # Determine initial directory
+        initial_dir = self.state.last_source_dir
+        if self.state.config.source_path and self.state.config.source_path.exists():
+            initial_dir = self.state.config.source_path
+
+        result = await self.push_screen_wait(
+            FileSelectorScreen(
+                initial_dir=initial_dir,
+                file_pattern=self.state.config.file_pattern,
+                title="Select Source Files",
+                root_dir=Path.home(),  # Allow navigating up to home
+            )
+        )
+
+        if result:
+            # Store selected files in config
+            self.state.config.selected_files = result
+            # Update last_source_dir to the common parent if files are in same dir
+            if result:
+                self.state.last_source_dir = result[0].parent
+            self._update_status()
+            count = len(result)
+            self.notify(f"Selected {count} file{'s' if count != 1 else ''}")
+
+            # Update the ConfigurePanel display
+            try:
+                from build_tools.pipeline_tui.screens.configure import ConfigurePanel
+
+                panel = self.query_one("#configure-panel", ConfigurePanel)
+                panel.update_selected_files(result)
+            except Exception:  # nosec B110 - Panel may not exist yet
+                pass
+
     def action_run_pipeline(self) -> None:
         """
         Start pipeline execution.
 
         Validates configuration and starts the pipeline job.
         """
+        # Check if a job is already running
+        if self.state.job.status == JobStatus.RUNNING:
+            self.notify("A job is already running", severity="warning")
+            return
+
         is_valid, error = self.state.config.is_valid()
         if not is_valid:
             self.notify(f"Cannot run: {error}", severity="error")
@@ -396,25 +461,23 @@ class PipelineTuiApp(App):
         # Switch to monitor tab
         self.action_tab_monitor()
 
-        # Start the job (actual execution will be implemented in services)
+        # Start the job
         self.state.start_job()
         self._update_status()
         self.notify("Pipeline job started")
 
-        # TODO: Actually run the pipeline using services.pipeline
+        # Actually run the pipeline
+        self._run_pipeline_async()
 
     def action_cancel_job(self) -> None:
         """Cancel the currently running job."""
-        from build_tools.pipeline_tui.core.state import JobStatus
-
         if self.state.job.status != JobStatus.RUNNING:
             self.notify("No job is running", severity="warning")
             return
 
-        # TODO: Actually cancel the job
-        self.state.job.status = JobStatus.CANCELLED
-        self._update_status()
-        self.notify("Job cancelled")
+        # Cancel the executor
+        self._cancel_pipeline_async()
+        self.notify("Cancelling job...")
 
     def action_help(self) -> None:
         """Show help screen."""
@@ -450,6 +513,17 @@ class PipelineTuiApp(App):
             event: Output selected event
         """
         self.action_select_output()
+
+    def on_configure_panel_files_selected(self, event: "ConfigurePanel.FilesSelected") -> None:
+        """
+        Handle file selection request from ConfigurePanel.
+
+        Opens the file selector modal for choosing specific files.
+
+        Args:
+            event: Files selected event
+        """
+        self.action_select_files()
 
     def on_configure_panel_extractor_changed(
         self, event: "ConfigurePanel.ExtractorChanged"
@@ -511,3 +585,78 @@ class PipelineTuiApp(App):
         """
         self.state.run_normalize = event.run_normalize
         self.state.run_annotate = event.run_annotate
+
+    # -------------------------------------------------------------------------
+    # Pipeline Execution
+    # -------------------------------------------------------------------------
+
+    @work
+    async def _run_pipeline_async(self) -> None:
+        """
+        Run the pipeline asynchronously.
+
+        Executes extraction, normalization, and annotation stages
+        via the PipelineExecutor. Updates job state and UI as it runs.
+        """
+
+        def on_progress(stage: str, pct: int, msg: str) -> None:
+            """Handle progress updates from executor."""
+            self.state.job.current_stage = stage
+            self.state.job.progress_percent = pct
+            self._update_status()
+
+        def on_log(msg: str) -> None:
+            """Handle log messages from executor."""
+            self.state.job.add_log(msg)
+
+        try:
+            result = await self._executor.run_pipeline(
+                config=self.state.config,
+                run_normalize=self.state.run_normalize,
+                run_annotate=self.state.run_annotate,
+                on_progress=on_progress,
+                on_log=on_log,
+            )
+
+            if result.cancelled:
+                self.state.job.status = JobStatus.CANCELLED
+                self.state.job.add_log("Pipeline cancelled by user")
+                self.notify("Pipeline cancelled")
+            elif result.success:
+                if result.run_directory:
+                    self.state.complete_job(result.run_directory)
+                else:
+                    self.state.complete_job(self.state.config.output_dir or Path.cwd())
+                self.notify("Pipeline completed successfully", severity="information")
+            else:
+                # Find the error message from failed stages
+                error_msg = "Unknown error"
+                for stage_result in result.stages:
+                    if not stage_result.success and stage_result.error_message:
+                        error_msg = stage_result.error_message
+                        break
+                self.state.fail_job(error_msg)
+                self.notify(f"Pipeline failed: {error_msg}", severity="error")
+
+        except Exception as e:
+            self.state.fail_job(str(e))
+            self.notify(f"Pipeline error: {e}", severity="error")
+
+        finally:
+            self._update_status()
+
+    @work
+    async def _cancel_pipeline_async(self) -> None:
+        """
+        Cancel the running pipeline asynchronously.
+
+        Signals the executor to terminate and updates job state.
+        """
+        try:
+            await self._executor.cancel()
+            self.state.job.status = JobStatus.CANCELLED
+            self.state.job.add_log("Pipeline cancelled by user")
+            self._update_status()
+            self.notify("Job cancelled")
+        except Exception as e:
+            self.notify(f"Error cancelling: {e}", severity="error")

@@ -80,7 +80,8 @@ class SyllableWalkerApp(App):
         Binding("f1", "help", "Help", priority=True),
         Binding("v", "view_blended", "Blended", priority=True),
         Binding("a", "view_analysis", "Analysis", priority=True),
-        Binding("d", "view_database", "Database", priority=True),
+        Binding("d", "view_database_a", "DB A", priority=True),
+        Binding("D", "view_database_b", "DB B", priority=True),
         Binding("1", "select_corpus_a", "Corpus A", priority=True),
         Binding("2", "select_corpus_b", "Corpus B", priority=True),
     ]
@@ -366,29 +367,43 @@ class SyllableWalkerApp(App):
             # Computation failed
             return None
 
-    def action_view_database(self) -> None:
-        """Action: Open database viewer modal screen (keybinding: d).
+    def action_view_database_a(self) -> None:
+        """Action: Open database viewer for Patch A (keybinding: d).
 
-        Shows the corpus.db for the first patch that has a corpus loaded,
-        preferring patch A.
+        Shows the corpus.db for Patch A if a corpus is loaded.
         """
-        # Find a loaded corpus - prefer patch A
-        # corpus.db is at corpus_dir/data/corpus.db
-        db_path = None
-        patch_name = ""
+        self._open_database_for_patch("A")
 
-        if self.state.patch_a.corpus_dir:
-            db_path = self.state.patch_a.corpus_dir / "data" / "corpus.db"
-            patch_name = "A"
-        elif self.state.patch_b.corpus_dir:
-            db_path = self.state.patch_b.corpus_dir / "data" / "corpus.db"
-            patch_name = "B"
+    def action_view_database_b(self) -> None:
+        """Action: Open database viewer for Patch B (keybinding: D).
 
-        if db_path and db_path.exists():
-            self.push_screen(DatabaseScreen(db_path=db_path, patch_name=patch_name))
+        Shows the corpus.db for Patch B if a corpus is loaded.
+        """
+        self._open_database_for_patch("B")
+
+    def _open_database_for_patch(self, patch_name: str) -> None:
+        """
+        Open database viewer for the specified patch.
+
+        Args:
+            patch_name: "A" or "B"
+        """
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        if patch.corpus_dir:
+            db_path = patch.corpus_dir / "data" / "corpus.db"
+            if db_path.exists():
+                self.push_screen(DatabaseScreen(db_path=db_path, patch_name=patch_name))
+            else:
+                self.notify(
+                    f"No corpus.db found for Patch {patch_name}. "
+                    "The corpus may need to be rebuilt with the pipeline.",
+                    severity="warning",
+                )
         else:
             self.notify(
-                "No corpus database loaded. Select a corpus directory first.",
+                f"No corpus loaded for Patch {patch_name}. "
+                f"Press {patch_name == 'A' and '1' or '2'} to select a corpus directory.",
                 severity="warning",
             )
 

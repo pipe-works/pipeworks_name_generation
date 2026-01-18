@@ -7,9 +7,14 @@ pipeline execution, and job management.
 **Services:**
 
 - :mod:`validators` - Directory validation functions for browsers
-- :mod:`pipeline` - Pipeline execution and monitoring (coming soon)
+- :mod:`pipeline` - Pipeline execution and monitoring
 """
 
+from build_tools.pipeline_tui.services.pipeline import (
+    PipelineExecutor,
+    PipelineResult,
+    StageResult,
+)
 from build_tools.pipeline_tui.services.validators import (
     validate_output_directory,
     validate_source_directory,
@@ -18,4 +23,7 @@ from build_tools.pipeline_tui.services.validators import (
 __all__ = [
     "validate_source_directory",
     "validate_output_directory",
+    "PipelineExecutor",
+    "PipelineResult",
+    "StageResult",
 ]

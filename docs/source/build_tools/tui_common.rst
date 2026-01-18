@@ -134,9 +134,10 @@ Modal directory browser with customizable validation.
 **Features:**
 
 - Textual DirectoryTree for file system navigation
-- Vim-style keybindings (``h``/``j``/``k``/``l``)
+- Vim-style keybindings (``h``/``j``/``k``/``l``, ``Space``, ``Enter``, ``Esc``)
 - Custom validator callback for domain-specific validation
 - Visual feedback for valid/invalid selections
+- Configurable tree root (``root_dir``) to allow navigation to parent directories
 
 .. code-block:: python
 
@@ -156,7 +157,8 @@ Modal directory browser with customizable validation.
             DirectoryBrowserScreen(
                 title="Select Source Directory",
                 validator=validate_source_dir,
-                initial_dir=Path.home(),
+                initial_dir=Path("/some/deep/path"),
+                root_dir=Path.home(),  # Allows navigating up to home
             )
         )
         if result:

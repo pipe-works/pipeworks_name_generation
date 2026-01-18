@@ -168,11 +168,14 @@ class TestConfigurePanelWidgets:
             panel = app.query_one("#test-panel", ConfigurePanel)
             source_btn = panel.query_one("#source-browse-btn", Button)
             output_btn = panel.query_one("#output-browse-btn", Button)
+            select_btn = panel.query_one("#select-files-btn", Button)
 
             assert source_btn is not None
             assert output_btn is not None
-            assert "Browse" in str(source_btn.label)
+            assert select_btn is not None
+            assert "Directory" in str(source_btn.label)
             assert "Browse" in str(output_btn.label)
+            assert "Select" in str(select_btn.label)
 
     @pytest.mark.asyncio
     async def test_panel_contains_extractor_options(self):

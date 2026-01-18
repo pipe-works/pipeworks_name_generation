@@ -43,7 +43,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from textual import on
 from textual.containers import Container, Horizontal
@@ -130,6 +130,9 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         ("k", "cursor_up", "Up"),
         ("h", "cursor_left", "Collapse"),
         ("l", "cursor_right", "Expand"),
+        ("space", "toggle_node", "Toggle"),
+        ("enter", "select_node", "Select"),
+        ("escape", "cancel", "Cancel"),
     ]
 
     # -------------------------------------------------------------------------
@@ -207,6 +210,7 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         validator: DirectoryValidator | None = None,
         initial_dir: Path | None = None,
         help_text: str | None = None,
+        root_dir: Path | None = None,
     ) -> None:
         """
         Initialize directory browser.
@@ -218,11 +222,14 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                        If None, uses default_validator which accepts any directory.
             initial_dir: Starting directory for browser (defaults to home directory)
             help_text: Custom help text to display. If None, uses default help text.
+            root_dir: Root directory for the tree. If None, uses home directory.
+                      Set this higher than initial_dir to allow navigating up.
         """
         super().__init__()
         self.browser_title = title
         self.validator = validator or default_validator
         self.initial_dir = initial_dir or Path.home()
+        self.root_dir = root_dir or Path.home()
         self.help_text = help_text or "Expand a directory to validate it. Click Select when valid."
         self.selected_path: Path | None = None
 
@@ -246,8 +253,8 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
             # Help text for navigation
             yield Label(self.help_text or "", id="help-text")
 
-            # Directory tree widget
-            yield DirectoryTree(str(self.initial_dir), id="directory-tree")
+            # Directory tree widget - use root_dir to allow navigating up
+            yield DirectoryTree(str(self.root_dir), id="directory-tree")
 
             # Validation status area
             with Static(id="validation-status", classes="status-none"):
@@ -262,6 +269,74 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                     disabled=True,
                 )
                 yield Button("Cancel", variant="default", id="cancel-button")
+
+    async def on_mount(self) -> None:
+        """
+        Handle screen mount event.
+
+        If initial_dir differs from root_dir, attempt to expand the tree
+        to show and select initial_dir after a brief delay to let the
+        tree load its initial content.
+        """
+        if self.initial_dir != self.root_dir:
+            # Schedule expansion after tree has loaded
+            self.set_timer(0.1, self._expand_to_initial_dir)
+
+    def _expand_to_initial_dir(self) -> None:
+        """
+        Expand tree nodes from root to initial_dir.
+
+        This navigates the tree by expanding each directory in the path
+        from root_dir to initial_dir, allowing the user to see their
+        starting location while being able to navigate up.
+        """
+        tree = self.query_one("#directory-tree", DirectoryTree)
+
+        # Get the relative path from root to initial_dir
+        try:
+            relative_parts = self.initial_dir.relative_to(self.root_dir).parts
+        except ValueError:
+            # initial_dir is not under root_dir, can't expand
+            return
+
+        # Walk the tree expanding each node in the path
+        current_node = tree.root
+        current_path = self.root_dir
+
+        # Expand root first
+        if not current_node.is_expanded:
+            current_node.expand()
+
+        # Function to find and expand child nodes
+        def find_and_expand_child(node: Any, target_name: str) -> Any | None:
+            """Find a child node by name and expand it."""
+            for child in node.children:
+                if child.data and hasattr(child.data, "path"):
+                    child_path = Path(child.data.path)
+                    if child_path.name == target_name:
+                        if not child.is_expanded:
+                            child.expand()
+                        return child
+            return None
+
+        # Expand each part of the path
+        for part in relative_parts:
+            current_path = current_path / part
+            child_node = find_and_expand_child(current_node, part)
+            if child_node:
+                current_node = child_node
+            else:
+                # Could not find node, tree might not be loaded yet
+                break
+
+        # Move cursor to the final node if we got there
+        if current_node and current_node != tree.root:
+            tree.select_node(current_node)
+            # Also validate and update status for the initial directory
+            if current_node.data and hasattr(current_node.data, "path"):
+                path = Path(current_node.data.path)
+                if path.is_dir():
+                    self._validate_and_update_status(path)
 
     def _validate_and_update_status(self, path: Path) -> None:
         """
@@ -431,3 +506,36 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         tree = self.query_one("#directory-tree", DirectoryTree)
         # DirectoryTree inherits from Tree which has this action
         tree.action_cursor_right()  # type: ignore[attr-defined]
+
+    def action_toggle_node(self) -> None:
+        """
+        Toggle expand/collapse of current node (space key).
+
+        Expands collapsed nodes, collapses expanded nodes.
+        """
+        tree = self.query_one("#directory-tree", DirectoryTree)
+        if tree.cursor_node:
+            tree.cursor_node.toggle()
+
+    def action_select_node(self) -> None:
+        """
+        Select the current node (enter key).
+
+        If the current node is a directory, validates it.
+        If already valid, confirms the selection.
+        """
+        tree = self.query_one("#directory-tree", DirectoryTree)
+        if tree.cursor_node and tree.cursor_node.data:
+            # Get path from node data
+            if hasattr(tree.cursor_node.data, "path"):
+                path = Path(tree.cursor_node.data.path)
+                if path.is_dir():
+                    self._validate_and_update_status(path)
+                    # If valid and already selected, confirm
+                    select_button = self.query_one("#select-button", Button)
+                    if not select_button.disabled and self.selected_path == path:
+                        self.dismiss(self.selected_path)
+
+    def action_cancel(self) -> None:
+        """Cancel and close the dialog (escape key)."""
+        self.dismiss(None)

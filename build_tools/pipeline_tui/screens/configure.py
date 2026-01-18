@@ -131,6 +131,13 @@ class ConfigurePanel(VerticalScroll):
             """Initialize the SourceSelected message."""
             super().__init__()
 
+    class FilesSelected(Message):
+        """Posted when the user wants to select specific files."""
+
+        def __init__(self) -> None:
+            """Initialize the FilesSelected message."""
+            super().__init__()
+
     class OutputSelected(Message):
         """Posted when the output directory is selected via browse button."""
 
@@ -363,6 +370,7 @@ class ConfigurePanel(VerticalScroll):
     def __init__(
         self,
         source_path: Path | None = None,
+        selected_files: list[Path] | None = None,
         output_dir: Path | None = None,
         extractor_type: ExtractorType = ExtractorType.PYPHEN,
         language: str = "auto",
@@ -379,6 +387,7 @@ class ConfigurePanel(VerticalScroll):
 
         Args:
             source_path: Current source directory path
+            selected_files: List of specific files to process (empty = use directory)
             output_dir: Current output directory path
             extractor_type: Current extractor type selection
             language: Current language code for pyphen
@@ -394,6 +403,7 @@ class ConfigurePanel(VerticalScroll):
 
         # Store initial configuration values
         self.source_path = source_path
+        self.selected_files = selected_files or []
         self.output_dir = output_dir
         self.extractor_type = extractor_type
         self.language = language
@@ -423,10 +433,15 @@ class ConfigurePanel(VerticalScroll):
             # Source directory row
             with Horizontal(classes="dir-row"):
                 yield Label("Source:", classes="dir-label")
-                source_text = str(self.source_path) if self.source_path else "Not selected"
-                source_classes = "dir-path" if self.source_path else "dir-path dir-path-empty"
+                source_text = self._get_source_display_text()
+                source_classes = (
+                    "dir-path"
+                    if (self.source_path or self.selected_files)
+                    else "dir-path dir-path-empty"
+                )
                 yield Label(source_text, classes=source_classes, id="source-path-display")
-                yield Button("Browse", classes="dir-button", id="source-browse-btn")
+                yield Button("Directory", classes="dir-button", id="source-browse-btn")
+                yield Button("Select...", classes="dir-button", id="select-files-btn")
 
             # Output directory row
             with Horizontal(classes="dir-row"):
@@ -551,6 +566,28 @@ class ConfigurePanel(VerticalScroll):
             )
 
     # -------------------------------------------------------------------------
+    # Helper Methods
+    # -------------------------------------------------------------------------
+
+    def _get_source_display_text(self) -> str:
+        """
+        Get the display text for the source path/files.
+
+        Returns:
+            Display text showing directory name or selected file count
+        """
+        if self.selected_files:
+            count = len(self.selected_files)
+            if count == 1:
+                return f"1 file: {self.selected_files[0].name}"
+            else:
+                return f"{count} files selected"
+        elif self.source_path:
+            return str(self.source_path)
+        else:
+            return "Not selected"
+
+    # -------------------------------------------------------------------------
     # Event Handlers
     # -------------------------------------------------------------------------
 
@@ -580,6 +617,19 @@ class ConfigurePanel(VerticalScroll):
         """
         event.stop()
         self.post_message(self.OutputSelected())
+
+    @on(Button.Pressed, "#select-files-btn")
+    def on_select_files_pressed(self, event: Button.Pressed) -> None:
+        """
+        Handle select files button press.
+
+        Posts FilesSelected message to trigger file selector in parent app.
+
+        Args:
+            event: Button press event
+        """
+        event.stop()
+        self.post_message(self.FilesSelected())
 
     @on(RadioOption.Selected)
     def on_radio_option_selected(self, event: RadioOption.Selected) -> None:
@@ -807,11 +857,13 @@ class ConfigurePanel(VerticalScroll):
         Update the displayed source path.
 
         Called by parent app after directory selection.
+        Clears any selected files since we're now using directory mode.
 
         Args:
             path: New source path, or None if cleared
         """
         self.source_path = path
+        self.selected_files = []  # Clear file selection when directory is set
         try:
             display = self.query_one("#source-path-display", Label)
             if path:
@@ -841,5 +893,33 @@ class ConfigurePanel(VerticalScroll):
             else:
                 display.update("Not selected")
                 display.add_class("dir-path-empty")
+        except Exception:  # nosec B110 - Widget may not exist
+            pass
+
+    def update_selected_files(self, files: list[Path]) -> None:
+        """
+        Update the selected files list.
+
+        Called by parent app after file selection.
+        When files are selected, the source_path is used only as the
+        initial browse location, not for processing.
+
+        Args:
+            files: List of selected file paths
+        """
+        self.selected_files = files
+        try:
+            display = self.query_one("#source-path-display", Label)
+            if files:
+                display.update(self._get_source_display_text())
+                display.remove_class("dir-path-empty")
+            else:
+                # Revert to showing source_path if no files selected
+                if self.source_path:
+                    display.update(str(self.source_path))
+                    display.remove_class("dir-path-empty")
+                else:
+                    display.update("Not selected")
+                    display.add_class("dir-path-empty")
         except Exception:  # nosec B110 - Widget may not exist
             pass

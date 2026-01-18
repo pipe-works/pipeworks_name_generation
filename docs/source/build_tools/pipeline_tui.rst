@@ -72,7 +72,8 @@ Configure Tab
 
 Set up extraction parameters:
 
-- Source directory selection (``s`` key)
+- Source directory selection (``d`` key)
+- Individual file selection (``f`` key)
 - Output directory selection (``o`` key)
 - Extractor type (pyphen/NLTK)
 - Language selection (for pyphen)
@@ -121,8 +122,10 @@ Keyboard Shortcuts
      - Switch to Monitor tab
    * - ``3``
      - Switch to History tab
-   * - ``s``
+   * - ``d``
      - Select source directory
+   * - ``f``
+     - Select individual source files
    * - ``o``
      - Select output directory
    * - ``r``
@@ -146,6 +149,8 @@ Keyboard Shortcuts
      - Collapse directory
    * - ``l`` / ``→``
      - Expand directory
+   * - ``Space``
+     - Toggle expand/collapse
    * - ``Enter``
      - Select directory
    * - ``Esc``
