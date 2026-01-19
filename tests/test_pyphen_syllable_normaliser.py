@@ -682,3 +682,312 @@ class TestRunDirectoryDetection:
 
         with pytest.raises(FileNotFoundError):
             detect_pyphen_run_directories(nonexistent)
+
+    def test_detect_not_a_directory(self, tmp_path: Path):
+        """Test detection raises ValueError when path is a file, not directory."""
+        from build_tools.pyphen_syllable_normaliser.cli import detect_pyphen_run_directories
+
+        file_path = tmp_path / "some_file.txt"
+        file_path.touch()
+
+        with pytest.raises(ValueError, match="not a directory"):
+            detect_pyphen_run_directories(file_path)
+
+
+# ============================================================================
+# Test CLI Main Function
+# ============================================================================
+
+
+class TestCLIMain:
+    """Tests for the main() CLI entry point."""
+
+    def test_main_with_run_dir(self, tmp_path: Path):
+        """Test main() with explicit --run-dir argument."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        # Create pyphen run directory structure
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        syllables_dir = run_dir / "syllables"
+        syllables_dir.mkdir(parents=True)
+
+        test_file = syllables_dir / "test.txt"
+        test_file.write_text("hello\nworld\ntest\n", encoding="utf-8")
+
+        result = main(["--run-dir", str(run_dir), "--quiet"])
+
+        assert result == 0
+        assert (run_dir / "pyphen_syllables_raw.txt").exists()
+        assert (run_dir / "pyphen_syllables_unique.txt").exists()
+
+    def test_main_with_source_auto_detect(self, tmp_path: Path):
+        """Test main() with --source to auto-detect pyphen directories."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        # Create multiple pyphen run directories
+        run_dir1 = tmp_path / "20260110_100000_pyphen"
+        (run_dir1 / "syllables").mkdir(parents=True)
+        (run_dir1 / "syllables" / "test.txt").write_text("ka\nra\n", encoding="utf-8")
+
+        run_dir2 = tmp_path / "20260110_110000_pyphen"
+        (run_dir2 / "syllables").mkdir(parents=True)
+        (run_dir2 / "syllables" / "test.txt").write_text("mi\nta\n", encoding="utf-8")
+
+        result = main(["--source", str(tmp_path), "--quiet"])
+
+        assert result == 0
+        # Both directories should have been processed
+        assert (run_dir1 / "pyphen_syllables_unique.txt").exists()
+        assert (run_dir2 / "pyphen_syllables_unique.txt").exists()
+
+    def test_main_no_pyphen_directories_found(self, tmp_path: Path, capsys):
+        """Test main() when no pyphen directories exist in source."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        # Create only NLTK directory (not pyphen)
+        nltk_dir = tmp_path / "20260110_100000_nltk"
+        (nltk_dir / "syllables").mkdir(parents=True)
+
+        result = main(["--source", str(tmp_path)])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "No pyphen run directories found" in captured.err
+
+    def test_main_min_less_than_one(self, tmp_path: Path, capsys):
+        """Test main() with --min < 1 returns error."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        (run_dir / "syllables").mkdir(parents=True)
+
+        result = main(["--run-dir", str(run_dir), "--min", "0"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "--min must be >= 1" in captured.err
+
+    def test_main_max_less_than_min(self, tmp_path: Path, capsys):
+        """Test main() with --max < --min returns error."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        (run_dir / "syllables").mkdir(parents=True)
+
+        result = main(["--run-dir", str(run_dir), "--min", "10", "--max", "5"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "--max (5) must be >= --min (10)" in captured.err
+
+    def test_main_custom_config(self, tmp_path: Path):
+        """Test main() with custom configuration options."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        syllables_dir = run_dir / "syllables"
+        syllables_dir.mkdir(parents=True)
+
+        test_file = syllables_dir / "test.txt"
+        test_file.write_text("hello\nx\nverylongwordthatwillbefiltered\nworld\n", encoding="utf-8")
+
+        result = main(
+            [
+                "--run-dir",
+                str(run_dir),
+                "--min",
+                "3",
+                "--max",
+                "10",
+                "--charset",
+                "abcdefghijklmnopqrstuvwxyz",
+                "--unicode-form",
+                "NFC",
+                "--quiet",
+            ]
+        )
+
+        assert result == 0
+        # Check that short syllables were filtered
+        unique_content = (run_dir / "pyphen_syllables_unique.txt").read_text()
+        assert "hello" in unique_content
+        assert "world" in unique_content
+        # "x" is too short (< 3)
+        assert "x" not in unique_content
+
+    def test_main_verbose_output(self, tmp_path: Path, capsys):
+        """Test main() with --verbose flag."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        syllables_dir = run_dir / "syllables"
+        syllables_dir.mkdir(parents=True)
+
+        test_file = syllables_dir / "test.txt"
+        test_file.write_text("hello\nworld\n", encoding="utf-8")
+
+        result = main(["--run-dir", str(run_dir), "--verbose"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        # Verbose should show sample output
+        assert "Sample" in captured.out or "Top" in captured.out
+
+    def test_main_file_not_found_error(self, tmp_path: Path, capsys):
+        """Test main() handles FileNotFoundError gracefully."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        nonexistent = tmp_path / "nonexistent_dir"
+
+        result = main(["--run-dir", str(nonexistent), "--quiet"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "ERROR" in captured.err
+
+    def test_main_verbose_shows_traceback_on_error(self, tmp_path: Path, capsys):
+        """Test main() with --verbose shows traceback on error."""
+        from build_tools.pyphen_syllable_normaliser.cli import main
+
+        nonexistent = tmp_path / "nonexistent_dir"
+
+        result = main(["--run-dir", str(nonexistent), "--verbose"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "ERROR" in captured.err
+        # Verbose should show traceback
+        assert "Traceback" in captured.err or "FileNotFoundError" in captured.err
+
+
+class TestRunFullPipelineErrorPaths:
+    """Tests for error handling in run_full_pipeline."""
+
+    def test_run_full_pipeline_nonexistent_directory(self, tmp_path: Path):
+        """Test run_full_pipeline raises FileNotFoundError for nonexistent directory."""
+        nonexistent = tmp_path / "nonexistent"
+        config = NormalizationConfig()
+
+        with pytest.raises(FileNotFoundError, match="does not exist"):
+            run_full_pipeline(nonexistent, config, quiet=True)
+
+    def test_run_full_pipeline_not_a_directory(self, tmp_path: Path):
+        """Test run_full_pipeline raises ValueError when path is a file."""
+        file_path = tmp_path / "some_file.txt"
+        file_path.touch()
+        config = NormalizationConfig()
+
+        with pytest.raises(ValueError, match="not a directory"):
+            run_full_pipeline(file_path, config, quiet=True)
+
+    def test_run_full_pipeline_missing_syllables_dir(self, tmp_path: Path):
+        """Test run_full_pipeline raises error when syllables/ subdirectory missing."""
+        run_dir = tmp_path / "20260110_143022_pyphen"
+        run_dir.mkdir()
+        # Don't create syllables/ subdirectory
+        config = NormalizationConfig()
+
+        with pytest.raises(FileNotFoundError, match="Syllables directory does not exist"):
+            run_full_pipeline(run_dir, config, quiet=True)
+
+
+class TestArgumentParser:
+    """Tests for argument parser creation and parsing."""
+
+    def test_create_argument_parser(self):
+        """Test create_argument_parser returns valid ArgumentParser."""
+        from build_tools.pyphen_syllable_normaliser.cli import create_argument_parser
+
+        parser = create_argument_parser()
+
+        assert parser is not None
+        assert parser.description is not None
+        assert "Pyphen" in parser.description
+
+    def test_parse_arguments_run_dir(self, tmp_path: Path):
+        """Test parse_arguments with --run-dir."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(["--run-dir", str(tmp_path)])
+
+        assert args.run_dir == tmp_path
+        assert args.source is None
+
+    def test_parse_arguments_source(self, tmp_path: Path):
+        """Test parse_arguments with --source."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(["--source", str(tmp_path)])
+
+        assert args.source == tmp_path
+        assert args.run_dir is None
+
+    def test_parse_arguments_default_values(self, tmp_path: Path):
+        """Test parse_arguments has correct default values."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(["--run-dir", str(tmp_path)])
+
+        assert args.min == 2
+        assert args.max == 20
+        assert args.charset == "abcdefghijklmnopqrstuvwxyz"
+        assert args.unicode_form == "NFKD"
+        assert args.verbose is False
+        assert args.quiet is False
+
+    def test_parse_arguments_all_options(self, tmp_path: Path):
+        """Test parse_arguments with all options specified."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(
+            [
+                "--run-dir",
+                str(tmp_path),
+                "--min",
+                "3",
+                "--max",
+                "15",
+                "--charset",
+                "abc",
+                "--unicode-form",
+                "NFC",
+                "--verbose",
+            ]
+        )
+
+        assert args.run_dir == tmp_path
+        assert args.min == 3
+        assert args.max == 15
+        assert args.charset == "abc"
+        assert args.unicode_form == "NFC"
+        assert args.verbose is True
+
+    def test_parse_arguments_mutually_exclusive(self):
+        """Test that --run-dir and --source are mutually exclusive."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        with pytest.raises(SystemExit):
+            parse_arguments(["--run-dir", "/path1", "--source", "/path2"])
+
+    def test_parse_arguments_requires_input(self):
+        """Test that either --run-dir or --source is required."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        with pytest.raises(SystemExit):
+            parse_arguments([])
+
+    def test_parse_arguments_verbose_short_flag(self, tmp_path: Path):
+        """Test -v short flag for verbose."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(["--run-dir", str(tmp_path), "-v"])
+
+        assert args.verbose is True
+
+    def test_parse_arguments_quiet_short_flag(self, tmp_path: Path):
+        """Test -q short flag for quiet."""
+        from build_tools.pyphen_syllable_normaliser.cli import parse_arguments
+
+        args = parse_arguments(["--run-dir", str(tmp_path), "-q"])
+
+        assert args.quiet is True

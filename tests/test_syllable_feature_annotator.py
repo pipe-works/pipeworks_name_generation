@@ -607,6 +607,16 @@ class TestFileIO:
 class TestCLI:
     """Test command-line interface."""
 
+    def test_create_argument_parser(self):
+        """Test create_argument_parser returns valid ArgumentParser."""
+        from build_tools.syllable_feature_annotator.cli import create_argument_parser
+
+        parser = create_argument_parser()
+
+        assert parser is not None
+        assert parser.description is not None
+        assert "syllable" in parser.description.lower()
+
     def test_parse_arguments_defaults(self):
         """Test default argument values."""
         args = parse_arguments([])
@@ -672,6 +682,115 @@ class TestCLI:
 
         assert exit_code == 0  # Success
         assert output_file.exists()
+
+    def test_main_value_error(self, tmp_path, capsys):
+        """Test main function with ValueError (invalid JSON frequencies)."""
+        # Create syllables file
+        syllables_file = tmp_path / "syllables.txt"
+        syllables_file.write_text("ka\n")
+
+        # Create invalid frequencies file (not a dict)
+        frequencies_file = tmp_path / "frequencies.json"
+        frequencies_file.write_text('["not", "a", "dict"]')
+
+        output_file = tmp_path / "output.json"
+
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+                "--output",
+                str(output_file),
+            ]
+        )
+
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "Error" in captured.err
+
+    def test_main_verbose_auto_detect_pyphen(self, tmp_path, capsys):
+        """Test that verbose mode shows auto-detection message for pyphen."""
+        # Create pyphen-style directory structure
+        run_dir = tmp_path / "20260110_115453_pyphen"
+        run_dir.mkdir()
+
+        syllables_file = run_dir / "pyphen_syllables_unique.txt"
+        syllables_file.write_text("ka\n")
+
+        frequencies_file = run_dir / "pyphen_syllables_frequencies.json"
+        frequencies_file.write_text('{"ka": 187}')
+
+        # Run with --verbose but without --output
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+                "--verbose",
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Auto-detected" in captured.out
+        assert "pyphen" in captured.out
+
+    def test_main_verbose_fallback_to_default(self, tmp_path, capsys):
+        """Test that verbose mode shows fallback message when auto-detection fails."""
+        # Create files without standard naming convention
+        syllables_file = tmp_path / "syllables.txt"
+        syllables_file.write_text("ka\n")
+
+        frequencies_file = tmp_path / "frequencies.json"
+        frequencies_file.write_text('{"ka": 187}')
+
+        # Run with --verbose but without --output (no auto-detect match)
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+                "--verbose",
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Could not auto-detect" in captured.out
+        assert "default output path" in captured.out
+
+    def test_main_non_verbose_summary(self, tmp_path, capsys):
+        """Test that non-verbose mode shows summary after completion."""
+        syllables_file = tmp_path / "syllables.txt"
+        syllables_file.write_text("ka\nkran\n")
+
+        frequencies_file = tmp_path / "frequencies.json"
+        frequencies_file.write_text('{"ka": 187, "kran": 7}')
+
+        output_file = tmp_path / "output.json"
+
+        exit_code = main(
+            [
+                "--syllables",
+                str(syllables_file),
+                "--frequencies",
+                str(frequencies_file),
+                "--output",
+                str(output_file),
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Annotation complete!" in captured.out
+        assert "Syllables annotated:" in captured.out
+        assert "Features per syllable:" in captured.out
+        assert "Processing time:" in captured.out
+        assert "Output saved to:" in captured.out
 
 
 # =========================================================================
