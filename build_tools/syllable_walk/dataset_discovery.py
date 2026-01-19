@@ -114,8 +114,9 @@ def load_dataset_metadata(json_path: Path) -> Optional[DatasetInfo]:
                 # Format: 20260110_115601
                 timestamp = f"{parts[0]}_{parts[1]}"
 
-        # Check if this is a legacy location
-        is_legacy = "data/annotated" in str(json_path)
+        # Check if this is a legacy location (cross-platform check using Path parts)
+        path_parts = json_path.resolve().parts
+        is_legacy = "data" in path_parts and "annotated" in path_parts
 
         # Create display name
         if is_legacy:

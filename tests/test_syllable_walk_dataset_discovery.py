@@ -160,25 +160,28 @@ class TestDatasetInfo:
 
     def test_to_dict_method(self):
         """Test to_dict serialization."""
+        test_path = Path("/test/path.json")
+        test_dir = Path("/test")
         info = DatasetInfo(
-            path=Path("/test/path.json"),
+            path=test_path,
             name="Test Dataset",
             extractor_type="nltk",
             timestamp="20260115_120000",
             syllable_count=100,
-            run_directory=Path("/test"),
+            run_directory=test_dir,
             is_legacy=False,
         )
 
         result = info.to_dict()
 
         assert isinstance(result, dict)
-        assert result["path"] == "/test/path.json"
+        # Compare as Path objects to handle platform differences
+        assert result["path"] == str(test_path)
         assert result["name"] == "Test Dataset"
         assert result["extractor_type"] == "nltk"
         assert result["timestamp"] == "20260115_120000"
         assert result["syllable_count"] == 100
-        assert result["run_directory"] == "/test"
+        assert result["run_directory"] == str(test_dir)
         assert result["is_legacy"] is False
 
     def test_to_dict_with_none_timestamp(self):
