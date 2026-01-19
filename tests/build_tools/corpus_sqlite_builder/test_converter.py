@@ -313,3 +313,151 @@ def test_convert_json_to_sqlite_metadata(mock_corpus_dir: Path) -> None:
     assert metadata["total_syllables"] == "2"
 
     conn.close()
+
+
+# ============================================================================
+# Edge Case Tests
+# ============================================================================
+
+
+def test_find_annotated_json_multiple_files(tmp_path: Path) -> None:
+    """Test finding annotated JSON when multiple files exist."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    # Create multiple annotated JSON files
+    (data_dir / "nltk_syllables_annotated.json").write_text("[]")
+    (data_dir / "pyphen_syllables_annotated.json").write_text("[]")
+
+    # Should return the first one found (alphabetically)
+    found = find_annotated_json(data_dir)
+    assert found is not None
+    # One of them should be returned
+    assert found.name in ["nltk_syllables_annotated.json", "pyphen_syllables_annotated.json"]
+
+
+def test_convert_json_to_sqlite_features_not_dict(tmp_path: Path) -> None:
+    """Test conversion with features as non-dict type."""
+    corpus_dir = tmp_path / "corpus"
+    data_dir = corpus_dir / "data"
+    data_dir.mkdir(parents=True)
+
+    # Write JSON with features as a list instead of dict
+    json_path = data_dir / "test_syllables_annotated.json"
+    with open(json_path, "w") as f:
+        json.dump(
+            [
+                {
+                    "syllable": "test",
+                    "frequency": 1,
+                    "features": ["not", "a", "dict"],  # Invalid: list instead of dict
+                }
+            ],
+            f,
+        )
+
+    with pytest.raises(ValueError, match="features.*must be a dictionary"):
+        convert_json_to_sqlite(corpus_dir)
+
+
+def test_convert_json_to_sqlite_large_batch(tmp_path: Path) -> None:
+    """Test conversion with large data to trigger batch processing."""
+    corpus_dir = tmp_path / "corpus"
+    data_dir = corpus_dir / "data"
+    data_dir.mkdir(parents=True)
+
+    # Create data with enough records to trigger multiple batches
+    base_features = {
+        "starts_with_vowel": False,
+        "starts_with_cluster": False,
+        "starts_with_heavy_cluster": False,
+        "contains_plosive": False,
+        "contains_fricative": False,
+        "contains_liquid": False,
+        "contains_nasal": False,
+        "short_vowel": True,
+        "long_vowel": False,
+        "ends_with_vowel": False,
+        "ends_with_nasal": False,
+        "ends_with_stop": False,
+    }
+
+    # Create 25 records (will test batch processing with batch_size=10)
+    data = [
+        {
+            "syllable": f"syl{i:03d}",
+            "frequency": i,
+            "features": base_features.copy(),
+        }
+        for i in range(25)
+    ]
+
+    json_path = data_dir / "test_syllables_annotated.json"
+    with open(json_path, "w") as f:
+        json.dump(data, f)
+
+    # Use small batch size to trigger batching
+    db_path = convert_json_to_sqlite(corpus_dir, batch_size=10)
+
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    count = cursor.execute("SELECT COUNT(*) FROM syllables").fetchone()[0]
+    conn.close()
+
+    assert count == 25
+
+
+def test_convert_json_to_sqlite_unicode_data(tmp_path: Path) -> None:
+    """Test conversion with unicode syllable data."""
+    corpus_dir = tmp_path / "corpus"
+    data_dir = corpus_dir / "data"
+    data_dir.mkdir(parents=True)
+
+    base_features = {
+        "starts_with_vowel": True,
+        "starts_with_cluster": False,
+        "starts_with_heavy_cluster": False,
+        "contains_plosive": False,
+        "contains_fricative": False,
+        "contains_liquid": False,
+        "contains_nasal": False,
+        "short_vowel": True,
+        "long_vowel": False,
+        "ends_with_vowel": True,
+        "ends_with_nasal": False,
+        "ends_with_stop": False,
+    }
+
+    data = [
+        {"syllable": "こん", "frequency": 100, "features": base_features.copy()},
+        {"syllable": "日", "frequency": 50, "features": base_features.copy()},
+        {"syllable": "você", "frequency": 30, "features": base_features.copy()},
+    ]
+
+    json_path = data_dir / "test_syllables_annotated.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+    db_path = convert_json_to_sqlite(corpus_dir)
+
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    syllables = cursor.execute("SELECT syllable FROM syllables ORDER BY frequency DESC").fetchall()
+    conn.close()
+
+    assert syllables[0][0] == "こん"
+    assert syllables[1][0] == "日"
+    assert syllables[2][0] == "você"
+
+
+def test_convert_json_to_sqlite_is_directory(tmp_path: Path) -> None:
+    """Test conversion fails when corpus_dir is a file."""
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("not a directory")
+
+    with pytest.raises(FileNotFoundError, match="Corpus directory not found"):
+        convert_json_to_sqlite(file_path)
