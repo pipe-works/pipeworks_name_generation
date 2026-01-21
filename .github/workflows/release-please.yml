@@ -8,15 +8,50 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write  # Needed to trigger CI workflow
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.release.outputs.pr }}
+      release_created: ${{ steps.release.outputs.release_created }}
     steps:
     - uses: googleapis/release-please-action@v4
+      id: release
       with:
         # Use config files for versioning strategy
         # This keeps us in 0.x mode until we're ready for 1.0.0
         # (breaking changes bump minor: 0.x.0, not major: x.0.0)
         config-file: release-please-config.json
         manifest-file: .release-please-manifest.json
+
+  # Trigger CI on release-please branch after PR is created/updated
+  # This is needed because GITHUB_TOKEN pushes don't trigger workflows
+  trigger-ci:
+    needs: release-please
+    if: needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger CI workflow
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Get the PR number from release-please output
+          const prNumber = ${{ needs.release-please.outputs.pr }};
+
+          // Get the PR to find the head branch
+          const { data: pr } = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: prNumber
+          });
+
+          console.log(`Triggering CI on branch: ${pr.head.ref}`);
+
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'ci.yml',
+            ref: pr.head.ref
+          });
