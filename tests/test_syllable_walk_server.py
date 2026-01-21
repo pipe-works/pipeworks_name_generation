@@ -485,3 +485,786 @@ class TestServerIntegration:
 
         assert SimplifiedWalkerHandler.walker is None
         assert SimplifiedWalkerHandler.current_run is None
+
+
+# ============================================================
+# Parse Path Tests
+# ============================================================
+
+
+class TestParsePath:
+    """Test _parse_path method."""
+
+    def test_parse_path_simple(self):
+        """Test parsing simple path without query params."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/runs"
+        handler._parse_path = SimplifiedWalkerHandler._parse_path.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        path, query = handler._parse_path()
+
+        assert path == "/api/runs"
+        assert query == {}
+
+    def test_parse_path_with_query_params(self):
+        """Test parsing path with query parameters."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/walk?start=ka&steps=5"
+        handler._parse_path = SimplifiedWalkerHandler._parse_path.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        path, query = handler._parse_path()
+
+        assert path == "/api/walk"
+        assert query["start"] == "ka"
+        assert query["steps"] == "5"
+
+    def test_parse_path_with_nested_path(self):
+        """Test parsing nested path."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/runs/20260121_084017_nltk/selections/first_name"
+        handler._parse_path = SimplifiedWalkerHandler._parse_path.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        path, query = handler._parse_path()
+
+        assert path == "/api/runs/20260121_084017_nltk/selections/first_name"
+        assert query == {}
+
+
+# ============================================================
+# API Handler Method Tests
+# ============================================================
+
+
+class TestHandleListRuns:
+    """Test _handle_list_runs method."""
+
+    def test_handle_list_runs_returns_runs(self):
+        """Test _handle_list_runs returns discovered runs."""
+        SimplifiedWalkerHandler.current_run = None
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_json_response = MagicMock()
+
+        mock_runs = [
+            MagicMock(to_dict=MagicMock(return_value={"id": "run1"})),
+            MagicMock(to_dict=MagicMock(return_value={"id": "run2"})),
+        ]
+
+        handler._handle_list_runs = SimplifiedWalkerHandler._handle_list_runs.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.discover_runs", return_value=mock_runs):
+            handler._handle_list_runs()
+
+        handler._send_json_response.assert_called_once()
+        response = handler._send_json_response.call_args[0][0]
+        assert "runs" in response
+        assert len(response["runs"]) == 2
+        assert response["current_run"] is None
+
+    def test_handle_list_runs_with_current_run(self):
+        """Test _handle_list_runs includes current run info."""
+        mock_current = MagicMock()
+        mock_current.path.name = "20260121_084017_nltk"
+        SimplifiedWalkerHandler.current_run = mock_current
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_json_response = MagicMock()
+
+        handler._handle_list_runs = SimplifiedWalkerHandler._handle_list_runs.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.discover_runs", return_value=[]):
+            handler._handle_list_runs()
+
+        response = handler._send_json_response.call_args[0][0]
+        assert response["current_run"] == "20260121_084017_nltk"
+
+        # Clean up
+        SimplifiedWalkerHandler.current_run = None
+
+    def test_handle_list_runs_error(self):
+        """Test _handle_list_runs handles errors."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_list_runs = SimplifiedWalkerHandler._handle_list_runs.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch(
+            "build_tools.syllable_walk.server.discover_runs",
+            side_effect=Exception("Discovery failed"),
+        ):
+            handler._handle_list_runs()
+
+        handler._send_error_response.assert_called_once()
+        assert "Discovery failed" in str(handler._send_error_response.call_args)
+
+
+class TestHandleGetSelection:
+    """Test _handle_get_selection method."""
+
+    def test_handle_get_selection_invalid_path_format(self):
+        """Test _handle_get_selection with invalid path format."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_get_selection = SimplifiedWalkerHandler._handle_get_selection.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_get_selection("/api/runs/short")
+
+        handler._send_error_response.assert_called_once()
+        assert "Invalid path" in str(handler._send_error_response.call_args)
+
+    def test_handle_get_selection_run_not_found(self):
+        """Test _handle_get_selection when run doesn't exist."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_get_selection = SimplifiedWalkerHandler._handle_get_selection.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=None):
+            handler._handle_get_selection("/api/runs/nonexistent_run/selections/first_name")
+
+        handler._send_error_response.assert_called_once()
+        assert "not found" in str(handler._send_error_response.call_args).lower()
+
+    def test_handle_get_selection_name_class_not_found(self):
+        """Test _handle_get_selection when name class doesn't exist."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_error_response = MagicMock()
+
+        mock_run = MagicMock()
+        mock_run.selections = {"first_name": "/path/to/first.json"}
+
+        handler._handle_get_selection = SimplifiedWalkerHandler._handle_get_selection.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            handler._handle_get_selection(
+                "/api/runs/20260121_084017_nltk/selections/nonexistent_class"
+            )
+
+        handler._send_error_response.assert_called_once()
+        assert "not found" in str(handler._send_error_response.call_args).lower()
+
+    def test_handle_get_selection_success(self):
+        """Test _handle_get_selection successful response."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_json_response = MagicMock()
+
+        mock_run = MagicMock()
+        mock_run.selections = {"first_name": "/path/to/first.json"}
+
+        selection_data = {"metadata": {}, "selections": [{"name": "kaki"}]}
+
+        handler._handle_get_selection = SimplifiedWalkerHandler._handle_get_selection.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            with patch(
+                "build_tools.syllable_walk.server.get_selection_data",
+                return_value=selection_data,
+            ):
+                handler._handle_get_selection(
+                    "/api/runs/20260121_084017_nltk/selections/first_name"
+                )
+
+        handler._send_json_response.assert_called_once_with(selection_data)
+
+    def test_handle_get_selection_error(self):
+        """Test _handle_get_selection handles exceptions."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_get_selection = SimplifiedWalkerHandler._handle_get_selection.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch(
+            "build_tools.syllable_walk.server.get_run_by_id",
+            side_effect=Exception("Database error"),
+        ):
+            handler._handle_get_selection("/api/runs/20260121_084017_nltk/selections/first_name")
+
+        handler._send_error_response.assert_called_once()
+        assert "Database error" in str(handler._send_error_response.call_args)
+
+
+class TestHandleGetStats:
+    """Test _handle_get_stats method."""
+
+    def test_handle_get_stats_no_run_selected(self):
+        """Test _handle_get_stats when no run is selected."""
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_json_response = MagicMock()
+
+        handler._handle_get_stats = SimplifiedWalkerHandler._handle_get_stats.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_get_stats()
+
+        response = handler._send_json_response.call_args[0][0]
+        assert response["current_run"] is None
+        assert response["syllable_count"] == 0
+        assert response["has_walker"] is False
+
+    def test_handle_get_stats_with_run_selected(self):
+        """Test _handle_get_stats with active run and walker."""
+        mock_run = MagicMock()
+        mock_run.path.name = "20260121_084017_nltk"
+        SimplifiedWalkerHandler.current_run = mock_run
+
+        mock_walker = MagicMock()
+        mock_walker.syllables = ["ka", "ki", "ta"]
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler._send_json_response = MagicMock()
+
+        handler._handle_get_stats = SimplifiedWalkerHandler._handle_get_stats.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_get_stats()
+
+        response = handler._send_json_response.call_args[0][0]
+        assert response["current_run"] == "20260121_084017_nltk"
+        assert response["syllable_count"] == 3
+        assert response["has_walker"] is True
+
+        # Clean up
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+
+class TestHandleSelectRun:
+    """Test _handle_select_run method."""
+
+    def test_handle_select_run_empty_body(self):
+        """Test _handle_select_run with empty request body."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.headers = {"Content-Length": "0"}
+        handler._send_error_response = MagicMock()
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_select_run()
+
+        handler._send_error_response.assert_called_once()
+        assert "Empty" in str(handler._send_error_response.call_args)
+
+    def test_handle_select_run_missing_run_id(self):
+        """Test _handle_select_run with missing run_id parameter."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.headers = {"Content-Length": "2"}
+        handler.rfile = io.BytesIO(b"{}")
+        handler._send_error_response = MagicMock()
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_select_run()
+
+        handler._send_error_response.assert_called_once()
+        assert "run_id" in str(handler._send_error_response.call_args)
+
+    def test_handle_select_run_not_found(self):
+        """Test _handle_select_run when run doesn't exist."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"run_id": "nonexistent_run"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=None):
+            handler._handle_select_run()
+
+        handler._send_error_response.assert_called_once()
+        assert "not found" in str(handler._send_error_response.call_args).lower()
+
+    def test_handle_select_run_already_selected(self):
+        """Test _handle_select_run when run is already selected."""
+        mock_run = MagicMock()
+        mock_run.path.name = "20260121_084017_nltk"
+        SimplifiedWalkerHandler.current_run = mock_run
+        SimplifiedWalkerHandler.walker = MagicMock()
+        SimplifiedWalkerHandler.walker.syllables = ["ka", "ki"]
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"run_id": "20260121_084017_nltk"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_json_response = MagicMock()
+        handler.verbose = False
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            handler._handle_select_run()
+
+        response = handler._send_json_response.call_args[0][0]
+        assert response["success"] is True
+        assert response["message"] == "Run already selected"
+
+        # Clean up
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_select_run_invalid_json(self):
+        """Test _handle_select_run with invalid JSON body."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.headers = {"Content-Length": "12"}
+        handler.rfile = io.BytesIO(b"not valid json")
+        handler._send_error_response = MagicMock()
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_select_run()
+
+        handler._send_error_response.assert_called_once()
+        assert "Invalid JSON" in str(handler._send_error_response.call_args)
+
+    def test_handle_select_run_success(self, sample_syllables_data):
+        """Test _handle_select_run successful selection."""
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+        mock_run = MagicMock()
+        mock_run.path.name = "20260121_084017_nltk"
+        mock_run.corpus_db_path = None
+        mock_run.annotated_json_path = MagicMock()
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"run_id": "20260121_084017_nltk"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_json_response = MagicMock()
+        handler.verbose = False
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        mock_walker = MagicMock()
+        mock_walker.syllables = sample_syllables_data
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            with patch(
+                "build_tools.syllable_walk.server.load_syllables",
+                return_value=(sample_syllables_data, "JSON (3 syllables)"),
+            ):
+                with patch(
+                    "build_tools.syllable_walk.server.SyllableWalker.from_data",
+                    return_value=mock_walker,
+                ):
+                    handler._handle_select_run()
+
+        response = handler._send_json_response.call_args[0][0]
+        assert response["success"] is True
+        assert response["run_id"] == "20260121_084017_nltk"
+
+        # Clean up
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_select_run_verbose_output(self, sample_syllables_data, capsys):
+        """Test _handle_select_run prints verbose output."""
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+        mock_run = MagicMock()
+        mock_run.path.name = "20260121_084017_nltk"
+        mock_run.corpus_db_path = None
+        mock_run.annotated_json_path = MagicMock()
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"run_id": "20260121_084017_nltk"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_json_response = MagicMock()
+        handler.verbose = True  # Enable verbose
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        mock_walker = MagicMock()
+        mock_walker.syllables = sample_syllables_data
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            with patch(
+                "build_tools.syllable_walk.server.load_syllables",
+                return_value=(sample_syllables_data, "JSON (3 syllables)"),
+            ):
+                with patch(
+                    "build_tools.syllable_walk.server.SyllableWalker.from_data",
+                    return_value=mock_walker,
+                ):
+                    handler._handle_select_run()
+
+        captured = capsys.readouterr()
+        assert "Loading run" in captured.out
+        assert "Building neighbor graph" in captured.out
+
+        # Clean up
+        SimplifiedWalkerHandler.current_run = None
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_select_run_error(self):
+        """Test _handle_select_run handles exceptions."""
+        SimplifiedWalkerHandler.current_run = None
+
+        mock_run = MagicMock()
+        mock_run.path.name = "20260121_084017_nltk"
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"run_id": "20260121_084017_nltk"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_error_response = MagicMock()
+        handler.verbose = False
+
+        handler._handle_select_run = SimplifiedWalkerHandler._handle_select_run.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+            with patch(
+                "build_tools.syllable_walk.server.load_syllables",
+                side_effect=Exception("Load failed"),
+            ):
+                handler._handle_select_run()
+
+        handler._send_error_response.assert_called_once()
+        assert "Load failed" in str(handler._send_error_response.call_args)
+
+
+class TestHandleWalk:
+    """Test _handle_walk method."""
+
+    def test_handle_walk_success(self):
+        """Test _handle_walk successful walk generation."""
+        mock_walker = MagicMock()
+        mock_walker.syllable_to_idx = {"ka": 0, "ki": 1, "ta": 2}
+        mock_walker.get_random_syllable = MagicMock(return_value="ka")
+        mock_walker.walk_from_profile = MagicMock(return_value=["ka", "ki", "ta", "ka", "ki"])
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"start": "ka", "profile": "dialect", "steps": 5}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_json_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        handler._send_json_response.assert_called_once()
+        response = handler._send_json_response.call_args[0][0]
+        assert "walk" in response
+        assert response["profile"] == "dialect"
+        assert response["start"] == "ka"
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_walk_with_random_start(self):
+        """Test _handle_walk with random start syllable."""
+        mock_walker = MagicMock()
+        mock_walker.syllable_to_idx = {"ka": 0, "ki": 1}
+        mock_walker.get_random_syllable = MagicMock(return_value="ki")
+        mock_walker.walk_from_profile = MagicMock(return_value=["ki", "ka"])
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"profile": "dialect"}).encode()  # No start specified
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_json_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        mock_walker.get_random_syllable.assert_called_once()
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_walk_unknown_syllable(self):
+        """Test _handle_walk with unknown start syllable."""
+        mock_walker = MagicMock()
+        mock_walker.syllable_to_idx = {"ka": 0, "ki": 1}
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"start": "xyz"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        handler._send_error_response.assert_called_once()
+        assert "Unknown syllable" in str(handler._send_error_response.call_args)
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_walk_invalid_json(self):
+        """Test _handle_walk with invalid JSON body."""
+        mock_walker = MagicMock()
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.headers = {"Content-Length": "12"}
+        handler.rfile = io.BytesIO(b"not valid json")
+        handler._send_error_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        handler._send_error_response.assert_called_once()
+        assert "Invalid JSON" in str(handler._send_error_response.call_args)
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_walk_value_error(self):
+        """Test _handle_walk handles ValueError from walker."""
+        mock_walker = MagicMock()
+        mock_walker.syllable_to_idx = {"ka": 0}
+        mock_walker.walk_from_profile = MagicMock(side_effect=ValueError("Invalid profile"))
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"start": "ka", "profile": "invalid"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        handler._send_error_response.assert_called_once()
+        assert "Invalid profile" in str(handler._send_error_response.call_args)
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+    def test_handle_walk_server_error(self):
+        """Test _handle_walk handles unexpected exceptions."""
+        mock_walker = MagicMock()
+        mock_walker.syllable_to_idx = {"ka": 0}
+        mock_walker.walk_from_profile = MagicMock(side_effect=RuntimeError("Unexpected error"))
+        SimplifiedWalkerHandler.walker = mock_walker
+
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        body = json.dumps({"start": "ka"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._send_error_response = MagicMock()
+
+        handler._handle_walk = SimplifiedWalkerHandler._handle_walk.__get__(
+            handler, SimplifiedWalkerHandler
+        )
+
+        handler._handle_walk()
+
+        handler._send_error_response.assert_called_once()
+        assert "Server error" in str(handler._send_error_response.call_args)
+
+        # Clean up
+        SimplifiedWalkerHandler.walker = None
+
+
+# ============================================================
+# Additional GET/POST Route Tests
+# ============================================================
+
+
+class TestDoGETRoutes:
+    """Test do_GET routing for API endpoints."""
+
+    def test_get_api_runs_calls_handler(self):
+        """Test GET /api/runs routes to _handle_list_runs."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/runs"
+        handler._parse_path = MagicMock(return_value=("/api/runs", {}))
+        handler._handle_list_runs = MagicMock()
+
+        handler.do_GET = SimplifiedWalkerHandler.do_GET.__get__(handler, SimplifiedWalkerHandler)
+        handler.do_GET()
+
+        handler._handle_list_runs.assert_called_once()
+
+    def test_get_api_selections_calls_handler(self):
+        """Test GET /api/runs/{id}/selections/{class} routes correctly."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/runs/20260121_084017_nltk/selections/first_name"
+        handler._parse_path = MagicMock(
+            return_value=(
+                "/api/runs/20260121_084017_nltk/selections/first_name",
+                {},
+            )
+        )
+        handler._handle_get_selection = MagicMock()
+
+        handler.do_GET = SimplifiedWalkerHandler.do_GET.__get__(handler, SimplifiedWalkerHandler)
+        handler.do_GET()
+
+        handler._handle_get_selection.assert_called_once_with(
+            "/api/runs/20260121_084017_nltk/selections/first_name"
+        )
+
+    def test_get_api_stats_calls_handler(self):
+        """Test GET /api/stats routes to _handle_get_stats."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/stats"
+        handler._parse_path = MagicMock(return_value=("/api/stats", {}))
+        handler._handle_get_stats = MagicMock()
+
+        handler.do_GET = SimplifiedWalkerHandler.do_GET.__get__(handler, SimplifiedWalkerHandler)
+        handler.do_GET()
+
+        handler._handle_get_stats.assert_called_once()
+
+    def test_get_404_handles_connection_error(self):
+        """Test GET 404 handles connection errors gracefully."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/unknown"
+        handler._parse_path = MagicMock(return_value=("/unknown", {}))
+        handler.send_error = MagicMock(side_effect=BrokenPipeError())
+
+        handler.do_GET = SimplifiedWalkerHandler.do_GET.__get__(handler, SimplifiedWalkerHandler)
+
+        # Should not raise
+        handler.do_GET()
+
+
+class TestDoPOSTRoutes:
+    """Test do_POST routing for API endpoints."""
+
+    def test_post_api_walk_calls_handler(self):
+        """Test POST /api/walk routes to _handle_walk."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/walk"
+        handler._parse_path = MagicMock(return_value=("/api/walk", {}))
+        handler._handle_walk = MagicMock()
+
+        handler.do_POST = SimplifiedWalkerHandler.do_POST.__get__(handler, SimplifiedWalkerHandler)
+        handler.do_POST()
+
+        handler._handle_walk.assert_called_once()
+
+    def test_post_api_select_run_calls_handler(self):
+        """Test POST /api/select-run routes to _handle_select_run."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/api/select-run"
+        handler._parse_path = MagicMock(return_value=("/api/select-run", {}))
+        handler._handle_select_run = MagicMock()
+
+        handler.do_POST = SimplifiedWalkerHandler.do_POST.__get__(handler, SimplifiedWalkerHandler)
+        handler.do_POST()
+
+        handler._handle_select_run.assert_called_once()
+
+    def test_post_404_handles_connection_error(self):
+        """Test POST 404 handles connection errors gracefully."""
+        handler = MagicMock(spec=SimplifiedWalkerHandler)
+        handler.path = "/unknown"
+        handler._parse_path = MagicMock(return_value=("/unknown", {}))
+        handler.send_error = MagicMock(side_effect=ConnectionResetError())
+
+        handler.do_POST = SimplifiedWalkerHandler.do_POST.__get__(handler, SimplifiedWalkerHandler)
+
+        # Should not raise
+        handler.do_POST()
+
+
+# ============================================================
+# Additional run_server Tests
+# ============================================================
+
+
+class TestRunServerVerbose:
+    """Additional run_server verbose output tests."""
+
+    def test_run_server_displays_multiple_runs(self, capsys):
+        """Test run_server displays multiple runs."""
+        mock_runs = [
+            MagicMock(display_name="Run 1", selections={"first_name": "/a", "last_name": "/b"}),
+            MagicMock(display_name="Run 2", selections={"first_name": "/c"}),
+            MagicMock(display_name="Run 3", selections={}),
+            MagicMock(display_name="Run 4", selections={"place_name": "/d"}),
+        ]
+
+        with patch("build_tools.syllable_walk.server.discover_runs", return_value=mock_runs):
+            with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
+                with patch.object(HTTPServer, "shutdown"):
+                    run_server(port=16000, verbose=True)
+
+        captured = capsys.readouterr()
+        assert "4 pipeline run(s)" in captured.out
+        assert "Run 1" in captured.out
+        assert "Run 2" in captured.out
+        assert "Run 3" in captured.out
+        # Run 4 should be summarized
+        assert "and 1 more" in captured.out
+
+    def test_run_server_auto_port_verbose(self, capsys):
+        """Test run_server auto-port discovery verbose output."""
+        with patch("build_tools.syllable_walk.server.find_available_port", return_value=8042):
+            with patch("build_tools.syllable_walk.server.discover_runs", return_value=[]):
+                with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
+                    with patch.object(HTTPServer, "shutdown"):
+                        run_server(port=None, verbose=True)
+
+        captured = capsys.readouterr()
+        assert "Auto-selected port: 8042" in captured.out

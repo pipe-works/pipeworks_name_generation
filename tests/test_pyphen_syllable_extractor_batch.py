@@ -1167,3 +1167,128 @@ class TestProcessBatchOutput:
         captured = capsys.readouterr()
         # Should show failure indicator
         assert "✗" in captured.out or "0 (" in captured.out
+
+
+class TestMainBatchFilesValidation:
+    """Tests for --files argument validation paths."""
+
+    def test_main_batch_files_contains_directory(self, tmp_path, capsys):
+        """Test main_batch when --files contains a directory instead of file."""
+        # Create a valid file and a subdirectory
+        valid_file = tmp_path / "valid.txt"
+        valid_file.write_text("content", encoding="utf-8")
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        args = argparse.Namespace(
+            file=None,
+            files=[str(valid_file), str(subdir)],  # Second item is a directory
+            source=None,
+            lang="en_US",
+            auto=False,
+            min=2,
+            max=8,
+            output=str(tmp_path / "output"),
+            pattern="*.txt",
+            recursive=False,
+            quiet=False,
+            verbose=False,
+        )
+
+        with pytest.raises(SystemExit) as excinfo:
+            main_batch(args)
+
+        assert excinfo.value.code == 1
+        captured = capsys.readouterr()
+        assert "not a file" in captured.out
+
+    def test_main_batch_default_language_auto_available(self, tmp_path, capsys):
+        """Test default language selection when auto-detection is available."""
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("Hello beautiful wonderful world", encoding="utf-8")
+
+        args = argparse.Namespace(
+            file=str(test_file),
+            files=None,
+            source=None,
+            lang=None,  # No --lang specified
+            auto=False,  # No --auto specified
+            min=2,
+            max=8,
+            output=str(tmp_path / "output"),
+            pattern="*.txt",
+            recursive=False,
+            quiet=False,  # Allow output
+            verbose=False,
+        )
+
+        # Mock is_detection_available to return True
+        with patch(
+            "build_tools.pyphen_syllable_extractor.cli.is_detection_available",
+            return_value=True,
+        ):
+            with pytest.raises(SystemExit) as excinfo:
+                main_batch(args)
+
+            assert excinfo.value.code == 0
+
+        captured = capsys.readouterr()
+        assert "automatic detection" in captured.out
+
+    def test_main_batch_default_language_auto_unavailable(self, tmp_path, capsys):
+        """Test default language selection when auto-detection is unavailable."""
+        from unittest.mock import patch
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("Hello beautiful wonderful world", encoding="utf-8")
+
+        args = argparse.Namespace(
+            file=str(test_file),
+            files=None,
+            source=None,
+            lang=None,  # No --lang specified
+            auto=False,  # No --auto specified
+            min=2,
+            max=8,
+            output=str(tmp_path / "output"),
+            pattern="*.txt",
+            recursive=False,
+            quiet=False,  # Allow output
+            verbose=False,
+        )
+
+        # Mock is_detection_available to return False
+        with patch(
+            "build_tools.pyphen_syllable_extractor.cli.is_detection_available",
+            return_value=False,
+        ):
+            with pytest.raises(SystemExit) as excinfo:
+                main_batch(args)
+
+            assert excinfo.value.code == 0
+
+        captured = capsys.readouterr()
+        assert "English US" in captured.out or "en_US" in captured.out
+
+
+class TestProcessSingleFileBatchVerbose:
+    """Tests for verbose output in process_single_file_batch."""
+
+    def test_verbose_failure_output(self, tmp_path, capsys):
+        """Test verbose output when file processing fails."""
+        # Process a nonexistent file with verbose mode
+        result = process_single_file_batch(
+            input_path=Path("/nonexistent/file.txt"),
+            language_code="en_US",
+            min_len=2,
+            max_len=8,
+            output_dir=tmp_path / "output",
+            run_timestamp="20260121_120000",
+            verbose=True,  # Enable verbose output
+        )
+
+        assert result.success is False
+        captured = capsys.readouterr()
+        assert "Failed" in captured.out
