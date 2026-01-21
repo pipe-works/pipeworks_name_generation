@@ -37,21 +37,18 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          // Get the PR number from release-please output
-          const prNumber = ${{ needs.release-please.outputs.pr }};
+          // Parse the PR object from release-please output
+          const prData = ${{ needs.release-please.outputs.pr }};
 
-          // Get the PR to find the head branch
-          const { data: pr } = await github.rest.pulls.get({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber
-          });
+          // The release-please action provides headBranchName directly
+          const branchName = prData.headBranchName;
 
-          console.log(`Triggering CI on branch: ${pr.head.ref}`);
+          console.log(`PR #${prData.number}: ${prData.title}`);
+          console.log(`Triggering CI on branch: ${branchName}`);
 
           await github.rest.actions.createWorkflowDispatch({
             owner: context.repo.owner,
             repo: context.repo.repo,
             workflow_id: 'ci.yml',
-            ref: pr.head.ref
+            ref: branchName
           });
