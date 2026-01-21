@@ -81,13 +81,13 @@ tools like the TUI.
     python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_115453_pyphen/
 
     # Step 3: Annotate with phonetic features
-    python -m build_tools.syllable_feature_annotator \\
-      --syllables _working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt \\
-      --frequencies _working/output/20260110_115453_pyphen/pyphen_syllables_frequencies.json
+    python -m build_tools.syllable_feature_annotator \
+        --syllables _working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt \
+        --frequencies _working/output/20260110_115453_pyphen/pyphen_syllables_frequencies.json
 
     # Step 4: Convert to SQLite (OPTIONAL, for performance)
-    python -m build_tools.corpus_sqlite_builder \\
-      _working/output/20260110_115453_pyphen/
+    python -m build_tools.corpus_sqlite_builder \
+        _working/output/20260110_115453_pyphen/
 
 **When to use this tool:**
 
@@ -109,8 +109,8 @@ The SQLite database can be deleted and regenerated at any time from the JSON sou
     rm _working/output/20260110_115453_pyphen/data/corpus.db
 
     # Regenerate from JSON
-    python -m build_tools.corpus_sqlite_builder \\
-      _working/output/20260110_115453_pyphen/
+    python -m build_tools.corpus_sqlite_builder \
+        _working/output/20260110_115453_pyphen/
 
 **Idempotent operation:**
 
@@ -119,8 +119,8 @@ Running the converter multiple times is safe. Use ``--force`` to overwrite exist
 .. code-block:: bash
 
     # Regenerate, overwriting existing database
-    python -m build_tools.corpus_sqlite_builder \\
-      _working/output/20260110_115453_pyphen/ --force
+    python -m build_tools.corpus_sqlite_builder \
+        _working/output/20260110_115453_pyphen/ --force
 
 Notes
 -----

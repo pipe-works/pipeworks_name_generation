@@ -55,28 +55,29 @@ def create_argument_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Generate 2-syllable candidates with default settings
-  python -m build_tools.name_combiner \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --syllables 2
+Examples::
 
-  # Generate 10000 3-syllable candidates with fixed seed
-  python -m build_tools.name_combiner \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --syllables 3 \\
-      --count 10000 \\
-      --seed 42
+    # Generate 2-syllable candidates with default settings
+    python -m build_tools.name_combiner \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --syllables 2
 
-  # Generate with uniform sampling (no frequency weighting)
-  python -m build_tools.name_combiner \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --syllables 2 \\
-      --frequency-weight 0.0
+    # Generate 10000 3-syllable candidates with fixed seed
+    python -m build_tools.name_combiner \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --syllables 3 \\
+        --count 10000 \\
+        --seed 42
+
+    # Generate with uniform sampling (no frequency weighting)
+    python -m build_tools.name_combiner \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --syllables 2 \\
+        --frequency-weight 0.0
 
 Output:
-  Creates candidates/{prefix}_candidates_{N}syl.json in the run directory.
-  The prefix (pyphen_ or nltk_) is auto-detected from the run directory name.
+    Creates ``candidates/{prefix}_candidates_{N}syl.json`` in the run directory.
+    The prefix (pyphen\\_ or nltk\\_) is auto-detected from the run directory name.
         """,
     )
 

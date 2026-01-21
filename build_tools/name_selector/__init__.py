@@ -32,7 +32,8 @@ Usage:
     >>> for name in selected[:5]:
     ...     print(f"{name['name']}: score={name['score']}")
 
-CLI:
+CLI::
+
     python -m build_tools.name_selector \\
         --run-dir _working/output/20260110_115453_pyphen/ \\
         --candidates candidates/pyphen_candidates_2syl.json \\

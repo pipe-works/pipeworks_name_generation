@@ -32,7 +32,8 @@ Usage:
     >>> for candidate in candidates:
     ...     print(f"{candidate['name']}: {candidate['features']}")
 
-CLI:
+CLI::
+
     python -m build_tools.name_combiner \\
         --run-dir _working/output/20260110_115453_pyphen/ \\
         --syllables 2 \\

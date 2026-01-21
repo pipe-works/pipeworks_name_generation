@@ -56,31 +56,32 @@ def create_argument_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Select first names from 2-syllable candidates
-  python -m build_tools.name_selector \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --candidates candidates/pyphen_candidates_2syl.json \\
-      --name-class first_name \\
-      --count 100
+Examples::
 
-  # Select place names with soft mode (penalties instead of rejection)
-  python -m build_tools.name_selector \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --candidates candidates/pyphen_candidates_3syl.json \\
-      --name-class place_name \\
-      --mode soft
+    # Select first names from 2-syllable candidates
+    python -m build_tools.name_selector \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --candidates candidates/pyphen_candidates_2syl.json \\
+        --name-class first_name \\
+        --count 100
 
-  # Use a custom policy file
-  python -m build_tools.name_selector \\
-      --run-dir _working/output/20260110_115453_pyphen/ \\
-      --candidates candidates/pyphen_candidates_2syl.json \\
-      --name-class first_name \\
-      --policy-file custom_policies.yml
+    # Select place names with soft mode (penalties instead of rejection)
+    python -m build_tools.name_selector \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --candidates candidates/pyphen_candidates_3syl.json \\
+        --name-class place_name \\
+        --mode soft
+
+    # Use a custom policy file
+    python -m build_tools.name_selector \\
+        --run-dir _working/output/20260110_115453_pyphen/ \\
+        --candidates candidates/pyphen_candidates_2syl.json \\
+        --name-class first_name \\
+        --policy-file custom_policies.yml
 
 Output:
-  Creates selections/{prefix}_{name_class}_{N}syl.json in the run directory.
-  The prefix and syllable count are extracted from the candidates filename.
+    Creates ``selections/{prefix}_{name_class}_{N}syl.json`` in the run directory.
+    The prefix and syllable count are extracted from the candidates filename.
         """,
     )
 
