@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.0...pipeworks-name-generation-v0.5.1) (2026-01-21)
+
+
+### Features
+
+* **analyzer:** Add percentages to corpus metrics display ([c1264cc](https://github.com/aa-parky/pipeworks_name_generation/commit/c1264cced91e47a30177fc2911ec35c2568fad6a))
+* **analyzer:** Add percentages to corpus metrics display ([a04869e](https://github.com/aa-parky/pipeworks_name_generation/commit/a04869e0e5190098c9a1eb4ec71718ad624f2128))
+* **analyzer:** Add pole exemplars to terrain visualization ([d67ada5](https://github.com/aa-parky/pipeworks_name_generation/commit/d67ada5bdb967b8f1c2102b83e128d08d75f4b61))
+* **build_tools:** Extract shared TUI components and add pipeline_tui scaffold ([6dd1a6a](https://github.com/aa-parky/pipeworks_name_generation/commit/6dd1a6a508bdcd5d01dd9a1969c054f7fd90caef))
+* **pipeline_tui:** Implement Configure tab with full settings UI ([0deae0e](https://github.com/aa-parky/pipeworks_name_generation/commit/0deae0e48cb42bb0cc4b456011aeaf70cf43297f))
+* **syllable_walk_tui:** Add corpus shape metrics to analysis screen ([ab44145](https://github.com/aa-parky/pipeworks_name_generation/commit/ab441457247cc28ffb2efddb925b53b415d03d44))
+* **syllable_walk_tui:** Add database viewer modal for corpus inspection ([2e37014](https://github.com/aa-parky/pipeworks_name_generation/commit/2e37014d0682b96281ecadc6bcef44748e5a48cb))
+* **syllable_walk_tui:** Add terrain visualization to corpus shape metrics ([887b6b4](https://github.com/aa-parky/pipeworks_name_generation/commit/887b6b47b4e5fce40a04360773c566a82e26d4bd))
+* **tui:** Add pipeline execution, file selection, and navigation improvements ([3a05f60](https://github.com/aa-parky/pipeworks_name_generation/commit/3a05f600eb81cc62573332fd03cb8bf2bd7b0173))
+* **tui:** Add terrain weights editor and file browser hidden files toggle ([e69eb67](https://github.com/aa-parky/pipeworks_name_generation/commit/e69eb670741aa0756cfb185a849014efa0dd3822))
+
+
+### Fixes
+
+* **ci:** Pin black to exact version 26.1.0 and reformat files ([51cc780](https://github.com/aa-parky/pipeworks_name_generation/commit/51cc780392cc046996247483ed217ab28cd22088))
+* **ci:** Pin black version to 25.1.0 for consistent formatting ([320150a](https://github.com/aa-parky/pipeworks_name_generation/commit/320150aa2d28331477f30892f1fe22132c44976b))
+* **dataset_discovery:** Use cross-platform path checks for Windows CI ([7e9e2fe](https://github.com/aa-parky/pipeworks_name_generation/commit/7e9e2fe476682ccc434e4acb1678c76f41cbbabf))
+* Resolve ruff linting errors and isort conflict ([89f1232](https://github.com/aa-parky/pipeworks_name_generation/commit/89f1232db6c0769c7516ea498c8d75cf228ace61))
+* **syllable_walk_tui:** Set nord as default theme for better contrast ([50a75a7](https://github.com/aa-parky/pipeworks_name_generation/commit/50a75a7cfe2a69af667e75368b2a7932fc53f989))
+* **tests:** Fix timing race in TUI validation tests ([1541892](https://github.com/aa-parky/pipeworks_name_generation/commit/1541892105bc36c2059e525376be13b17b283b76))
+* **tests:** Make file browser tests robust to auto-expansion events ([1a18fbc](https://github.com/aa-parky/pipeworks_name_generation/commit/1a18fbc8b83b3385e31ccc0a156d5ced834665a3))
+* **tests:** Update syllable_walk_tui test for new browser error message ([d65f33e](https://github.com/aa-parky/pipeworks_name_generation/commit/d65f33e9e0a29812ac465136f0d339154bd378b3))
+* **tests:** Use _validate_and_update_status directly in browser tests ([cfd5826](https://github.com/aa-parky/pipeworks_name_generation/commit/cfd58268f5086c271845b1954953761b0f711129))
+* **tui:** Remove auto-validation from _expand_to_initial_dir ([19ac585](https://github.com/aa-parky/pipeworks_name_generation/commit/19ac5857026a843f708b694070cf37f7289bca61))
+
+
+### Internal Changes
+
+* **syllable_walk_tui:** Add dynamic suffixes to parameter controls ([37937c0](https://github.com/aa-parky/pipeworks_name_generation/commit/37937c0d3be924650b0d9aa903a91580e5336a86))
+
 ## [0.5.0](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.4.0...pipeworks-name-generation-v0.5.0) (2026-01-16)
 
 ### ⚠ BREAKING CHANGES
