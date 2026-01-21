@@ -690,3 +690,89 @@ class SyllableWalker:
             ritual
         """
         return WALK_PROFILES.copy()
+
+    @classmethod
+    def from_data(
+        cls,
+        data: List[Dict],
+        max_neighbor_distance: int = DEFAULT_MAX_NEIGHBOR_DISTANCE,
+        feature_costs: Optional[Dict[str, float]] = None,
+        inertia_cost: float = DEFAULT_INERTIA_COST,
+        verbose: bool = False,
+    ) -> "SyllableWalker":
+        """Create a SyllableWalker from in-memory data.
+
+        This is useful when syllable data is loaded from a source other than
+        a JSON file (e.g., SQLite database).
+
+        Args:
+            data: List of syllable records, each with keys:
+                  'syllable', 'frequency', 'features' (dict of bool values)
+            max_neighbor_distance: Maximum Hamming distance for neighbors (1-3)
+            feature_costs: Custom feature cost dictionary
+            inertia_cost: Cost of staying at current syllable
+            verbose: If True, print progress during initialization
+
+        Returns:
+            Initialized SyllableWalker instance
+
+        Example:
+            >>> data = [
+            ...     {"syllable": "ka", "frequency": 100,
+            ...      "features": {"starts_with_vowel": False, ...}}
+            ... ]
+            >>> walker = SyllableWalker.from_data(data, verbose=True)
+        """
+        # Create instance without calling __init__ (skip file loading)
+        instance = cls.__new__(cls)
+
+        # Set configuration
+        instance.data_path = None  # type: ignore[assignment]
+        instance.max_neighbor_distance = max_neighbor_distance
+        instance.feature_costs = feature_costs or DEFAULT_FEATURE_COSTS
+        instance.inertia_cost = inertia_cost
+        instance.verbose = verbose
+
+        # Validate max_neighbor_distance
+        if not 1 <= max_neighbor_distance <= len(FEATURE_KEYS):
+            raise ValueError(
+                f"max_neighbor_distance must be between 1 and {len(FEATURE_KEYS)}, "
+                f"got {max_neighbor_distance}"
+            )
+
+        # Validate feature_costs if provided
+        if feature_costs is not None:
+            if set(feature_costs.keys()) != set(FEATURE_KEYS):
+                raise ValueError(
+                    f"feature_costs keys must match FEATURE_KEYS. "
+                    f"Expected: {set(FEATURE_KEYS)}, got: {set(feature_costs.keys())}"
+                )
+
+        if verbose:
+            print(f"Building walker from {len(data):,} syllable records...")
+
+        # Extract syllables and frequencies
+        instance.syllables = [r["syllable"] for r in data]
+        instance.frequencies = np.array([r["frequency"] for r in data], dtype=np.uint32)
+
+        # Build feature matrix
+        feature_lists = []
+        for r in data:
+            features = [int(r["features"].get(k, False)) for k in FEATURE_KEYS]
+            feature_lists.append(features)
+
+        instance.feature_matrix = np.array(feature_lists, dtype=np.uint8)
+
+        # Build syllable lookup
+        instance.syllable_to_idx = {syl: idx for idx, syl in enumerate(instance.syllables)}
+
+        if verbose:
+            print(f"Feature matrix shape: {instance.feature_matrix.shape}")
+
+        # Initialize neighbor graph
+        instance.neighbor_graph = defaultdict(list)
+
+        # Build neighbor graph
+        instance._build_neighbor_graph()
+
+        return instance

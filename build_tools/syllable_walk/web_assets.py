@@ -1,1467 +1,659 @@
-"""Static web assets for the syllable walker web interface.
+"""Static web assets for the simplified syllable walker web interface.
 
-This module contains HTML and CSS templates embedded as Python strings. Assets are
-embedded rather than served as separate files to maintain simplicity and avoid
-requiring additional file distribution when the package is installed.
+This module contains HTML and CSS templates embedded as Python strings for the
+simplified web interface that focuses on selections browsing and basic walks.
 
 The embedded assets provide:
-- HTML_TEMPLATE: Complete single-page application interface
-- CSS_CONTENT: Full stylesheet for the web interface
+- HTML_TEMPLATE: Single-page application with selections browser and walk generator
+- CSS_CONTENT: Minimal stylesheet using system preferences for dark/light mode
 """
 
-# HTML template for the web interface
+# HTML template for the simplified web interface
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Syllable Walker - Interactive Explorer</title>
+    <title>Syllable Walker</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="header-content">
-                <div>
-                    <h1>Syllable Walker</h1>
-                    <p>Explore phonetic feature space through cost-based random walks</p>
-                </div>
-                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-                    <span class="theme-icon">☀️</span>
-                </button>
-            </div>
-        </div>
+        <header>
+            <h1>Syllable Walker</h1>
+            <p>Browse name selections and explore phonetic space</p>
+        </header>
 
-        <div class="mode-selector">
-            <button class="mode-btn active" data-mode="single" onclick="switchMode('single')">
-                Single View
-            </button>
-            <button class="mode-btn" data-mode="split" onclick="switchMode('split')">
-                Split Compare
-            </button>
-        </div>
-
-        <div class="dataset-selector" id="single-dataset-selector">
-            <div class="dataset-label">Dataset:</div>
-            <select id="dataset-select" onchange="loadDataset()">
-                <option value="">Loading datasets...</option>
+        <section class="run-selector">
+            <label for="run-select">Pipeline Run:</label>
+            <select id="run-select" onchange="selectRun()">
+                <option value="">Loading runs...</option>
             </select>
-            <div id="dataset-loading" class="dataset-loading" style="display: none;">
-                <div class="mini-spinner"></div>
-                <span>Switching dataset...</span>
+            <span id="run-info" class="run-info"></span>
+        </section>
+
+        <section class="selections-section">
+            <h2>Name Selections</h2>
+            <div class="tab-bar" id="selection-tabs">
+                <!-- Tabs populated dynamically -->
             </div>
-        </div>
-
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-value" id="total-syllables">-</div>
-                <div class="stat-label">Total Syllables</div>
+            <div id="selection-content" class="selection-content">
+                <p class="placeholder">Select a run to view selections</p>
             </div>
-            <div class="stat">
-                <div class="stat-value" id="total-walks">0</div>
-                <div class="stat-label">Walks Generated</div>
-            </div>
-            <div class="stat">
-                <div class="stat-value" id="current-profile">-</div>
-                <div class="stat-label">Current Profile</div>
-            </div>
-        </div>
+            <div id="selection-meta" class="selection-meta"></div>
+        </section>
 
-        <div class="content" id="content-container">
-            <!-- Single Panel View (default) -->
-            <div id="single-panel" class="panel-container">
-                <div class="controls">
-                    <h2 style="margin-bottom: 20px; color: #212529;">Walk Parameters</h2>
-
-                    <div class="control-group">
-                        <label for="start-syllable">Starting Syllable</label>
-                        <input type="text" id="start-syllable" placeholder="e.g., ka, bak, or leave empty for random">
-                        <div class="help-text">Leave empty for a random starting point</div>
-                    </div>
-
-                    <div class="control-group">
-                        <label for="profile">Walk Profile</label>
-                        <select id="profile">
-                            <option value="clerical">Clerical (Conservative)</option>
-                            <option value="dialect" selected>Dialect (Balanced)</option>
-                            <option value="goblin">Goblin (Chaotic)</option>
-                            <option value="ritual">Ritual (Maximum Exploration)</option>
-                            <option value="custom">Custom Parameters</option>
-                        </select>
-                        <div class="profile-info" id="profile-description">
-                            Moderate exploration, neutral frequency bias
-                        </div>
-                    </div>
-
-                    <div id="custom-params" style="display: none;">
-                        <div class="control-group">
-                            <label for="steps">Steps</label>
-                            <input type="number" id="steps" value="5" min="1" max="20">
-                        </div>
-
-                        <div class="control-group">
-                            <label for="max-flips">Max Feature Flips</label>
-                            <input type="number" id="max-flips" value="2" min="1" max="3">
-                            <div class="help-text">Maximum phonetic distance per step</div>
-                        </div>
-
-                        <div class="control-group">
-                            <label for="temperature">Temperature</label>
-                            <input type="number" id="temperature" value="0.7" min="0.1" max="5" step="0.1">
-                            <div class="help-text">Higher = more random exploration</div>
-                        </div>
-
-                        <div class="control-group">
-                            <label for="frequency-weight">Frequency Weight</label>
-                            <input type="number" id="frequency-weight" value="0.0" min="-2" max="2" step="0.1">
-                            <div class="help-text">Positive favors common, negative favors rare</div>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <label for="seed">Random Seed (optional)</label>
-                        <input type="number" id="seed" placeholder="Leave empty for random">
-                        <div class="help-text">For reproducible walks</div>
-                    </div>
-
-                    <button class="btn" id="generate-btn" onclick="generateWalk()">
-                        Generate Walk
-                    </button>
+        <section class="walk-section">
+            <h2>Quick Walk</h2>
+            <div class="walk-controls">
+                <div class="control-row">
+                    <label for="start-syllable">Start:</label>
+                    <input type="text" id="start-syllable" placeholder="random">
                 </div>
-
-                <div class="results">
-                    <div id="walk-output">
-                        <div class="loading">
-                            <p>Click "Generate Walk" to begin exploring</p>
-                        </div>
-                    </div>
+                <div class="control-row">
+                    <label for="walk-profile">Profile:</label>
+                    <select id="walk-profile">
+                        <option value="clerical">Clerical (Conservative)</option>
+                        <option value="dialect" selected>Dialect (Balanced)</option>
+                        <option value="goblin">Goblin (Chaotic)</option>
+                        <option value="ritual">Ritual (Extreme)</option>
+                    </select>
                 </div>
+                <button id="walk-btn" onclick="generateWalk()" disabled>Generate Walk</button>
             </div>
-
-            <!-- Split Panel View -->
-            <div id="split-panels" class="split-container" style="display: none;">
-                <!-- Panel A -->
-                <div class="panel panel-a">
-                    <div class="panel-header">
-                        <h3>Dataset A</h3>
-                        <div class="panel-dataset-selector">
-                            <select id="dataset-select-a" onchange="loadDatasetA()">
-                                <option value="">Loading datasets...</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="panel-stats">
-                        <div class="panel-stat">
-                            <div class="panel-stat-value" id="syllables-a">-</div>
-                            <div class="panel-stat-label">Syllables</div>
-                        </div>
-                        <div class="panel-stat">
-                            <div class="panel-stat-value" id="walks-a">0</div>
-                            <div class="panel-stat-label">Walks</div>
-                        </div>
-                    </div>
-
-                    <div class="panel-controls">
-                        <div class="control-group">
-                            <label for="start-syllable-a">Starting Syllable</label>
-                            <input type="text" id="start-syllable-a" placeholder="e.g., ka">
-                        </div>
-
-                        <div class="control-group">
-                            <label for="profile-a">Walk Profile</label>
-                            <select id="profile-a" onchange="updateProfileA()">
-                                <option value="clerical">Clerical</option>
-                                <option value="dialect" selected>Dialect</option>
-                                <option value="goblin">Goblin</option>
-                                <option value="ritual">Ritual</option>
-                            </select>
-                        </div>
-
-                        <div class="control-group">
-                            <label for="seed-a">Seed</label>
-                            <input type="number" id="seed-a" placeholder="Optional">
-                        </div>
-
-                        <button id="generate-btn-a" class="btn btn-panel" onclick="generateWalkA()">
-                            Generate Walk A
-                        </button>
-                    </div>
-
-                    <div class="panel-results">
-                        <div id="walk-output-a">
-                            <div class="loading">
-                                <p>Select dataset and generate walk</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Panel B -->
-                <div class="panel panel-b">
-                    <div class="panel-header">
-                        <h3>Dataset B</h3>
-                        <div class="panel-dataset-selector">
-                            <select id="dataset-select-b" onchange="loadDatasetB()">
-                                <option value="">Loading datasets...</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="panel-stats">
-                        <div class="panel-stat">
-                            <div class="panel-stat-value" id="syllables-b">-</div>
-                            <div class="panel-stat-label">Syllables</div>
-                        </div>
-                        <div class="panel-stat">
-                            <div class="panel-stat-value" id="walks-b">0</div>
-                            <div class="panel-stat-label">Walks</div>
-                        </div>
-                    </div>
-
-                    <div class="panel-controls">
-                        <div class="control-group">
-                            <label for="start-syllable-b">Starting Syllable</label>
-                            <input type="text" id="start-syllable-b" placeholder="e.g., ka">
-                        </div>
-
-                        <div class="control-group">
-                            <label for="profile-b">Walk Profile</label>
-                            <select id="profile-b" onchange="updateProfileB()">
-                                <option value="clerical">Clerical</option>
-                                <option value="dialect" selected>Dialect</option>
-                                <option value="goblin">Goblin</option>
-                                <option value="ritual">Ritual</option>
-                            </select>
-                        </div>
-
-                        <div class="control-group">
-                            <label for="seed-b">Seed</label>
-                            <input type="number" id="seed-b" placeholder="Optional">
-                        </div>
-
-                        <button id="generate-btn-b" class="btn btn-panel" onclick="generateWalkB()">
-                            Generate Walk B
-                        </button>
-                    </div>
-
-                    <div class="panel-results">
-                        <div id="walk-output-b">
-                            <div class="loading">
-                                <p>Select dataset and generate walk</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div id="walk-result" class="walk-result">
+                <p class="placeholder">Select a run first</p>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>
-        // State variables
-        let displayMode = 'single';  // 'single' or 'split'
-        let walkCount = 0;
-        let availableDatasets = [];
-        let currentDatasetPath = null;
+        // State
+        let runs = [];
+        let currentRun = null;
+        let currentSelections = {};
+        let activeTab = null;
 
-        // Split mode state
-        let datasetPathA = null;
-        let datasetPathB = null;
-        let walkCountA = 0;
-        let walkCountB = 0;
-        let serverLoadedDataset = null;  // Track which dataset is currently loaded on server
-
-        // Theme handling
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-
-            document.documentElement.setAttribute('data-theme', theme);
-            updateThemeIcon(theme);
-        }
-
-        function toggleTheme() {
-            const current = document.documentElement.getAttribute('data-theme');
-            const next = current === 'dark' ? 'light' : 'dark';
-
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
-            updateThemeIcon(next);
-        }
-
-        function updateThemeIcon(theme) {
-            const icon = document.querySelector('.theme-icon');
-            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
-
-        // Initialize theme on load
-        initTheme();
-
-        const profileDescriptions = {
-            clerical: "Conservative, favors common syllables, minimal phonetic change",
-            dialect: "Moderate exploration, neutral frequency bias",
-            goblin: "Chaotic, favors rare syllables, high phonetic variation",
-            ritual: "Maximum exploration, strongly favors rare syllables",
-            custom: "Use custom parameters below"
-        };
-
-        const profileParams = {
-            clerical: { steps: 5, max_flips: 1, temperature: 0.3, frequency_weight: 1.0 },
-            dialect: { steps: 5, max_flips: 2, temperature: 0.7, frequency_weight: 0.0 },
-            goblin: { steps: 5, max_flips: 2, temperature: 1.5, frequency_weight: -0.5 },
-            ritual: { steps: 5, max_flips: 3, temperature: 2.5, frequency_weight: -1.0 }
-        };
-
-        // Load available datasets
-        async function loadAvailableDatasets() {
+        // Load available runs on page load
+        async function loadRuns() {
             try {
-                const response = await fetch('/api/datasets');
+                const response = await fetch('/api/runs');
                 const data = await response.json();
+                runs = data.runs;
+                currentRun = data.current_run;
 
-                availableDatasets = data.datasets;
-                currentDatasetPath = data.current;
-
-                // Initialize server-loaded dataset tracker
-                serverLoadedDataset = data.current;
-
-                const select = document.getElementById('dataset-select');
+                const select = document.getElementById('run-select');
                 select.innerHTML = '';
 
-                if (availableDatasets.length === 0) {
-                    select.innerHTML = '<option value="">No datasets found</option>';
+                if (runs.length === 0) {
+                    select.innerHTML = '<option value="">No runs found</option>';
                     return;
                 }
 
-                availableDatasets.forEach(dataset => {
+                runs.forEach(run => {
                     const option = document.createElement('option');
-                    option.value = dataset.path;
-                    option.textContent = dataset.name;
-                    if (dataset.path === currentDatasetPath) {
-                        option.selected = true;
-                    }
+                    option.value = run.path;
+                    option.textContent = run.display_name;
+                    option.dataset.runId = run.path.split('/').pop();
                     select.appendChild(option);
                 });
 
-                // Load stats for current dataset
-                loadStats();
+                // Select first run by default
+                if (runs.length > 0) {
+                    select.value = runs[0].path;
+                    await selectRun();
+                }
             } catch (error) {
-                console.error('Error loading datasets:', error);
-                document.getElementById('dataset-select').innerHTML =
-                    '<option value="">Error loading datasets</option>';
+                console.error('Error loading runs:', error);
+                document.getElementById('run-select').innerHTML =
+                    '<option value="">Error loading runs</option>';
             }
         }
 
-        // Load statistics
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/stats');
-                const data = await response.json();
-                document.getElementById('total-syllables').textContent =
-                    data.total_syllables.toLocaleString();
-                // Track what's loaded on server
-                serverLoadedDataset = data.current_dataset;
-            } catch (error) {
-                console.error('Error loading stats:', error);
-            }
+        // Handle run selection
+        async function selectRun() {
+            const select = document.getElementById('run-select');
+            const selectedOption = select.selectedOptions[0];
+            if (!selectedOption || !selectedOption.dataset.runId) return;
+
+            const runId = selectedOption.dataset.runId;
+            const runData = runs.find(r => r.path.endsWith(runId));
+            if (!runData) return;
+
+            // Update run info
+            const infoEl = document.getElementById('run-info');
+            infoEl.textContent = `${runData.syllable_count.toLocaleString()} syllables`;
+
+            // Update selection tabs
+            updateSelectionTabs(runData);
+
+            // Load walker for this run
+            await loadWalker(runId);
         }
 
-        // Load a different dataset
-        async function loadDataset() {
-            const select = document.getElementById('dataset-select');
-            const newPath = select.value;
+        // Update selection tabs based on available selections
+        function updateSelectionTabs(runData) {
+            const tabBar = document.getElementById('selection-tabs');
+            tabBar.innerHTML = '';
+            currentSelections = runData.selections;
 
-            if (!newPath || newPath === currentDatasetPath) {
+            const nameClasses = Object.keys(currentSelections);
+
+            if (nameClasses.length === 0) {
+                tabBar.innerHTML = '<span class="no-selections">No selections available</span>';
+                document.getElementById('selection-content').innerHTML =
+                    '<p class="placeholder">No selection files found for this run</p>';
+                document.getElementById('selection-meta').innerHTML = '';
                 return;
             }
 
-            const loadingIndicator = document.getElementById('dataset-loading');
-            const generateBtn = document.getElementById('generate-btn');
+            nameClasses.forEach((nameClass, index) => {
+                const tab = document.createElement('button');
+                tab.className = 'tab' + (index === 0 ? ' active' : '');
+                tab.textContent = formatNameClass(nameClass);
+                tab.onclick = () => selectTab(nameClass, runData.path.split('/').pop());
+                tabBar.appendChild(tab);
+            });
+
+            // Auto-select first tab
+            if (nameClasses.length > 0) {
+                selectTab(nameClasses[0], runData.path.split('/').pop());
+            }
+        }
+
+        // Format name class for display
+        function formatNameClass(nameClass) {
+            return nameClass.split('_').map(w =>
+                w.charAt(0).toUpperCase() + w.slice(1)
+            ).join(' ');
+        }
+
+        // Handle tab selection
+        async function selectTab(nameClass, runId) {
+            activeTab = nameClass;
+
+            // Update tab styling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent === formatNameClass(nameClass)) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Load selection data
+            const contentEl = document.getElementById('selection-content');
+            const metaEl = document.getElementById('selection-meta');
+            contentEl.innerHTML = '<p class="loading">Loading...</p>';
+            metaEl.innerHTML = '';
 
             try {
-                // Show loading indicator
-                loadingIndicator.style.display = 'flex';
-                generateBtn.disabled = true;
+                const response = await fetch(`/api/runs/${runId}/selections/${nameClass}`);
+                const data = await response.json();
 
-                const response = await fetch('/api/load-dataset', {
+                if (data.error) {
+                    contentEl.innerHTML = `<p class="error">${data.error}</p>`;
+                    return;
+                }
+
+                // Render selections table
+                renderSelections(data);
+
+                // Render metadata
+                renderSelectionMeta(data.metadata);
+
+            } catch (error) {
+                contentEl.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Render selections as a table
+        function renderSelections(data) {
+            const contentEl = document.getElementById('selection-content');
+            const selections = data.selections || [];
+
+            if (selections.length === 0) {
+                contentEl.innerHTML = '<p class="placeholder">No names in this selection</p>';
+                return;
+            }
+
+            let html = `
+                <table class="selections-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                            <th>Syllables</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            selections.forEach((sel, idx) => {
+                const syllables = sel.syllables ? sel.syllables.join(' + ') : '-';
+                html += `
+                    <tr>
+                        <td class="rank">${idx + 1}</td>
+                        <td class="name">${sel.name}</td>
+                        <td class="score">${sel.score}</td>
+                        <td class="syllables">${syllables}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            contentEl.innerHTML = html;
+        }
+
+        // Render selection metadata
+        function renderSelectionMeta(meta) {
+            const metaEl = document.getElementById('selection-meta');
+
+            if (!meta) {
+                metaEl.innerHTML = '';
+                return;
+            }
+
+            const admitted = meta.admitted || 0;
+            const rejected = meta.rejected || 0;
+            const total = meta.total_evaluated || (admitted + rejected);
+
+            let html = `<span>${admitted} admitted / ${rejected} rejected (${total} evaluated)</span>`;
+
+            // Show rejection reasons if any
+            if (meta.rejection_reasons && Object.keys(meta.rejection_reasons).length > 0) {
+                const reasons = Object.entries(meta.rejection_reasons)
+                    .map(([reason, count]) => `${reason}: ${count}`)
+                    .join(', ');
+                html += `<span class="rejection-reasons">Rejections: ${reasons}</span>`;
+            }
+
+            metaEl.innerHTML = html;
+        }
+
+        // Load walker for the selected run
+        async function loadWalker(runId) {
+            const walkBtn = document.getElementById('walk-btn');
+            const resultEl = document.getElementById('walk-result');
+
+            walkBtn.disabled = true;
+            resultEl.innerHTML = '<p class="loading">Loading syllables...</p>';
+
+            try {
+                const response = await fetch('/api/select-run', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: newPath })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({run_id: runId})
                 });
 
                 const data = await response.json();
 
                 if (data.error) {
-                    alert('Error loading dataset: ' + data.error);
-                    // Revert selection
-                    select.value = currentDatasetPath;
-                } else {
-                    // Update current path
-                    currentDatasetPath = newPath;
-                    serverLoadedDataset = newPath;  // Track server state
-
-                    // Update stats
-                    document.getElementById('total-syllables').textContent =
-                        data.total_syllables.toLocaleString();
-
-                    // Reset walk count
-                    walkCount = 0;
-                    document.getElementById('total-walks').textContent = '0';
-
-                    // Clear output
-                    document.getElementById('walk-output').innerHTML =
-                        '<div class="loading"><p>Dataset loaded! Click "Generate Walk" to begin exploring</p></div>';
+                    resultEl.innerHTML = `<p class="error">${data.error}</p>`;
+                    return;
                 }
+
+                walkBtn.disabled = false;
+                resultEl.innerHTML = `<p class="ready">Ready (${data.syllable_count.toLocaleString()} syllables from ${data.source})</p>`;
+
             } catch (error) {
-                console.error('Error switching dataset:', error);
-                alert('Error switching dataset: ' + error.message);
-                select.value = currentDatasetPath;
-            } finally {
-                loadingIndicator.style.display = 'none';
-                generateBtn.disabled = false;
+                resultEl.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Generate a walk
+        async function generateWalk() {
+            const walkBtn = document.getElementById('walk-btn');
+            const resultEl = document.getElementById('walk-result');
+            const startInput = document.getElementById('start-syllable');
+            const profileSelect = document.getElementById('walk-profile');
+
+            walkBtn.disabled = true;
+            resultEl.innerHTML = '<p class="loading">Generating walk...</p>';
+
+            try {
+                const response = await fetch('/api/walk', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        start: startInput.value || null,
+                        profile: profileSelect.value,
+                        steps: 5
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    resultEl.innerHTML = `<p class="error">${data.error}</p>`;
+                    walkBtn.disabled = false;
+                    return;
+                }
+
+                // Render walk
+                const path = data.walk.map(s => s.syllable).join(' &rarr; ');
+                resultEl.innerHTML = `<div class="walk-path">${path}</div>`;
+
+                walkBtn.disabled = false;
+
+            } catch (error) {
+                resultEl.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                walkBtn.disabled = false;
             }
         }
 
         // Initialize on page load
-        loadAvailableDatasets();
-
-        // Profile change handler
-        document.getElementById('profile').addEventListener('change', function() {
-            const profile = this.value;
-            document.getElementById('profile-description').textContent = profileDescriptions[profile];
-            document.getElementById('current-profile').textContent =
-                profile.charAt(0).toUpperCase() + profile.slice(1);
-
-            if (profile === 'custom') {
-                document.getElementById('custom-params').style.display = 'block';
-            } else {
-                document.getElementById('custom-params').style.display = 'none';
-                const params = profileParams[profile];
-                document.getElementById('steps').value = params.steps;
-                document.getElementById('max-flips').value = params.max_flips;
-                document.getElementById('temperature').value = params.temperature;
-                document.getElementById('frequency-weight').value = params.frequency_weight;
-            }
-        });
-
-        // Initialize profile
-        document.getElementById('profile').dispatchEvent(new Event('change'));
-
-        async function generateWalk() {
-            const btn = document.getElementById('generate-btn');
-            const output = document.getElementById('walk-output');
-
-            btn.disabled = true;
-            output.innerHTML = '<div class="loading"><div class="spinner"></div><p>Generating walk...</p></div>';
-
-            const params = {
-                start: document.getElementById('start-syllable').value || null,
-                profile: document.getElementById('profile').value,
-                steps: parseInt(document.getElementById('steps').value),
-                max_flips: parseInt(document.getElementById('max-flips').value),
-                temperature: parseFloat(document.getElementById('temperature').value),
-                frequency_weight: parseFloat(document.getElementById('frequency-weight').value),
-                seed: document.getElementById('seed').value ? parseInt(document.getElementById('seed').value) : null
-            };
-
-            try {
-                const response = await fetch('/api/walk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(params)
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    output.innerHTML = `<div class="error">${data.error}</div>`;
-                } else {
-                    displayWalk(data);
-                    walkCount++;
-                    document.getElementById('total-walks').textContent = walkCount;
-                }
-            } catch (error) {
-                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        function displayWalk(data) {
-            const path = data.walk.map(s => s.syllable).join(' → ');
-
-            let html = `
-                <div class="walk-display">
-                    <h3 style="margin-bottom: 15px; color: #495057;">Walk Path</h3>
-                    <div class="walk-path">${path}</div>
-                </div>
-                <div class="walk-details">
-                    <h3 style="margin-bottom: 15px; color: #495057;">Syllable Details</h3>
-            `;
-
-            data.walk.forEach((syllable, idx) => {
-                html += `
-                    <div class="syllable-card">
-                        <div>
-                            <span style="color: #6c757d; margin-right: 10px;">${idx + 1}.</span>
-                            <span class="syllable-text">${syllable.syllable}</span>
-                        </div>
-                        <div class="syllable-freq">freq: ${syllable.frequency}</div>
-                    </div>
-                `;
-            });
-
-            html += '</div>';
-            document.getElementById('walk-output').innerHTML = html;
-        }
-
-        // Mode switching
-        function switchMode(mode) {
-            displayMode = mode;
-
-            // Update button states
-            document.querySelectorAll('.mode-btn').forEach(btn => {
-                if (btn.dataset.mode === mode) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-
-            // Show/hide panels and top stats bar
-            const statsBar = document.querySelector('.stats');
-            if (mode === 'single') {
-                document.getElementById('single-panel').style.display = 'grid';
-                document.getElementById('split-panels').style.display = 'none';
-                document.getElementById('single-dataset-selector').style.display = 'flex';
-                statsBar.style.display = 'flex';
-            } else {
-                document.getElementById('single-panel').style.display = 'none';
-                document.getElementById('split-panels').style.display = 'grid';
-                document.getElementById('single-dataset-selector').style.display = 'none';
-                statsBar.style.display = 'none';  // Hide top stats in split mode
-
-                // Populate split panel dataset selectors if not done yet
-                if (datasetPathA === null && availableDatasets.length > 0) {
-                    populateSplitDatasetSelectors();
-                }
-            }
-        }
-
-        // Populate dataset selectors for split panels
-        function populateSplitDatasetSelectors() {
-            const selectA = document.getElementById('dataset-select-a');
-            const selectB = document.getElementById('dataset-select-b');
-
-            selectA.innerHTML = '';
-            selectB.innerHTML = '';
-
-            availableDatasets.forEach(dataset => {
-                const option_a = document.createElement('option');
-                option_a.value = dataset.path;
-                option_a.textContent = dataset.name;
-                selectA.appendChild(option_a);
-
-                const option_b = document.createElement('option');
-                option_b.value = dataset.path;
-                option_b.textContent = dataset.name;
-                selectB.appendChild(option_b);
-            });
-
-            // Select first dataset by default
-            if (availableDatasets.length > 0) {
-                datasetPathA = availableDatasets[0].path;
-                selectA.value = datasetPathA;
-                // Update stats from cached data (no API call needed!)
-                document.getElementById('syllables-a').textContent =
-                    availableDatasets[0].syllable_count.toLocaleString();
-            }
-
-            // Select second dataset if available, otherwise same as first
-            if (availableDatasets.length > 1) {
-                datasetPathB = availableDatasets[1].path;
-                selectB.value = datasetPathB;
-                // Update stats from cached data
-                document.getElementById('syllables-b').textContent =
-                    availableDatasets[1].syllable_count.toLocaleString();
-            } else if (availableDatasets.length > 0) {
-                datasetPathB = availableDatasets[0].path;
-                selectB.value = datasetPathB;
-                // Update stats from cached data
-                document.getElementById('syllables-b').textContent =
-                    availableDatasets[0].syllable_count.toLocaleString();
-            }
-        }
-
-        // Update stats for panel A from cached dataset info
-        function updateDatasetStatsA() {
-            const dataset = availableDatasets.find(ds => ds.path === datasetPathA);
-            if (dataset) {
-                document.getElementById('syllables-a').textContent =
-                    dataset.syllable_count.toLocaleString();
-            }
-        }
-
-        // Update stats for panel B from cached dataset info
-        function updateDatasetStatsB() {
-            const dataset = availableDatasets.find(ds => ds.path === datasetPathB);
-            if (dataset) {
-                document.getElementById('syllables-b').textContent =
-                    dataset.syllable_count.toLocaleString();
-            }
-        }
-
-        // Load dataset A (when user changes selection)
-        function loadDatasetA() {
-            const select = document.getElementById('dataset-select-a');
-            datasetPathA = select.value;
-            updateDatasetStatsA();
-
-            // Reset walk count and output
-            walkCountA = 0;
-            document.getElementById('walks-a').textContent = '0';
-            document.getElementById('walk-output-a').innerHTML =
-                '<div class="loading"><p>Generate walk to begin exploring</p></div>';
-        }
-
-        // Load dataset B (when user changes selection)
-        function loadDatasetB() {
-            const select = document.getElementById('dataset-select-b');
-            datasetPathB = select.value;
-            updateDatasetStatsB();
-
-            // Reset walk count and output
-            walkCountB = 0;
-            document.getElementById('walks-b').textContent = '0';
-            document.getElementById('walk-output-b').innerHTML =
-                '<div class="loading"><p>Generate walk to begin exploring</p></div>';
-        }
-
-        // Update profile A
-        function updateProfileA() {
-            const profile = document.getElementById('profile-a').value;
-            // Profile parameters automatically applied during walk generation
-        }
-
-        // Update profile B
-        function updateProfileB() {
-            const profile = document.getElementById('profile-b').value;
-            // Profile parameters automatically applied during walk generation
-        }
-
-        // Generate walk for panel A
-        async function generateWalkA() {
-            const btn = document.getElementById('generate-btn-a');
-            const output = document.getElementById('walk-output-a');
-
-            btn.disabled = true;
-
-            try {
-                // Only load dataset if it's different from what's currently loaded
-                if (serverLoadedDataset !== datasetPathA) {
-                    output.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading dataset...</p></div>';
-
-                    const loadResponse = await fetch('/api/load-dataset', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path: datasetPathA })
-                    });
-
-                    const loadData = await loadResponse.json();
-
-                    if (loadData.error) {
-                        output.innerHTML = `<div class="error">Error loading dataset: ${loadData.error}</div>`;
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    // Update server-loaded dataset tracker to exact path we sent
-                    serverLoadedDataset = datasetPathA;
-                }
-
-                // Dataset is loaded, now generate walk
-                output.innerHTML = '<div class="loading"><div class="spinner"></div><p>Generating walk...</p></div>';
-
-                const profile = document.getElementById('profile-a').value;
-                const params = {
-                    start: document.getElementById('start-syllable-a').value || null,
-                    profile: profile,
-                    ...profileParams[profile],
-                    seed: document.getElementById('seed-a').value ?
-                        parseInt(document.getElementById('seed-a').value) : null
-                };
-
-                const response = await fetch('/api/walk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(params)
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    output.innerHTML = `<div class="error">${data.error}</div>`;
-                } else {
-                    displayWalkPanel(data, 'a');
-                    walkCountA++;
-                    document.getElementById('walks-a').textContent = walkCountA;
-                }
-            } catch (error) {
-                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        // Generate walk for panel B
-        async function generateWalkB() {
-            const btn = document.getElementById('generate-btn-b');
-            const output = document.getElementById('walk-output-b');
-
-            btn.disabled = true;
-
-            try {
-                // Only load dataset if it's different from what's currently loaded
-                if (serverLoadedDataset !== datasetPathB) {
-                    output.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading dataset...</p></div>';
-
-                    const loadResponse = await fetch('/api/load-dataset', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path: datasetPathB })
-                    });
-
-                    const loadData = await loadResponse.json();
-
-                    if (loadData.error) {
-                        output.innerHTML = `<div class="error">Error loading dataset: ${loadData.error}</div>`;
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    // Update server-loaded dataset tracker to exact path we sent
-                    serverLoadedDataset = datasetPathB;
-                }
-
-                // Dataset is loaded, now generate walk
-                output.innerHTML = '<div class="loading"><div class="spinner"></div><p>Generating walk...</p></div>';
-
-                const profile = document.getElementById('profile-b').value;
-                const params = {
-                    start: document.getElementById('start-syllable-b').value || null,
-                    profile: profile,
-                    ...profileParams[profile],
-                    seed: document.getElementById('seed-b').value ?
-                        parseInt(document.getElementById('seed-b').value) : null
-                };
-
-                const response = await fetch('/api/walk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(params)
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    output.innerHTML = `<div class="error">${data.error}</div>`;
-                } else {
-                    displayWalkPanel(data, 'b');
-                    walkCountB++;
-                    document.getElementById('walks-b').textContent = walkCountB;
-                }
-            } catch (error) {
-                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        // Display walk for split panel
-        function displayWalkPanel(data, panel) {
-            const path = data.walk.map(s => s.syllable).join(' → ');
-
-            let html = `
-                <div class="walk-display">
-                    <div class="walk-path">${path}</div>
-                </div>
-                <div class="walk-details">
-            `;
-
-            data.walk.forEach((syllable, idx) => {
-                html += `
-                    <div class="syllable-card">
-                        <div>
-                            <span style="color: #6c757d; margin-right: 10px;">${idx + 1}.</span>
-                            <span class="syllable-text">${syllable.syllable}</span>
-                        </div>
-                        <div class="syllable-freq">freq: ${syllable.frequency}</div>
-                    </div>
-                `;
-            });
-
-            html += '</div>';
-            document.getElementById(`walk-output-${panel}`).innerHTML = html;
-        }
+        loadRuns();
     </script>
 </body>
 </html>
 """
 
-# CSS stylesheet for the web interface
-CSS_CONTENT = """/* ========================================
-   CSS VARIABLES FOR THEMING
-   ======================================== */
-:root[data-theme="light"] {
-    --bg-primary: #f8f9fa;
+# CSS stylesheet for the simplified web interface
+CSS_CONTENT = """
+/* System preference for dark/light mode */
+:root {
+    --bg: #f8f9fa;
     --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f3f5;
-    --bg-accent: #e9ecef;
-
-    --text-primary: #212529;
-    --text-secondary: #495057;
-    --text-tertiary: #6c757d;
-
-    --border-primary: #dee2e6;
-    --border-secondary: #ced4da;
-
-    --accent-primary: #4a6fa5;
-    --accent-secondary: #6c8ebb;
+    --bg-tertiary: #e9ecef;
+    --text: #212529;
+    --text-secondary: #6c757d;
+    --accent: #4a6fa5;
     --accent-hover: #3a5a8a;
-
-    --stat-value: #2c5282;
-    --stat-label: #6c757d;
-
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.1);
+    --border: #dee2e6;
+    --success: #28a745;
+    --error: #dc3545;
 }
 
-:root[data-theme="dark"] {
-    --bg-primary: #1a1d23;
-    --bg-secondary: #22262e;
-    --bg-tertiary: #2a2e38;
-    --bg-accent: #32363f;
-
-    --text-primary: #e8eaed;
-    --text-secondary: #b8bcc4;
-    --text-tertiary: #8e929b;
-
-    --border-primary: #3a3e47;
-    --border-secondary: #4a4e57;
-
-    --accent-primary: #6b8fbc;
-    --accent-secondary: #8aa8cc;
-    --accent-hover: #5a7fa8;
-
-    --stat-value: #8aa8cc;
-    --stat-label: #8e929b;
-
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.4);
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #1a1d23;
+        --bg-secondary: #22262e;
+        --bg-tertiary: #2a2e38;
+        --text: #e8eaed;
+        --text-secondary: #8e929b;
+        --accent: #6b8fbc;
+        --accent-hover: #5a7fa8;
+        --border: #3a3e47;
+        --success: #3fb950;
+        --error: #f85149;
+    }
 }
 
-/* ========================================
-   RESET
-   ======================================== */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* ========================================
-   BASE
-   ======================================== */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
     padding: 20px;
-    transition: background-color 0.2s, color 0.2s;
 }
 
-/* ========================================
-   CONTAINER
-   ======================================== */
 .container {
-    max-width: 1200px;
+    max-width: 900px;
     margin: 0 auto;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    border: 1px solid var(--border-primary);
 }
 
-/* ========================================
-   HEADER
-   ======================================== */
-.header {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    padding: 30px;
-    border-bottom: 1px solid var(--border-primary);
+header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
 }
 
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
+header h1 {
+    font-size: 1.8em;
+    margin-bottom: 5px;
 }
 
-.header h1 {
-    font-size: 2em;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.header p {
-    font-size: 1em;
+header p {
     color: var(--text-secondary);
 }
 
-.theme-toggle {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    border-radius: 6px;
-    padding: 10px 15px;
-    font-size: 1.2em;
-    cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
-    flex-shrink: 0;
-}
-
-.theme-toggle:hover {
-    background: var(--bg-accent);
-    border-color: var(--border-secondary);
-}
-
-.theme-icon {
-    display: inline-block;
-}
-
-/* ========================================
-   MODE SELECTOR
-   ======================================== */
-.mode-selector {
+section {
     background: var(--bg-secondary);
-    padding: 15px 30px;
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-.mode-btn {
-    padding: 10px 25px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-size: 0.95em;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.mode-btn:hover {
-    border-color: var(--accent-primary);
-    background: var(--bg-accent);
-}
-
-.mode-btn.active {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-    color: #ffffff;
-}
-
-/* ========================================
-   DATASET SELECTOR
-   ======================================== */
-.dataset-selector {
-    background: var(--bg-secondary);
-    padding: 20px 30px;
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.dataset-label {
-    font-weight: 600;
-    color: var(--text-primary);
-    font-size: 0.95em;
-    min-width: 70px;
-}
-
-.dataset-selector select {
-    flex: 1;
-    padding: 10px 15px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    font-size: 0.95em;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-}
-
-.dataset-selector select:hover {
-    border-color: var(--accent-secondary);
-}
-
-.dataset-selector select:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    background: var(--bg-accent);
-}
-
-.dataset-loading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--accent-primary);
-    font-size: 0.9em;
-}
-
-.mini-spinner {
-    border: 2px solid var(--border-primary);
-    border-top: 2px solid var(--accent-primary);
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 0.8s linear infinite;
-}
-
-/* ========================================
-   STATS BAR
-   ======================================== */
-.stats {
-    display: flex;
-    justify-content: space-around;
-    background: var(--bg-tertiary);
     padding: 20px;
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.stat {
-    text-align: center;
-}
-
-.stat-value {
-    font-size: 2em;
-    font-weight: 600;
-    color: var(--stat-value);
-}
-
-.stat-label {
-    color: var(--stat-label);
-    font-size: 0.85em;
-    margin-top: 5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-/* ========================================
-   MAIN CONTENT GRID
-   ======================================== */
-.content {
-    padding: 30px;
-    background: var(--bg-secondary);
-}
-
-.panel-container {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 30px;
-}
-
-/* ========================================
-   SPLIT-PANE LAYOUT
-   ======================================== */
-.split-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.panel {
-    background: var(--bg-tertiary);
     border-radius: 8px;
-    border: 1px solid var(--border-secondary);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
 }
 
-.panel-a {
-    border-left: 3px solid var(--accent-primary);
-}
-
-.panel-b {
-    border-left: 3px solid #6c8ebb;
-}
-
-.panel-header {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.panel-header h3 {
-    color: var(--text-primary);
+section h2 {
     font-size: 1.2em;
-    margin: 0;
-    font-weight: 600;
-}
-
-.panel-dataset-selector select {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    font-size: 0.9em;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.panel-dataset-selector select:hover {
-    border-color: var(--accent-secondary);
-}
-
-.panel-dataset-selector select:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-}
-
-.panel-stats {
-    display: flex;
-    justify-content: space-around;
-    background: var(--bg-secondary);
-    padding: 15px;
-    border-radius: 6px;
-    gap: 10px;
-    border: 1px solid var(--border-primary);
-}
-
-.panel-stat {
-    text-align: center;
-}
-
-.panel-stat-value {
-    font-size: 1.5em;
-    font-weight: 600;
-    color: var(--stat-value);
-}
-
-.panel-stat-label {
-    color: var(--stat-label);
-    font-size: 0.75em;
-    margin-top: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.panel-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.panel-results {
-    flex: 1;
-    min-height: 200px;
-}
-
-.panel-results .walk-display {
-    background: var(--bg-secondary);
-    padding: 20px;
-    border-radius: 6px;
     margin-bottom: 15px;
-    border: 1px solid var(--border-primary);
+    color: var(--text);
 }
 
-.panel-results .walk-path {
-    font-size: 1.1em;
-    font-weight: 500;
-    color: var(--text-primary);
-    line-height: 1.6;
-    word-wrap: break-word;
-}
-
-.panel-results .syllable-card {
-    background: var(--bg-secondary);
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    border-left: 3px solid var(--accent-primary);
+/* Run Selector */
+.run-selector {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    border: 1px solid var(--border-primary);
+    gap: 15px;
+    flex-wrap: wrap;
 }
 
-.btn-panel {
-    padding: 12px;
+.run-selector label {
+    font-weight: 600;
+}
+
+.run-selector select {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
     font-size: 0.95em;
 }
 
-/* ========================================
-   CONTROLS PANEL
-   ======================================== */
-.controls {
-    background: var(--bg-tertiary);
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid var(--border-primary);
-    height: fit-content;
-}
-
-.control-group {
-    margin-bottom: 20px;
-}
-
-.control-group label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-primary);
+.run-info {
+    color: var(--text-secondary);
     font-size: 0.9em;
 }
 
-.control-group input,
-.control-group select {
+/* Selection Tabs */
+.tab-bar {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.tab {
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+}
+
+.tab:hover {
+    background: var(--border);
+}
+
+.tab.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.no-selections {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Selection Content */
+.selection-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.selections-table {
     width: 100%;
-    padding: 10px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    font-size: 1em;
-    color: var(--text-primary);
-    transition: border-color 0.2s, background 0.2s;
+    border-collapse: collapse;
+    font-size: 0.95em;
 }
 
-.control-group input::placeholder {
-    color: var(--text-tertiary);
+.selections-table th,
+.selections-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
 }
 
-.control-group input:focus,
-.control-group select:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    background: var(--bg-accent);
+.selections-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
 }
 
-.control-group .help-text {
-    font-size: 0.8em;
-    color: var(--text-tertiary);
-    margin-top: 6px;
-    line-height: 1.4;
+.selections-table .rank {
+    width: 50px;
+    color: var(--text-secondary);
 }
 
-.profile-info {
-    background: var(--bg-accent);
-    padding: 15px;
-    border-radius: 6px;
-    margin-top: 10px;
+.selections-table .name {
+    font-weight: 500;
+}
+
+.selections-table .score {
+    width: 70px;
+    text-align: center;
+}
+
+.selections-table .syllables {
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.selection-meta {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
     font-size: 0.85em;
     color: var(--text-secondary);
-    border-left: 3px solid var(--accent-primary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
-/* ========================================
-   PRIMARY BUTTON
-   ======================================== */
-.btn {
-    width: 100%;
-    padding: 15px;
-    background: var(--accent-primary);
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    font-size: 1.05em;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s, box-shadow 0.2s;
+.rejection-reasons {
+    color: var(--error);
 }
 
-.btn:hover {
-    background: var(--accent-hover);
-    box-shadow: var(--shadow-md);
+/* Walk Section */
+.walk-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
 }
 
-.btn:active {
-    box-shadow: var(--shadow-sm);
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.btn:disabled {
-    background: var(--bg-accent);
-    color: var(--text-tertiary);
-    cursor: not-allowed;
-    box-shadow: none;
+.control-row label {
+    font-weight: 500;
 }
 
-/* ========================================
-   RESULTS
-   ======================================== */
-.results {
-    background: transparent;
-}
-
-/* ========================================
-   WALK DISPLAY
-   ======================================== */
-.walk-display {
+.control-row input,
+.control-row select {
+    padding: 8px 12px;
     background: var(--bg-tertiary);
-    padding: 25px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-primary);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.control-row input {
+    width: 120px;
+}
+
+.walk-controls button {
+    padding: 8px 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.walk-controls button:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.walk-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.walk-result {
+    background: var(--bg-tertiary);
+    padding: 15px;
+    border-radius: 4px;
+    min-height: 50px;
 }
 
 .walk-path {
-    font-size: 1.3em;
+    font-size: 1.2em;
     font-weight: 500;
-    color: var(--text-primary);
     line-height: 1.8;
-    word-wrap: break-word;
 }
 
-/* ========================================
-   SYLLABLE DETAILS
-   ======================================== */
-.walk-details {
-    margin-top: 20px;
+/* Utility classes */
+.placeholder {
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
-.syllable-card {
-    background: var(--bg-tertiary);
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 6px;
-    border-left: 3px solid var(--accent-primary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background-color 0.2s;
-    border: 1px solid var(--border-primary);
-}
-
-.syllable-card:hover {
-    background: var(--bg-accent);
-}
-
-.syllable-text {
-    font-size: 1.15em;
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
-.syllable-freq {
-    background: var(--accent-primary);
-    color: #ffffff;
-    padding: 5px 14px;
-    border-radius: 4px;
-    font-size: 0.85em;
-    font-weight: 500;
-}
-
-/* ========================================
-   LOADING & SPINNER
-   ======================================== */
 .loading {
-    text-align: center;
-    padding: 40px;
-    color: var(--text-tertiary);
+    color: var(--accent);
 }
 
-.spinner {
-    border: 4px solid var(--border-primary);
-    border-top: 4px solid var(--accent-primary);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
+.ready {
+    color: var(--success);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* ========================================
-   ERROR STATE
-   ======================================== */
 .error {
-    background: #f8d7da;
-    color: #721c24;
-    padding: 15px;
-    border-radius: 6px;
-    margin: 20px 0;
-    border-left: 3px solid #d9534f;
+    color: var(--error);
 }
 
-:root[data-theme="dark"] .error {
-    background: #2a1b1d;
-    color: #f2b8bd;
-}
-
-/* ========================================
-   RESPONSIVE
-   ======================================== */
-@media (max-width: 1200px) {
-    .split-container {
-        grid-template-columns: 1fr;
-    }
-
-    .panel {
-        max-width: 100%;
-    }
-}
-
-@media (max-width: 768px) {
-    .panel-container {
-        grid-template-columns: 1fr;
-    }
-
-    .header-content {
+/* Responsive */
+@media (max-width: 600px) {
+    .run-selector {
         flex-direction: column;
-        text-align: center;
+        align-items: stretch;
     }
 
-    .stats {
+    .walk-controls {
         flex-direction: column;
-        gap: 15px;
+        align-items: stretch;
     }
 
-    .mode-selector {
-        flex-direction: column;
-        gap: 10px;
+    .control-row {
+        justify-content: space-between;
     }
 
-    .mode-btn {
-        width: 100%;
-    }
-
-    .split-container {
-        grid-template-columns: 1fr;
-    }
-
-    .panel-stats {
-        flex-direction: column;
-        gap: 10px;
+    .control-row input,
+    .control-row select {
+        flex: 1;
     }
 }
 """

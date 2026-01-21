@@ -91,11 +91,11 @@ Examples
    python -m build_tools.syllable_walk data.json --start ka --steps 10 \\
        --max-flips 2 --temperature 1.5 --frequency-weight -0.8 --seed 42
 
-   # Start interactive web interface (opens on http://localhost:5000)
-   python -m build_tools.syllable_walk data.json --web
+   # Start interactive web interface (auto-discovers port starting at 8000)
+   python -m build_tools.syllable_walk --web
 
-   # Start web interface on custom port
-   python -m build_tools.syllable_walk data.json --web --port 8000
+   # Start web interface on specific port
+   python -m build_tools.syllable_walk --web --port 9000
 
 For detailed documentation, see: claude/build_tools/syllable_walk.md
         """,
@@ -292,13 +292,13 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
         "--web",
         action="store_true",
         help=(
-            "Start interactive web interface instead of command-line mode. "
-            "Launches a web server with a browser-based interface for "
-            "exploring walks interactively. All walk parameters can be "
-            "adjusted in the browser. The server runs until stopped with "
-            "Ctrl+C. Use --port to specify custom port (default: 5000). "
-            "Other CLI arguments are ignored in web mode. "
-            "Access at http://localhost:5000 after starting."
+            "Start simplified web interface for browsing name selections and "
+            "generating walks. Auto-discovers pipeline runs from _working/output/. "
+            "The interface provides: run selection dropdown, tabbed selections "
+            "browser (first_name, last_name, place_name), and quick walk generator. "
+            "Auto-discovers an available port starting at 8000, or use --port to "
+            "specify a port. The server runs until stopped with Ctrl+C. "
+            "Other CLI arguments are ignored in web mode."
         ),
     )
 
@@ -376,16 +376,15 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
     config_group.add_argument(
         "--port",
         type=int,
-        default=5000,
+        default=None,
         metavar="PORT",
         help=(
             "Port number for web server when using --web mode. Only applies "
-            "when --web flag is specified, otherwise ignored. Choose a port "
-            "that is not already in use by another service. Common alternatives: "
-            "8000, 8080, 3000. If the port is in use, the server will fail to "
-            "start with an error message. "
+            "when --web flag is specified, otherwise ignored. "
+            "If not specified, auto-discovers an available port starting at 8000. "
+            "If specified, uses that exact port (fails if unavailable). "
             "Valid range: 1024-65535 (ports below 1024 require root/admin). "
-            "Default: 5000"
+            "Default: auto-discover starting at 8000"
         ),
     )
 
@@ -636,8 +635,9 @@ def web_mode(args: argparse.Namespace) -> int:
     """
     Handle web server mode.
 
-    Starts the interactive web interface for syllable walking. The server runs
-    until interrupted with Ctrl+C. Walker initialization happens inside run_server().
+    Starts the simplified web interface for browsing name selections and
+    exploring syllable walks. The server auto-discovers pipeline runs from
+    _working/output/ and provides a selections browser with walk generation.
 
     Args:
         args: Parsed command-line arguments
@@ -646,15 +646,14 @@ def web_mode(args: argparse.Namespace) -> int:
         Exit code (0 = success, 1 = error)
 
     Notes:
-        - This function calls run_server() which initializes the walker
+        - Server auto-discovers available ports starting at 8000 if --port not specified
+        - Walker initialization is lazy (happens when user selects a run)
         - The server runs until stopped with Ctrl+C
-        - Any errors during initialization or server startup are caught
     """
     try:
-        # run_server handles walker initialization and server lifecycle
+        # run_server handles run discovery and server lifecycle
+        # Port is None means auto-discover starting at 8000
         run_server(
-            data_path=args.data_file,
-            max_neighbor_distance=args.max_neighbor_distance,
             port=args.port,
             verbose=not args.quiet,
         )
@@ -664,8 +663,11 @@ def web_mode(args: argparse.Namespace) -> int:
         return 1
     except OSError as e:
         print(f"Error starting server: {e}", file=sys.stderr)
-        print(f"\nPort {args.port} may already be in use.", file=sys.stderr)
-        print("Try using a different port with --port option.", file=sys.stderr)
+        if args.port:
+            print(f"\nPort {args.port} may already be in use.", file=sys.stderr)
+            print("Try using a different port with --port option.", file=sys.stderr)
+        else:
+            print("\nCould not find an available port.", file=sys.stderr)
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

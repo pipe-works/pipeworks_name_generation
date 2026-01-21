@@ -130,72 +130,13 @@ Command-Line Interface
    :func: create_argument_parser
    :prog: python -m build_tools.syllable_walk
 
-Output Format
--------------
-
-Single Walk
-~~~~~~~~~~~
-
-.. code-block:: json
-
-   {
-     "walk": [
-       {
-         "syllable": "ka",
-         "frequency": 20,
-         "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0]
-       },
-       {
-         "syllable": "pai",
-         "frequency": 9,
-         "features": [0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0]
-       }
-     ],
-     "profile": "dialect",
-     "start": "ka",
-     "seed": 42
-   }
-
-Batch Output
-~~~~~~~~~~~~
-
-.. code-block:: json
-
-   {
-     "walks": [
-       {
-         "walk": [
-           {"syllable": "ka", "frequency": 20, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0]},
-           {"syllable": "ki", "frequency": 15, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]}
-         ],
-         "start": "ka",
-         "seed": 42
-       },
-       {
-         "walk": [
-           {"syllable": "bak", "frequency": 8, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]},
-           {"syllable": "pak", "frequency": 5, "features": [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]}
-         ],
-         "start": "bak",
-         "seed": 43
-       }
-     ],
-     "profile": "dialect",
-     "parameters": {
-       "steps": 5,
-       "max_flips": 2,
-       "temperature": 0.7,
-       "frequency_weight": 0.0
-     }
-   }
-
 Integration Guide
 -----------------
 
-The syllable walker uses output from the feature annotator. With Phase 1 enhancements, the walker automatically
-discovers annotated datasets from your ``_working/output/`` directories.
+The syllable walker uses output from the feature annotator and/or the corpus database builder.
+It automatically discovers pipeline run directories from ``_working/output/``.
 
-**Recommended Workflow (with auto-discovery):**
+**Recommended Workflow:**
 
 .. code-block:: bash
 
@@ -204,100 +145,27 @@ discovers annotated datasets from your ``_working/output/`` directories.
    python -m build_tools.pyphen_syllable_normaliser \
      --run-dir _working/output/20260110_115453_pyphen/
 
-   # Step 2: Annotate with phonetic features (output auto-detected)
+   # Step 2: Annotate with phonetic features
    python -m build_tools.syllable_feature_annotator \
      --syllables _working/output/20260110_115453_pyphen/pyphen_syllables_unique.txt \
      --frequencies _working/output/20260110_115453_pyphen/pyphen_syllables_frequencies.json
-   # Creates: _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json
 
-   # Step 3: Explore with syllable walker (auto-discovers datasets)
+   # Step 3: (Optional) Build SQLite database for faster loading
+   python -m build_tools.corpus_sqlite_builder \
+     --run-dir _working/output/20260110_115453_pyphen/
+
+   # Step 4: Start the web interface
    python -m build_tools.syllable_walk --web
-   # Web interface shows dropdown with all available datasets
-
-**Alternative (explicit path):**
-
-.. code-block:: bash
-
-   # Specify dataset explicitly
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json --web
+   # Auto-discovers port starting at 8000
+   # Shows all available run directories with selection counts
 
 **When to use this tool:**
 
 - To explore phonetic connectivity in your syllable corpus
+- To browse name selections (first_name, last_name, place_name)
 - To compare different extractors (pyphen vs NLTK) and their phonetic behaviors
 - To test if desired phonetic transitions exist before creating patterns
 - To discover interesting phonetic progressions for name generation
-- To analyze corpus structure and syllable relationships
-- To generate datasets for statistical analysis of phonetic patterns
-- To evaluate the impact of different normalization pipelines on syllable connectivity
-
-**Common Use Cases:**
-
-**Comparing Pyphen vs NLTK Extractors:**
-
-Use the web interface to compare different extraction methods:
-
-.. code-block:: bash
-
-   # Start walker with auto-discovery
-   python -m build_tools.syllable_walk --web
-
-Then use the dataset dropdown to switch between pyphen and NLTK datasets. Generate walks with the same
-seed to see how different extraction methods affect phonetic connectivity.
-
-**Understanding Corpus Structure:**
-
-Generate many walks to see how syllables connect:
-
-.. code-block:: bash
-
-   # Generate 100 walks for corpus analysis (CLI mode requires explicit path)
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
-     --batch 100 --output corpus_walks.json
-
-Analyze the JSON output to understand syllable connectivity, central hubs, and phonetic pathways.
-
-**Testing Pattern Viability:**
-
-Explore if desired phonetic transitions exist before creating new patterns:
-
-.. code-block:: bash
-
-   # Test phonetic transitions with ritual profile
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
-     --start the --profile ritual
-
-**Finding Interesting Sequences:**
-
-Discover unusual but valid phonetic progressions:
-
-.. code-block:: bash
-
-   # Explore unusual sequences with goblin profile
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
-     --profile goblin --steps 10
-
-**Statistical Analysis:**
-
-Generate large datasets for analysis:
-
-.. code-block:: bash
-
-   # Generate 1000 walks with dialect profile
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
-     --batch 1000 --profile dialect --output dialect_walks.json
-
-   # Generate 1000 walks with goblin profile
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
-     --batch 1000 --profile goblin --output goblin_walks.json
-
-Then analyze frequency distributions, transition patterns, etc.
 
 Advanced Topics
 ---------------
@@ -305,71 +173,78 @@ Advanced Topics
 Web Interface
 ~~~~~~~~~~~~~
 
-The web interface provides an intuitive way to explore syllable walks without command-line complexity.
-With Phase 1 enhancements, the interface includes smart dataset discovery and dynamic switching.
+The simplified web interface provides three main features:
 
-**Starting the Server (Zero-Configuration):**
+1. **Run Selector** - Choose from discovered pipeline runs
+2. **Selections Browser** - Browse generated name selections
+3. **Quick Walk** - Generate syllable walks with preset profiles
+
+**Starting the Server:**
 
 .. code-block:: bash
 
-   # Auto-discover and load most recent dataset
+   # Auto-discover port starting at 8000
    python -m build_tools.syllable_walk --web
-   # Discovers datasets from _working/output/*/data/*_syllables_annotated.json
-   # Opens at http://localhost:5000 (or next available port)
 
-**Starting the Server (Explicit Dataset):**
+   # Specify exact port (fails if unavailable)
+   python -m build_tools.syllable_walk --web --port 9000
 
-.. code-block:: bash
+   # Verbose mode for debugging
+   python -m build_tools.syllable_walk --web --verbose
 
-   # Load specific dataset
-   python -m build_tools.syllable_walk \
-     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json --web
+**Run Discovery:**
 
-   # Custom port (with smart port selection)
-   python -m build_tools.syllable_walk --web --port 8000
-   # If port 8000 is in use, automatically tries 8001, 8002, etc.
+The server scans ``_working/output/`` for directories matching the pattern
+``YYYYMMDD_HHMMSS_{extractor}``. For each run, it displays:
 
-   # Quiet mode (suppress initialization messages)
-   python -m build_tools.syllable_walk --web --quiet
+- **Folder name** (e.g., ``20260121_084017_nltk``)
+- **Syllable count** from SQLite database or JSON
+- **Selection count** (number of selection files)
 
-**Interface Features:**
+Example display: ``20260121_084017_nltk (3,135 syllables, 3 selections)``
 
-- **Dataset selector** - Dropdown showing all available datasets with metadata
+**Selections Browser:**
 
-  - Displays: "NLTK - 2026-01-10 11:56 (33,640 syllables)"
-  - Switch datasets without server restart
-  - Auto-loads most recent dataset on startup
+The interface shows tabbed selection categories when a run has selections:
 
-- **Profile selection** - Choose from four profiles or use custom parameters
-- **Starting syllable** - Specify start or use random
-- **Real-time generation** - Instant walk generation with visual feedback
-- **Walk display** - See full path and syllable details with frequencies
-- **Statistics tracking** - Total syllables and walks generated per dataset
-- **Reproducible** - Optional seed for deterministic walks
-- **Smart port selection** - Automatically finds available port if requested port is in use
+- **First Names** - ``selections/{prefix}_first_name_*.json``
+- **Last Names** - ``selections/{prefix}_last_name_*.json``
+- **Place Names** - ``selections/{prefix}_place_name_*.json``
 
-**Dataset Discovery:**
+Each selection displays:
 
-The walker automatically scans these locations:
+- Name and syllables
+- Admission score
+- Sortable table interface
 
-- ``_working/output/*/data/*_syllables_annotated.json`` - Normalizer output directories
-- ``data/annotated/syllables_annotated.json`` - Legacy location (if exists)
+**Data Sources:**
 
-Each dataset displays:
+The walker prefers SQLite ``corpus.db`` for performance, falling back to annotated JSON:
 
-- **Extractor type** (pyphen or NLTK)
-- **Timestamp** (when the extraction was run)
-- **Syllable count** (corpus size)
+1. ``{run_dir}/data/corpus.db`` - SQLite database (fast, <100ms load)
+2. ``{run_dir}/data/{prefix}_syllables_annotated.json`` - JSON fallback
 
-**Comparing Extractors:**
+**API Endpoints:**
 
-Use the dataset selector to easily compare pyphen vs NLTK outputs:
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
 
-1. Start the web interface: ``python -m build_tools.syllable_walk --web``
-2. Select "PYPHEN - 2026-01-10 11:54 (24,220 syllables)" from dropdown
-3. Generate a walk with seed=42
-4. Switch to "NLTK - 2026-01-10 11:56 (33,640 syllables)"
-5. Generate same walk with seed=42 to compare behavior
+   * - Endpoint
+     - Method
+     - Description
+   * - ``/api/runs``
+     - GET
+     - List all discovered run directories with metadata
+   * - ``/api/runs/{id}/selections/{class}``
+     - GET
+     - Get selection data for a name class
+   * - ``/api/select-run``
+     - POST
+     - Switch to a different run (loads walker)
+   * - ``/api/walk``
+     - POST
+     - Generate a syllable walk
 
 The web server uses Python's standard library ``http.server`` (no Flask dependency).
 
@@ -404,27 +279,20 @@ Lower temperature = more deterministic (strongly favors lowest cost)
 Performance
 ~~~~~~~~~~~
 
-**Initialization Time (500k syllables):**
+**SQLite vs JSON Loading:**
 
 .. list-table::
    :header-rows: 1
 
-   * - Max Neighbor Distance
-     - Time
-     - Memory
-     - Max Flips Supported
-   * - 1
-     - ~30 seconds
-     - ~50 MB
-     - 1
-   * - 2
-     - ~1 minute
-     - ~150 MB
-     - 1-2
-   * - 3
-     - ~3 minutes
-     - ~300 MB
-     - 1-3
+   * - Data Source
+     - Load Time
+     - Notes
+   * - SQLite corpus.db
+     - <100ms
+     - Preferred, indexed queries
+   * - Annotated JSON
+     - 2-3 minutes
+     - Fallback, loads entire file
 
 **Walk Generation:**
 
@@ -440,66 +308,47 @@ Notes
 - Requires NumPy for efficient feature matrix operations (build-time dependency)
 - Uses standard library ``http.server`` for web interface (no Flask)
 
-**Performance Characteristics:**
-
-- Initialization is one-time cost (30 sec - 3 min depending on distance)
-- Walk generation is instant after initialization (<10ms per walk)
-- Designed for large corpus analysis (500k+ syllables)
-- Determinism guaranteed via isolated RNG instances
-
 **Troubleshooting:**
 
-**Initialization Takes Too Long:**
+**Port Already in Use:**
 
-- Reduce ``--max-neighbor-distance`` (default 3 → try 2)
-- Use smaller corpus for testing
-- Initialization is one-time cost, walk generation is instant
-
-**Getting Stuck at One Syllable:**
-
-- Increase ``--max-flips`` (allow bigger phonetic jumps)
-- Increase ``--temperature`` (more randomness)
-- Check if starting syllable is isolated with ``--search``
-
-**Walks Too Random:**
-
-- Decrease ``--temperature`` (less randomness)
-- Adjust ``--frequency-weight`` (try -0.5 for rare syllables)
-- Try different profiles (clerical for conservative)
-
-**Port Already in Use (Web Mode):**
-
-The server now automatically finds an available port if the requested port is in use:
-
-.. code-block:: text
-
-   Port 5000 in use, trying 5001...
-   Port 5001 in use, trying 5002...
-   ✓ Found available port: 5002
-
-   Starting web server on port 5002...
-   Open your browser and navigate to: http://localhost:5002
-
-The server tries up to 10 ports (e.g., 5000-5009) before giving up. You can also manually specify a different starting port:
+The server auto-discovers available ports starting at 8000. If a specific port is requested
+with ``--port`` and is unavailable, the server will fail with an error message.
 
 .. code-block:: bash
 
-   # Start from port 8000
-   python -m build_tools.syllable_walk --web --port 8000
-
-**No Datasets Found:**
-
-If you see "No annotated datasets found", ensure you've run the feature annotator:
-
-.. code-block:: bash
-
-   # Run feature annotator first
-   python -m build_tools.syllable_feature_annotator \
-     --syllables _working/output/.../pyphen_syllables_unique.txt \
-     --frequencies _working/output/.../pyphen_syllables_frequencies.json
-
-   # Then start walker
+   # Auto-discover (tries 8000, 8001, 8002, ...)
    python -m build_tools.syllable_walk --web
+
+   # Specific port (fails if unavailable)
+   python -m build_tools.syllable_walk --web --port 9000
+
+**No Runs Found:**
+
+If no runs are discovered, ensure you have pipeline output directories:
+
+.. code-block:: bash
+
+   # Check for existing runs
+   ls _working/output/
+
+   # Run the extraction pipeline first
+   python -m build_tools.nltk_syllable_extractor --file wordlist.txt
+   python -m build_tools.nltk_syllable_normaliser \
+     --run-dir _working/output/YYYYMMDD_HHMMSS_nltk/
+
+**No Selections Shown:**
+
+Selection files must be in the ``selections/`` subdirectory with the naming pattern
+``{prefix}_{name_class}_{N}syl.json``. Run the name selector to generate them:
+
+.. code-block:: bash
+
+   python -m build_tools.name_selector \
+     --run-dir _working/output/YYYYMMDD_HHMMSS_nltk/ \
+     --candidates candidates/nltk_candidates_2syl.json \
+     --name-class first_name \
+     --count 100
 
 **Build-time tool:**
 
@@ -508,11 +357,9 @@ This is a build-time analysis tool only - not used during runtime name generatio
 **Related Documentation:**
 
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
-- :doc:`pyphen_syllable_normaliser` - Prepares pyphen syllable corpus before annotation
-- :doc:`nltk_syllable_normaliser` - Prepares NLTK syllable corpus before annotation
-- :doc:`pyphen_syllable_extractor` - Extracts raw syllables using pyphen
-- :doc:`nltk_syllable_extractor` - Extracts raw syllables using NLTK
-- :doc:`analysis_tools` - Additional analysis tools for syllable data
+- :doc:`corpus_sqlite_builder` - Builds SQLite database for fast loading
+- :doc:`name_combiner` - Generates name candidates
+- :doc:`name_selector` - Selects names by policy
 
 For detailed usage guide, see: ``claude/build_tools/syllable_walk.md``
 

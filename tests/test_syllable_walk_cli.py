@@ -462,13 +462,13 @@ class TestWebMode:
                 assert "Error" in captured.err
 
     def test_web_mode_auto_discover(self):
-        """Test web mode without data_file auto-discovers."""
+        """Test web mode auto-discovers port."""
         with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
             with patch("sys.argv", ["cli", "--web"]):
                 main()
                 mock_run.assert_called_once()
-                # data_path should be None for auto-discovery
-                assert mock_run.call_args[1]["data_path"] is None
+                # port should be None for auto-discovery
+                assert mock_run.call_args[1]["port"] is None
 
 
 class TestBatchModeExtended:
