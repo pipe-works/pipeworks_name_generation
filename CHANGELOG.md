@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.3...pipeworks-name-generation-v0.5.4) (2026-01-21)
+
+
+### Features
+
+* **syllable_walk:** Simplify web interface with selections browser and SQLite support ([#20](https://github.com/aa-parky/pipeworks_name_generation/issues/20)) ([360be4f](https://github.com/aa-parky/pipeworks_name_generation/commit/360be4fa1b7922393032cd32661f5c9c024a5239))
+
 ## [0.5.3](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.2...pipeworks-name-generation-v0.5.3) (2026-01-21)
 
 
