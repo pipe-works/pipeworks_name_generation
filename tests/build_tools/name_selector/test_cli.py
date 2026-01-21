@@ -464,6 +464,79 @@ class TestMain:
         assert (tmp_path / "selections" / "pyphen_first_name_2syl.json").exists()
         assert (tmp_path / "selections" / "pyphen_last_name_2syl.json").exists()
 
+    def test_rejection_reasons_displayed(self, tmp_path, capsys):
+        """Should display rejection reasons when candidates are rejected."""
+        # Create candidates with discouraged features
+        candidates_with_rejections = {
+            "metadata": {"syllable_count": 2},
+            "candidates": [
+                {
+                    "name": "kalt",
+                    "syllables": ["kal", "t"],
+                    "features": {
+                        "starts_with_vowel": False,
+                        "starts_with_cluster": False,
+                        "starts_with_heavy_cluster": False,
+                        "contains_plosive": True,
+                        "contains_fricative": False,
+                        "contains_liquid": False,
+                        "contains_nasal": False,
+                        "short_vowel": True,
+                        "long_vowel": False,
+                        "ends_with_vowel": False,
+                        "ends_with_nasal": False,
+                        "ends_with_stop": True,  # Discouraged in first_name
+                    },
+                },
+                {
+                    "name": "kali",
+                    "syllables": ["ka", "li"],
+                    "features": {
+                        "starts_with_vowel": False,
+                        "starts_with_cluster": False,
+                        "starts_with_heavy_cluster": False,
+                        "contains_plosive": True,
+                        "contains_fricative": False,
+                        "contains_liquid": True,
+                        "contains_nasal": False,
+                        "short_vowel": True,
+                        "long_vowel": False,
+                        "ends_with_vowel": True,
+                        "ends_with_nasal": False,
+                        "ends_with_stop": False,
+                    },
+                },
+            ],
+        }
+
+        candidates_dir = tmp_path / "candidates"
+        candidates_dir.mkdir()
+        candidates_file = candidates_dir / "pyphen_candidates_2syl.json"
+        candidates_file.write_text(json.dumps(candidates_with_rejections))
+
+        policy_file = tmp_path / "policy.yml"
+        policy_file.write_text(make_policy_yaml())
+
+        result = main(
+            [
+                "--run-dir",
+                str(tmp_path),
+                "--candidates",
+                "candidates/pyphen_candidates_2syl.json",
+                "--name-class",
+                "first_name",
+                "--policy-file",
+                str(policy_file),
+            ]
+        )
+
+        assert result == 0
+
+        # Check that rejection reasons were printed
+        captured = capsys.readouterr()
+        assert "Rejection reasons:" in captured.out
+        assert "ends_with_stop" in captured.out
+
 
 class TestMainModule:
     """Test __main__.py entry point."""
