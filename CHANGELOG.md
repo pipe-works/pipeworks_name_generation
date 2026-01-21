@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.1...pipeworks-name-generation-v0.5.2) (2026-01-21)
+
+
+### Features
+
+* **build_tools:** Add Selection Policy Layer for name generation ([#10](https://github.com/aa-parky/pipeworks_name_generation/issues/10)) ([313cd0d](https://github.com/aa-parky/pipeworks_name_generation/commit/313cd0d3d4a64dd23adca449bd203f6e3f6ec8d4))
+* **pre-commit:** Add RST docstring linter hook ([#17](https://github.com/aa-parky/pipeworks_name_generation/issues/17)) ([d321a2c](https://github.com/aa-parky/pipeworks_name_generation/commit/d321a2c973a2e64f80fddea99476a8d0fc0c1754))
+
+
+### Fixes
+
+* **ci:** Auto-trigger CI for release-please PRs ([#13](https://github.com/aa-parky/pipeworks_name_generation/issues/13)) ([b4f1ae5](https://github.com/aa-parky/pipeworks_name_generation/commit/b4f1ae5708e215cd8a614be70a502e1cb7f12aa4))
+* **ci:** Parse release-please PR output as JSON object ([#14](https://github.com/aa-parky/pipeworks_name_generation/issues/14)) ([b486490](https://github.com/aa-parky/pipeworks_name_generation/commit/b486490f7b32f707230206d3631376b58b5939a9))
+* **ci:** Report commit status for release-please PRs ([#15](https://github.com/aa-parky/pipeworks_name_generation/issues/15)) ([95da8ee](https://github.com/aa-parky/pipeworks_name_generation/commit/95da8ee3939585819709c58148c5a9e027c4ad4d))
+* **ci:** Trigger CI on release-please branches ([#12](https://github.com/aa-parky/pipeworks_name_generation/issues/12)) ([e738b2e](https://github.com/aa-parky/pipeworks_name_generation/commit/e738b2ef83317b068582ac7022fb9f908da75648))
+
+
+### Documentation
+
+* Fix CLI code block formatting in docstrings and epilogs ([#16](https://github.com/aa-parky/pipeworks_name_generation/issues/16)) ([8f09dd7](https://github.com/aa-parky/pipeworks_name_generation/commit/8f09dd770e5943e0dfdcbfa68d9101a86a449292))
+
 ## [0.5.1](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.0...pipeworks-name-generation-v0.5.1) (2026-01-21)
 
 
