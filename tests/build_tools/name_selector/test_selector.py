@@ -187,6 +187,27 @@ class TestComputeSelectionStatistics:
         assert 1 in stats["score_distribution"]
         assert 2 in stats["score_distribution"]
 
+    def test_syllable_count_rejection_tracked(self):
+        """Should track syllable count rejections."""
+        policy = NameClassPolicy(
+            name="test",
+            description="Test",
+            syllable_range=(2, 2),  # Only 2 syllables
+            features={},
+        )
+        candidates = [
+            make_candidate("ka", ["ka"]),  # 1 syllable - rejected
+            make_candidate("kali", ["ka", "li"]),  # 2 syllables - admitted
+            make_candidate("kalira", ["ka", "li", "ra"]),  # 3 syllables - rejected
+        ]
+
+        stats = compute_selection_statistics(candidates, policy)
+
+        assert stats["rejected"] == 2
+        assert stats["admitted"] == 1
+        assert "syllable_count_out_of_range" in stats["rejection_reasons"]
+        assert stats["rejection_reasons"]["syllable_count_out_of_range"] == 2
+
 
 class TestDeterminism:
     """Test deterministic behavior."""
