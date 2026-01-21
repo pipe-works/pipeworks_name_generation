@@ -1,7 +1,8 @@
 """
 Entry point for running corpus_sqlite_builder as a module.
 
-Usage:
+Usage::
+
     python -m build_tools.corpus_sqlite_builder [arguments]
 """
 

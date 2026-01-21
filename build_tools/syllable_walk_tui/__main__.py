@@ -1,7 +1,8 @@
 """
 Entry point for Syllable Walker TUI.
 
-Usage:
+Usage::
+
     python -m build_tools.syllable_walk_tui
 """
 

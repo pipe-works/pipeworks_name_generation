@@ -13,7 +13,8 @@ Features:
 - Keyboard-first navigation with Tab and vi-style keys
 - Real-time phonetic exploration
 
-Usage:
+Usage::
+
     python -m build_tools.syllable_walk_tui
 
 Design Philosophy:

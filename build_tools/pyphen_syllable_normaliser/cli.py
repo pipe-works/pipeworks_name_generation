@@ -276,7 +276,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         description="Pyphen Syllable Normaliser - 3-step normalization pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
+Examples::
+
   # Process specific pyphen run directory
   python -m build_tools.pyphen_syllable_normaliser --run-dir _working/output/20260110_143022_pyphen/
 

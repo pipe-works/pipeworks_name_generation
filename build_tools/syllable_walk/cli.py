@@ -3,10 +3,12 @@
 This module provides both interactive and batch processing functionality
 for exploring syllable feature space through random walks.
 
-Usage:
+Usage::
+
     python -m build_tools.syllable_walk [options]
 
-Examples:
+Examples::
+
     # Generate a single walk
     python -m build_tools.syllable_walk data.json --start ka --profile dialect
 

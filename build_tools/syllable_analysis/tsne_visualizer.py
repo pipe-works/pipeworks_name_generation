@@ -23,7 +23,8 @@ Output Formats:
 - Static PNG: High-resolution matplotlib visualization (always generated)
 - Interactive HTML: Plotly-based interactive visualization (optional, requires --interactive flag)
 
-Usage:
+Usage::
+
     # Generate static PNG visualization with default paths
     python -m build_tools.syllable_analysis.tsne_visualizer
 

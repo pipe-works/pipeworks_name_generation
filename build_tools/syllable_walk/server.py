@@ -9,7 +9,8 @@ standard library's http.server module (no Flask dependency). The server handles:
 - Listing available datasets (/api/datasets)
 - Loading datasets dynamically (/api/load-dataset)
 
-Usage:
+Usage::
+
     from build_tools.syllable_walk.server import run_server
     run_server(data_path, max_neighbor_distance=3, port=5000)
 """

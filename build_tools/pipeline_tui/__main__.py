@@ -27,7 +27,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         description="Interactive TUI for running syllable extraction pipelines",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
+Examples::
+
   # Launch the TUI
   python -m build_tools.pipeline_tui
 

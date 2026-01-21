@@ -1,7 +1,8 @@
 """
 Entry point for running pyphen_syllable_extractor as a module.
 
-Usage:
+Usage::
+
     python -m build_tools.pyphen_syllable_extractor
 """
 

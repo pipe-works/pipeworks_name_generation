@@ -135,6 +135,14 @@ repos:
     pass_filenames: true
     verbose: true
 
+  - id: check-rst-docstrings
+    name: RST Docstring Formatting
+    entry: python scripts/check_rst_docstrings.py
+    language: system
+    files: ^build_tools/.*\.py$
+    pass_filenames: true
+    types: [python]
+
 # Configuration for ci section (auto-update behavior)
 ci:
   autofix_commit_msg: |

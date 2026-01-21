@@ -1,7 +1,8 @@
 """
 Entry point for running nltk_syllable_extractor as a module.
 
-Usage:
+Usage::
+
     python -m build_tools.nltk_syllable_extractor
 """
 

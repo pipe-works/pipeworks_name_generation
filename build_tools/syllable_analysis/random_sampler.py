@@ -7,7 +7,8 @@ a random sample in JSON format.
 This module has been refactored (Phase 2) to use common utilities from the
 analysis.common package, eliminating code duplication.
 
-Usage:
+Usage::
+
     # Sample 100 syllables (default)
     python -m build_tools.syllable_analysis.random_sampler
 

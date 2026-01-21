@@ -309,7 +309,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         description="NLTK Syllable Normaliser - Fragment cleaning + 3-step normalization pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
+Examples::
+
   # Process specific NLTK run directory
   python -m build_tools.nltk_syllable_normaliser --run-dir _working/output/20260110_095213_nltk/
 
