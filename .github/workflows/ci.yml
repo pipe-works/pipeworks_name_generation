@@ -9,6 +9,7 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch: # Allow manual triggering
+  workflow_call: # Allow being called by other workflows
 
 jobs:
   # Code quality checks (linting, formatting, type checking)
