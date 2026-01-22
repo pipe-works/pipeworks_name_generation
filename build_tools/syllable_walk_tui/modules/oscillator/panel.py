@@ -170,5 +170,12 @@ class OscillatorPanel(Static):
 
         # Generate button - triggers walk generation using current patch parameters
         # Event handled in core/app.py via on_button_generate_a/b methods
-        # Results displayed in center panel (StatsPanel), not here
         yield Button("Generate Walks", id=f"generate-{self.patch_name}", variant="primary")
+
+        # Walks output section
+        yield Label("", classes="spacer")
+        yield Label(
+            "(Press Generate to create walks)",
+            id=f"walks-output-{self.patch_name}",
+            classes="walks-output",
+        )

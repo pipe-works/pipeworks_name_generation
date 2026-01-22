@@ -32,9 +32,10 @@ from build_tools.syllable_walk_tui.controls import (
     SeedInput,
 )
 from build_tools.syllable_walk_tui.core.state import AppState
-from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen, StatsPanel
+from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.database import DatabaseScreen
+from build_tools.syllable_walk_tui.modules.generator import CombinerPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
@@ -105,7 +106,11 @@ class SyllableWalkerApp(App):
     }
 
     .patch-panel {
-        width: 35%;
+        width: 22%;
+    }
+
+    .combiner-column {
+        width: 28%;
     }
 
     .stats-panel {
@@ -161,6 +166,12 @@ class SyllableWalkerApp(App):
         text-style: italic;
         margin-bottom: 0;
     }
+
+    .walks-output {
+        color: $text-muted;
+        text-style: italic;
+        margin-top: 1;
+    }
     """
 
     def __init__(self):
@@ -183,13 +194,18 @@ class SyllableWalkerApp(App):
         """Create application layout."""
         yield Header(show_clock=False)
 
-        # Main view: Three-column layout (always visible)
-        # Pass initial seed values from PatchState so they display immediately
+        # Main view: Four-column layout
+        # Column 1: Oscillator A (walk parameters)
+        # Column 2: Combiner A (name generation)
+        # Column 3: Combiner B (name generation)
+        # Column 4: Oscillator B (walk parameters)
         with Horizontal(id="main-container"):
             with VerticalScroll(classes="column patch-panel"):
                 yield OscillatorPanel("A", initial_seed=self.state.patch_a.seed, id="patch-a")
-            with VerticalScroll(classes="column stats-panel"):
-                yield StatsPanel(id="stats")
+            with VerticalScroll(classes="column combiner-column"):
+                yield CombinerPanel(patch_name="A", id="combiner-panel-a")
+            with VerticalScroll(classes="column combiner-column"):
+                yield CombinerPanel(patch_name="B", id="combiner-panel-b")
             with VerticalScroll(classes="column patch-panel"):
                 yield OscillatorPanel("B", initial_seed=self.state.patch_b.seed, id="patch-b")
 
@@ -229,6 +245,16 @@ class SyllableWalkerApp(App):
     def on_button_generate_b(self) -> None:
         """Generate walks for patch B."""
         self._generate_walks_for_patch("B")
+
+    @on(Button.Pressed, "#generate-candidates-a")
+    def on_button_generate_candidates_a(self) -> None:
+        """Generate candidates for Patch A using name_combiner (mirrors CLI behavior)."""
+        self._run_combiner("A")
+
+    @on(Button.Pressed, "#generate-candidates-b")
+    def on_button_generate_candidates_b(self) -> None:
+        """Generate candidates for Patch B using name_combiner (mirrors CLI behavior)."""
+        self._run_combiner("B")
 
     def _generate_walks_for_patch(self, patch_name: str) -> None:
         """
@@ -304,10 +330,12 @@ class SyllableWalkerApp(App):
             # Store in patch state
             patch.outputs = walks
 
-            # Update center panel - show walks with corpus provenance
-            output_label = self.query_one(f"#walks-output-{patch_name}", Label)
-            output_label.update("\n".join(walks))
-            output_label.remove_class("output-placeholder")
+            # Update walks output in oscillator panel
+            try:
+                output_label = self.query_one(f"#walks-output-{patch_name}", Label)
+                output_label.update("\n".join(walks))
+            except Exception:  # nosec B110 - Label may not exist in all layouts
+                pass
 
             # Clean up temp file
             os.unlink(temp_path)
@@ -316,6 +344,148 @@ class SyllableWalkerApp(App):
 
         except Exception as e:
             self.notify(f"Patch {patch_name}: Generation failed: {e}", severity="error")
+            traceback.print_exc()
+
+    def _run_combiner(self, patch_name: str) -> None:
+        """
+        Run name_combiner for a specific patch (mirrors CLI behavior exactly).
+
+        This method mirrors the CLI:
+            python -m build_tools.name_combiner \\
+                --run-dir <patch.corpus_dir> \\
+                --syllables <syllables> \\
+                --count <count> \\
+                --seed <seed> \\
+                --frequency-weight <frequency_weight>
+
+        Output is written to: <run-dir>/candidates/{prefix}_candidates_{N}syl.json
+
+        Args:
+            patch_name: "A" or "B" - which patch to use for generation
+        """
+        import json
+        from datetime import datetime, timezone
+
+        from build_tools.name_combiner.combiner import combine_syllables
+
+        # Get the combiner state for this patch (independent A/B)
+        comb = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        # Validate patch is ready
+        if not patch.is_ready_for_generation():
+            self.notify(
+                f"Patch {patch_name}: Corpus not loaded. "
+                f"Press {1 if patch_name == 'A' else 2} to select a corpus.",
+                severity="warning",
+            )
+            return
+
+        if not patch.corpus_dir:
+            self.notify(
+                f"Patch {patch_name}: No corpus directory set.",
+                severity="error",
+            )
+            return
+
+        if not patch.annotated_data:
+            self.notify(
+                f"Patch {patch_name}: Annotated data not loaded.",
+                severity="error",
+            )
+            return
+
+        try:
+            run_dir = patch.corpus_dir
+            prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+
+            self.notify(
+                f"Generating {comb.count:,} {comb.syllables}-syllable candidates...",
+                timeout=2,
+                severity="information",
+            )
+
+            # === Generate candidates (mirrors CLI main()) ===
+            candidates = combine_syllables(
+                annotated_data=patch.annotated_data,
+                syllable_count=comb.syllables,
+                count=comb.count,
+                seed=comb.seed,
+                frequency_weight=comb.frequency_weight,
+            )
+
+            # === Prepare output directory (mirrors CLI) ===
+            candidates_dir = run_dir / "candidates"
+            candidates_dir.mkdir(parents=True, exist_ok=True)
+
+            output_filename = f"{prefix}_candidates_{comb.syllables}syl.json"
+            output_path = candidates_dir / output_filename
+
+            # === Build output structure (mirrors CLI) ===
+            output = {
+                "metadata": {
+                    "source_run": run_dir.name,
+                    "source_annotated": f"{prefix}_syllables_annotated.json",
+                    "syllable_count": comb.syllables,
+                    "total_candidates": len(candidates),
+                    "seed": comb.seed,
+                    "frequency_weight": comb.frequency_weight,
+                    "aggregation_rule": "majority",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "candidates": candidates,
+            }
+
+            # === Write output (mirrors CLI) ===
+            with open(output_path, "w") as f:
+                json.dump(output, f, indent=2)
+
+            # === Build meta file (mirrors CLI exactly) ===
+            unique_names = len(set(c["name"] for c in candidates))
+            unique_percentage = unique_names / len(candidates) * 100
+
+            meta_output = {
+                "tool": "name_combiner",
+                "version": "1.0.0",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "arguments": {
+                    "run_dir": str(run_dir),
+                    "syllables": comb.syllables,
+                    "count": comb.count,
+                    "seed": comb.seed,
+                    "frequency_weight": comb.frequency_weight,
+                },
+                "output": {
+                    "candidates_file": str(output_path),
+                    "candidates_generated": len(candidates),
+                    "unique_names": unique_names,
+                    "unique_percentage": round(unique_percentage, 2),
+                },
+            }
+
+            # === Write meta file ===
+            meta_path = candidates_dir / f"{prefix}_combiner_meta.json"
+            with open(meta_path, "w") as f:
+                json.dump(meta_output, f, indent=2)
+
+            # === Update state ===
+            comb.outputs = [c["name"] for c in candidates[:10]]  # Preview first 10
+            comb.last_output_path = str(output_path)
+
+            # === Update panel output with full metadata ===
+            try:
+                panel = self.query_one(f"#combiner-panel-{patch_name.lower()}", CombinerPanel)
+                panel.update_output(meta_output)
+            except Exception as e:
+                print(f"Warning: Could not update panel: {e}")
+
+            self.notify(
+                f"Generated {len(candidates):,} candidates → {output_path.name}",
+                severity="information",
+            )
+
+        except Exception as e:
+            self.notify(f"Combiner failed: {e}", severity="error")
             traceback.print_exc()
 
     def action_select_corpus_a(self) -> None:
@@ -830,10 +1000,20 @@ class SyllableWalkerApp(App):
 
     @on(IntSpinner.Changed)
     def on_int_spinner_changed(self, event: IntSpinner.Changed) -> None:
-        """Handle integer spinner value changes and update patch state."""
+        """Handle integer spinner value changes and update patch or generator state."""
         # Use widget_id from the message
         widget_id = event.widget_id
         if not widget_id:
+            return
+
+        # Check for combiner panel widgets first (pattern: combiner-<param>-<patch>)
+        if widget_id.startswith("combiner-"):
+            # Determine which combiner (A or B) based on widget ID suffix
+            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
+            if "syllables" in widget_id:
+                comb.syllables = event.value
+            elif "count" in widget_id:
+                comb.count = event.value
             return
 
         # Parse widget ID to determine patch and parameter
@@ -843,6 +1023,9 @@ class SyllableWalkerApp(App):
             return
 
         param_name, patch_name = parts
+        if patch_name not in ("A", "B"):
+            return  # Not a patch widget
+
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
 
         # Update the appropriate parameter in patch state
@@ -871,10 +1054,17 @@ class SyllableWalkerApp(App):
 
     @on(FloatSlider.Changed)
     def on_float_slider_changed(self, event: FloatSlider.Changed) -> None:
-        """Handle float slider value changes and update patch state."""
+        """Handle float slider value changes and update patch or generator state."""
         # Use widget_id from the message
         widget_id = event.widget_id
         if not widget_id:
+            return
+
+        # Check for combiner panel widgets first (pattern: combiner-<param>-<patch>)
+        if widget_id.startswith("combiner-") and "freq-weight" in widget_id:
+            # Determine which combiner (A or B) based on widget ID suffix
+            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
+            comb.frequency_weight = event.value
             return
 
         # Parse widget ID to determine patch and parameter
@@ -883,6 +1073,9 @@ class SyllableWalkerApp(App):
             return
 
         param_name, patch_name = parts
+        if patch_name not in ("A", "B"):
+            return  # Not a patch widget
+
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
 
         # Update the appropriate parameter in patch state
@@ -913,10 +1106,17 @@ class SyllableWalkerApp(App):
 
     @on(SeedInput.Changed)
     def on_seed_changed(self, event: SeedInput.Changed) -> None:
-        """Handle seed input changes and update patch state."""
+        """Handle seed input changes and update patch or generator state."""
         # Use widget_id from the message
         widget_id = event.widget_id
         if not widget_id:
+            return
+
+        # Check for combiner panel seed widget (pattern: combiner-seed-<patch>)
+        if widget_id.startswith("combiner-seed"):
+            # Determine which combiner (A or B) based on widget ID suffix
+            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
+            comb.seed = event.value
             return
 
         # Parse widget ID to determine patch
@@ -926,6 +1126,9 @@ class SyllableWalkerApp(App):
             return
 
         patch_name = parts[1]
+        if patch_name not in ("A", "B"):
+            return  # Not a patch widget
+
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
 
         # Update seed in patch state with new value
@@ -1005,3 +1208,10 @@ class SyllableWalkerApp(App):
             # Reset flag and counter on error to avoid getting stuck
             self._updating_from_profile = False
             self._pending_profile_updates = 0
+
+    # =========================================================================
+    # Combiner Panel Event Handlers
+    # =========================================================================
+    # The existing IntSpinner.Changed, FloatSlider.Changed, and SeedInput.Changed
+    # handlers already route by widget_id and handle combiner widgets.
+    # See on_int_spinner_changed, on_float_slider_changed, and on_seed_changed.
