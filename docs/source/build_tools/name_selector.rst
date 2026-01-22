@@ -43,10 +43,56 @@ Input/Output Contract
     ├── selections/
     │   ├── pyphen_first_name_2syl.json      ← Generated output
     │   ├── pyphen_last_name_2syl.json
-    │   └── pyphen_place_name_2syl.json
+    │   ├── pyphen_place_name_2syl.json
+    │   ├── pyphen_location_name_2syl.json
+    │   ├── pyphen_object_item_2syl.json
+    │   ├── pyphen_organisation_2syl.json
+    │   └── pyphen_title_epithet_2syl.json
     ├── data/
     ├── meta/
     └── ...
+
+Available Name Classes
+~~~~~~~~~~~~~~~~~~~~~~
+
+The default policy file (``data/name_classes.yml``) defines these name classes:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 15 45
+
+   * - Name Class
+     - Optimization
+     - Syllables
+     - Key Constraints
+   * - ``first_name``
+     - Addressability
+     - 2-3
+     - Prefers vowel endings, avoids heavy clusters
+   * - ``last_name``
+     - Durability
+     - 2-3
+     - Prefers stop endings, avoids vowel endings
+   * - ``place_name``
+     - Stability
+     - 2-4
+     - Prefers clusters, vowel endings
+   * - ``location_name``
+     - Meaning Compression
+     - 1-3
+     - Prefers heavy clusters, all texture features
+   * - ``object_item``
+     - Distinction
+     - 1-2
+     - Prefers short vowels, stop endings
+   * - ``organisation``
+     - Cadence
+     - 2-4
+     - All texture features, long vowels, nasal/stop endings
+   * - ``title_epithet``
+     - Authority
+     - 1-2
+     - Heavy clusters, long vowels, avoids short vowels
 
 Output Structure
 ~~~~~~~~~~~~~~~~
@@ -146,6 +192,13 @@ candidates produced by the name_combiner against name class policies.
      --candidates candidates/pyphen_candidates_2syl.json \
      --name-class last_name \
      --count 100
+
+   # Select for other name classes as needed
+   python -m build_tools.name_selector \
+     --run-dir _working/output/20260110_115453_pyphen/ \
+     --candidates candidates/pyphen_candidates_2syl.json \
+     --name-class organisation \
+     --count 50
 
 **When to use this tool:**
 
