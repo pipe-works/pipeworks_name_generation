@@ -6,7 +6,12 @@ Tests that SelectorPanel provides controls matching the name_selector CLI option
 
 from __future__ import annotations
 
+import pytest
+from textual.app import App
+from textual.widgets import Button, Label
+
 from build_tools.syllable_walk_tui.modules.generator.selector_panel import SelectorPanel
+from build_tools.tui_common.controls import IntSpinner, JKSelect, RadioOption
 
 
 class TestSelectorPanel:
@@ -201,3 +206,282 @@ class TestSelectorPanelMethods:
         }
         # Should not raise
         panel.update_output(meta, [])
+
+
+class TestSelectorPanelMounted:
+    """Tests for SelectorPanel when mounted in an app."""
+
+    @pytest.mark.asyncio
+    async def test_compose_creates_expected_widgets(self) -> None:
+        """compose should create all expected child widgets."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+
+            # Check header label
+            labels = app.query(Label)
+            labels_text = [str(label.render()) for label in labels]
+            assert any("PATCH A NAME SELECTOR" in text for text in labels_text)
+
+            # Check name class select
+            select = app.query_one("#selector-name-class-a", JKSelect)
+            assert select is not None
+
+            # Check count spinner
+            spinner = app.query_one("#selector-count-a", IntSpinner)
+            assert spinner is not None
+            assert spinner.value == 100
+
+            # Check mode options
+            hard_opt = app.query_one("#selector-mode-hard-a", RadioOption)
+            soft_opt = app.query_one("#selector-mode-soft-a", RadioOption)
+            assert hard_opt is not None
+            assert soft_opt is not None
+
+            # Check order options
+            random_opt = app.query_one("#selector-order-random-a", RadioOption)
+            alpha_opt = app.query_one("#selector-order-alphabetical-a", RadioOption)
+            assert random_opt is not None
+            assert alpha_opt is not None
+
+            # Check select button
+            button = app.query_one("#select-names-a", Button)
+            assert button is not None
+
+    @pytest.mark.asyncio
+    async def test_compose_creates_patch_b_widgets(self) -> None:
+        """compose should create widgets with patch B IDs."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="B", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+
+            # Check patch B specific IDs
+            assert app.query_one("#selector-name-class-b", JKSelect)
+            assert app.query_one("#selector-count-b", IntSpinner)
+            assert app.query_one("#selector-mode-hard-b", RadioOption)
+            assert app.query_one("#selector-order-random-b", RadioOption)
+            assert app.query_one("#select-names-b", Button)
+
+    @pytest.mark.asyncio
+    async def test_update_output_displays_metadata(self) -> None:
+        """update_output should display metadata in output label."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            meta = {
+                "arguments": {
+                    "name_class": "first_name",
+                    "count": 100,
+                    "mode": "hard",
+                    "order": "random",
+                },
+                "statistics": {
+                    "total_evaluated": 10000,
+                    "admitted": 7500,
+                    "admitted_percentage": 75.0,
+                    "rejected": 2500,
+                },
+                "output": {
+                    "selections_count": 100,
+                    "selections_file": "/path/to/selections/pyphen_first_name_2syl.json",
+                },
+            }
+            panel.update_output(meta)
+            await pilot.pause()
+
+            output_label = app.query_one("#selector-output-a", Label)
+            text = str(output_label.render())
+            assert "first_name" in text
+            assert "Evaluated: 10,000" in text
+
+    @pytest.mark.asyncio
+    async def test_update_output_handles_simple_path(self) -> None:
+        """update_output should handle selections_file without /selections/ path."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            meta = {
+                "arguments": {"name_class": "first_name"},
+                "statistics": {},
+                "output": {
+                    "selections_count": 50,
+                    "selections_file": "simple_output.json",
+                },
+            }
+            panel.update_output(meta)
+            await pilot.pause()
+
+            output_label = app.query_one("#selector-output-a", Label)
+            text = str(output_label.render())
+            assert "simple_output.json" in text
+
+    @pytest.mark.asyncio
+    async def test_update_output_displays_names(self) -> None:
+        """update_output should display names in names label."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            meta = {"arguments": {"name_class": "first_name"}}
+            names = ["kali", "sora", "mira"]
+            panel.update_output(meta, names)
+            await pilot.pause()
+
+            names_label = app.query_one("#selector-names-a", Label)
+            text = str(names_label.render())
+            assert "kali" in text
+            assert "sora" in text
+            assert "mira" in text
+
+    @pytest.mark.asyncio
+    async def test_update_output_none_shows_placeholder(self) -> None:
+        """update_output with None should show placeholder."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            panel.update_output(None)
+            await pilot.pause()
+
+            output_label = app.query_one("#selector-output-a", Label)
+            text = str(output_label.render())
+            assert "Generate candidates first" in text
+
+    @pytest.mark.asyncio
+    async def test_set_mode_hard_updates_radio_options(self) -> None:
+        """set_mode('hard') should select hard option."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            panel.set_mode("hard")
+            await pilot.pause()
+
+            hard_opt = app.query_one("#selector-mode-hard-a", RadioOption)
+            soft_opt = app.query_one("#selector-mode-soft-a", RadioOption)
+            assert hard_opt.is_selected is True
+            assert soft_opt.is_selected is False
+
+    @pytest.mark.asyncio
+    async def test_set_mode_soft_updates_radio_options(self) -> None:
+        """set_mode('soft') should select soft option."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            panel.set_mode("soft")
+            await pilot.pause()
+
+            hard_opt = app.query_one("#selector-mode-hard-a", RadioOption)
+            soft_opt = app.query_one("#selector-mode-soft-a", RadioOption)
+            assert hard_opt.is_selected is False
+            assert soft_opt.is_selected is True
+
+    @pytest.mark.asyncio
+    async def test_set_order_random_updates_radio_options(self) -> None:
+        """set_order('random') should select random option."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            panel.set_order("random")
+            await pilot.pause()
+
+            random_opt = app.query_one("#selector-order-random-a", RadioOption)
+            alpha_opt = app.query_one("#selector-order-alphabetical-a", RadioOption)
+            assert random_opt.is_selected is True
+            assert alpha_opt.is_selected is False
+
+    @pytest.mark.asyncio
+    async def test_set_order_alphabetical_updates_radio_options(self) -> None:
+        """set_order('alphabetical') should select alphabetical option."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            panel.set_order("alphabetical")
+            await pilot.pause()
+
+            random_opt = app.query_one("#selector-order-random-a", RadioOption)
+            alpha_opt = app.query_one("#selector-order-alphabetical-a", RadioOption)
+            assert random_opt.is_selected is False
+            assert alpha_opt.is_selected is True
+
+    @pytest.mark.asyncio
+    async def test_clear_output_resets_display(self) -> None:
+        """clear_output should reset to placeholder state."""
+
+        class TestApp(App):
+            def compose(self):
+                yield SelectorPanel(patch_name="A", id="test-panel")
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            panel = app.query_one("#test-panel", SelectorPanel)
+
+            # First set some output
+            meta = {"arguments": {"name_class": "first_name"}}
+            panel.update_output(meta, ["test"])
+            await pilot.pause()
+
+            # Then clear it
+            panel.clear_output()
+            await pilot.pause()
+
+            output_label = app.query_one("#selector-output-a", Label)
+            text = str(output_label.render())
+            assert "Generate candidates first" in text
+
+            names_label = app.query_one("#selector-names-a", Label)
+            names_text = str(names_label.render())
+            assert names_text.strip() == ""
