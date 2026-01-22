@@ -1791,6 +1791,52 @@ class TestExportTxtButtons:
             button = app.query_one("#export-txt-b")
             assert button is not None
 
+    @pytest.mark.asyncio
+    async def test_export_txt_a_handler_calls_export(self, tmp_path):
+        """Test that button A handler calls _export_to_txt for patch A."""
+        app = SyllableWalkerApp()
+
+        selections_dir = tmp_path / "selections"
+        selections_dir.mkdir()
+        json_path = selections_dir / "test_a.json"
+        json_path.write_text("{}")
+
+        async with app.run_test() as pilot:
+            # Set up state for export
+            app.state.selector_a.outputs = ["TestName"]
+            app.state.selector_a.last_output_path = str(json_path)
+
+            # Call the button handler directly
+            app.on_button_export_txt_a()
+            await pilot.pause()
+
+            # Verify file was created
+            txt_path = selections_dir / "test_a.txt"
+            assert txt_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_export_txt_b_handler_calls_export(self, tmp_path):
+        """Test that button B handler calls _export_to_txt for patch B."""
+        app = SyllableWalkerApp()
+
+        selections_dir = tmp_path / "selections"
+        selections_dir.mkdir()
+        json_path = selections_dir / "test_b.json"
+        json_path.write_text("{}")
+
+        async with app.run_test() as pilot:
+            # Set up state for export
+            app.state.selector_b.outputs = ["TestNameB"]
+            app.state.selector_b.last_output_path = str(json_path)
+
+            # Call the button handler directly
+            app.on_button_export_txt_b()
+            await pilot.pause()
+
+            # Verify file was created
+            txt_path = selections_dir / "test_b.txt"
+            assert txt_path.exists()
+
 
 class TestExportToTxt:
     """Tests for _export_to_txt method."""
@@ -1935,3 +1981,21 @@ class TestExportToTxt:
 
             # Order should be preserved
             assert lines == names
+
+    @pytest.mark.asyncio
+    async def test_export_to_txt_handles_write_error(self, tmp_path):
+        """Test that _export_to_txt handles file write errors gracefully."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up state with names but point to non-existent directory
+            app.state.selector_a.outputs = ["TestName"]
+            # Path to a directory that doesn't exist
+            app.state.selector_a.last_output_path = "/nonexistent/path/test.json"
+
+            # This should trigger the exception handler, not crash
+            app._export_to_txt("A")
+            await pilot.pause()
+
+            # Should not crash - exception is caught and notification shown
+            assert True
