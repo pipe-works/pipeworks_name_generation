@@ -407,68 +407,16 @@ class TestErrorHandling:
                 assert "Traceback" in captured.err
 
     def test_missing_data_file_returns_error(self, capsys):
-        """Test that missing data_file argument returns error code."""
+        """Test that missing data_file argument returns error code.
+
+        Since data_file is now a required positional argument (not optional),
+        argparse exits with code 2 and prints usage to stderr.
+        """
         with patch("sys.argv", ["cli"]):
-            exit_code = main()
-            assert exit_code == 1
-
-            captured = capsys.readouterr()
-            assert "data_file is required" in captured.err
-
-
-class TestWebMode:
-    """Test web server mode."""
-
-    def test_web_mode_returns_exit_code(self, sample_data_file):
-        """Test web mode returns correct exit code on success."""
-        with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
-            with patch("sys.argv", ["cli", str(sample_data_file), "--web"]):
-                exit_code = main()
-                assert exit_code == 0
-                mock_run.assert_called_once()
-
-    def test_web_mode_file_not_found(self, capsys):
-        """Test web mode handles FileNotFoundError."""
-        with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
-            mock_run.side_effect = FileNotFoundError("No dataset found")
-            with patch("sys.argv", ["cli", "--web"]):
-                exit_code = main()
-                assert exit_code == 1
-
-                captured = capsys.readouterr()
-                assert "Error" in captured.err
-
-    def test_web_mode_port_in_use(self, sample_data_file, capsys):
-        """Test web mode handles port in use error."""
-        with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
-            mock_run.side_effect = OSError("Address already in use")
-            with patch("sys.argv", ["cli", str(sample_data_file), "--web", "--port", "5000"]):
-                exit_code = main()
-                assert exit_code == 1
-
-                captured = capsys.readouterr()
-                assert "Error starting server" in captured.err
-                assert "5000" in captured.err
-
-    def test_web_mode_general_error(self, sample_data_file, capsys):
-        """Test web mode handles general exceptions."""
-        with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
-            mock_run.side_effect = RuntimeError("Server crashed")
-            with patch("sys.argv", ["cli", str(sample_data_file), "--web"]):
-                exit_code = main()
-                assert exit_code == 1
-
-                captured = capsys.readouterr()
-                assert "Error" in captured.err
-
-    def test_web_mode_auto_discover(self):
-        """Test web mode auto-discovers port."""
-        with patch("build_tools.syllable_walk.cli.run_server") as mock_run:
-            with patch("sys.argv", ["cli", "--web"]):
+            with pytest.raises(SystemExit) as exc_info:
                 main()
-                mock_run.assert_called_once()
-                # port should be None for auto-discovery
-                assert mock_run.call_args[1]["port"] is None
+            # argparse exits with 2 for missing required arguments
+            assert exc_info.value.code == 2
 
 
 class TestBatchModeExtended:

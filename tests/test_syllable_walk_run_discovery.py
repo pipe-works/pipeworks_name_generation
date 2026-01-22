@@ -17,7 +17,7 @@ import sqlite3
 
 import pytest
 
-from build_tools.syllable_walk.run_discovery import (
+from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
     _discover_selections,
     _format_display_name,

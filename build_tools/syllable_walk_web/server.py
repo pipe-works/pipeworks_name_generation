@@ -12,7 +12,7 @@ The server handles:
 
 Usage::
 
-    from build_tools.syllable_walk.server import run_server
+    from build_tools.syllable_walk_web.server import run_server
     run_server(port=8000)
 """
 
@@ -23,14 +23,14 @@ from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
 
 from build_tools.syllable_walk.db import load_syllables
-from build_tools.syllable_walk.run_discovery import (
+from build_tools.syllable_walk.walker import SyllableWalker
+from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
     discover_runs,
     get_run_by_id,
     get_selection_data,
 )
-from build_tools.syllable_walk.walker import SyllableWalker
-from build_tools.syllable_walk.web_assets import CSS_CONTENT, HTML_TEMPLATE
+from build_tools.syllable_walk_web.web_assets import CSS_CONTENT, HTML_TEMPLATE
 
 
 class SimplifiedWalkerHandler(BaseHTTPRequestHandler):

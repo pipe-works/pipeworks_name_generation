@@ -32,7 +32,9 @@ Tool Overview
    * - :doc:`corpus_sqlite_builder`
      - Convert annotated JSON to SQLite databases for fast TUI loading (optional performance optimization)
    * - :doc:`syllable_walk`
-     - Explore phonetic feature space via cost-based random walks
+     - Explore phonetic feature space via cost-based random walks (CLI)
+   * - :doc:`syllable_walk_web`
+     - Browser-based interface for browsing selections and generating walks
    * - :doc:`syllable_walk_tui`
      - Interactive TUI for exploring phonetic space with side-by-side patch configuration
    * - :doc:`corpus_db`
@@ -84,11 +86,9 @@ Quick Start
    # (Optional) Convert to SQLite for faster TUI loading
    python -m build_tools.corpus_sqlite_builder _working/output/20260110_143022_pyphen/
 
-   # Explore syllable walks (interactive web UI)
-   python -m build_tools.syllable_walk data/annotated/syllables_annotated.json --web
-
-   # Or use interactive TUI for side-by-side comparison
-   python -m build_tools.syllable_walk_tui
+   # Explore syllable walks (choose one interface)
+   python -m build_tools.syllable_walk_web      # Browser-based selections browser
+   python -m build_tools.syllable_walk_tui       # Terminal TUI with side-by-side comparison
 
    # Analyze and visualize
    python -m build_tools.syllable_analysis.tsne_visualizer --interactive
@@ -108,6 +108,7 @@ Detailed Documentation
    name_selector
    corpus_sqlite_builder
    syllable_walk
+   syllable_walk_web
    syllable_walk_tui
    corpus_db
    corpus_db_viewer

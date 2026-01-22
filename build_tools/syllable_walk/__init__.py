@@ -19,7 +19,6 @@ Key Features:
 - Four pre-configured profiles (clerical, dialect, goblin, ritual)
 - Custom parameter control for fine-tuned exploration
 - Deterministic walks (same seed = same walk, reproducible)
-- Interactive web interface for browser-based exploration
 - Batch processing to generate thousands of walks for analysis
 - Fast operation (<10ms per walk after initialization)
 - Large corpus support (efficiently handles 500k+ syllables)
@@ -55,11 +54,11 @@ CLI Usage:
        # Walk with a profile
        python -m build_tools.syllable_walk data.json --start ka --profile dialect --steps 5
 
-       # Launch interactive web interface
-       python -m build_tools.syllable_walk data.json --web --port 8080
-
        # Batch walks for analysis
        python -m build_tools.syllable_walk data.json --batch 100 --profile ritual
+
+       # For web interface, use the separate syllable_walk_web module:
+       python -m build_tools.syllable_walk_web
 """
 
 from build_tools.syllable_walk.profiles import (

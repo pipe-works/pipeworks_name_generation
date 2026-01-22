@@ -616,7 +616,7 @@ configuration file for duplicate key assignments within the same context.
 **Walk Steps vs Syllables:**
 
 The "Walk Steps" parameter controls edge traversal, not output count. See
-:ref:`Walk Structure <syllable_walk:Walk Structure>` in the Syllable Walker docs for the
+the Walk Structure section in :doc:`syllable_walk` for the
 invariant: *steps + 1 = syllables produced*. The TUI displays this dynamically
 (e.g., ``[5] → 6 syl``).
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from build_tools.syllable_walk.dataset_discovery import (
+from build_tools.syllable_walk_web.dataset_discovery import (
     DatasetInfo,
     discover_datasets,
     get_default_dataset,

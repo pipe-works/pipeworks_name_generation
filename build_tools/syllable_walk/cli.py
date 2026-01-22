@@ -18,8 +18,9 @@ Examples::
     # Generate batch of walks
     python -m build_tools.syllable_walk data.json --batch 50 --output walks.json
 
-    # Start interactive web interface
-    python -m build_tools.syllable_walk data.json --web
+For interactive web interface, use the separate syllable_walk_web module::
+
+    python -m build_tools.syllable_walk_web
 """
 
 import argparse
@@ -29,7 +30,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
-from build_tools.syllable_walk.server import run_server
 from build_tools.syllable_walk.walker import SyllableWalker
 
 
@@ -91,28 +91,24 @@ Examples
    python -m build_tools.syllable_walk data.json --start ka --steps 10 \\
        --max-flips 2 --temperature 1.5 --frequency-weight -0.8 --seed 42
 
-   # Start interactive web interface (auto-discovers port starting at 8000)
-   python -m build_tools.syllable_walk --web
+For interactive web interface, use the separate module::
 
-   # Start web interface on specific port
-   python -m build_tools.syllable_walk --web --port 9000
+   python -m build_tools.syllable_walk_web
+   python -m build_tools.syllable_walk_web --port 9000
 
 For detailed documentation, see: claude/build_tools/syllable_walk.md
         """,
     )
 
-    # Optional positional argument (required for CLI modes, optional for web mode)
+    # Required positional argument
     parser.add_argument(
         "data_file",
-        nargs="?",  # Make optional
         type=Path,
         help=(
             "Path to syllables_annotated.json file (output of "
             "syllable_feature_annotator). This file contains syllables with "
             "phonetic features and frequency information. "
-            "Example: data/annotated/syllables_annotated.json. "
-            "Optional in --web mode: if not specified, auto-discovers the most recent "
-            "dataset from _working/output/ directories."
+            "Example: data/annotated/syllables_annotated.json"
         ),
     )
 
@@ -288,20 +284,6 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
         ),
     )
 
-    mode_group.add_argument(
-        "--web",
-        action="store_true",
-        help=(
-            "Start simplified web interface for browsing name selections and "
-            "generating walks. Auto-discovers pipeline runs from _working/output/. "
-            "The interface provides: run selection dropdown, tabbed selections "
-            "browser (first_name, last_name, place_name), and quick walk generator. "
-            "Auto-discovers an available port starting at 8000, or use --port to "
-            "specify a port. The server runs until stopped with Ctrl+C. "
-            "Other CLI arguments are ignored in web mode."
-        ),
-    )
-
     # Output options group
     output_group = parser.add_argument_group(
         "output options",
@@ -370,21 +352,6 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
             "Initialization time (500k syllables): ~30 sec (1), ~1 min (2), ~3 min (3). "
             "Memory impact: ~50MB (1), ~150MB (2), ~300MB (3). "
             "Default: 3 (recommended for maximum flexibility)"
-        ),
-    )
-
-    config_group.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        metavar="PORT",
-        help=(
-            "Port number for web server when using --web mode. Only applies "
-            "when --web flag is specified, otherwise ignored. "
-            "If not specified, auto-discovers an available port starting at 8000. "
-            "If specified, uses that exact port (fails if unavailable). "
-            "Valid range: 1024-65535 (ports below 1024 require root/admin). "
-            "Default: auto-discover starting at 8000"
         ),
     )
 
@@ -631,49 +598,6 @@ def search_mode(walker: SyllableWalker, args: argparse.Namespace) -> int:
     return 0
 
 
-def web_mode(args: argparse.Namespace) -> int:
-    """
-    Handle web server mode.
-
-    Starts the simplified web interface for browsing name selections and
-    exploring syllable walks. The server auto-discovers pipeline runs from
-    _working/output/ and provides a selections browser with walk generation.
-
-    Args:
-        args: Parsed command-line arguments
-
-    Returns:
-        Exit code (0 = success, 1 = error)
-
-    Notes:
-        - Server auto-discovers available ports starting at 8000 if --port not specified
-        - Walker initialization is lazy (happens when user selects a run)
-        - The server runs until stopped with Ctrl+C
-    """
-    try:
-        # run_server handles run discovery and server lifecycle
-        # Port is None means auto-discover starting at 8000
-        run_server(
-            port=args.port,
-            verbose=not args.quiet,
-        )
-        return 0
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-    except OSError as e:
-        print(f"Error starting server: {e}", file=sys.stderr)
-        if args.port:
-            print(f"\nPort {args.port} may already be in use.", file=sys.stderr)
-            print("Try using a different port with --port option.", file=sys.stderr)
-        else:
-            print("\nCould not find an available port.", file=sys.stderr)
-        return 1
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-
 def main() -> int:
     """
     Main entry point for syllable walker CLI.
@@ -703,24 +627,6 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 2
-
-        # Handle web mode early (may not need data_file)
-        if args.web:
-            # data_file is optional in web mode (will auto-discover)
-            return web_mode(args)
-
-        # For CLI modes, data_file is required
-        if not args.data_file:
-            print("Error: data_file is required for CLI mode", file=sys.stderr)
-            print(
-                "\nUsage: python -m build_tools.syllable_walk <data_file> [options]",
-                file=sys.stderr,
-            )
-            print(
-                "\nFor web mode with auto-discovery, use: python -m build_tools.syllable_walk --web",
-                file=sys.stderr,
-            )
-            return 1
 
         # Validate data file exists
         if not args.data_file.exists():

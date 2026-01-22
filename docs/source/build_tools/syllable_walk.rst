@@ -154,99 +154,30 @@ It automatically discovers pipeline run directories from ``_working/output/``.
    python -m build_tools.corpus_sqlite_builder \
      --run-dir _working/output/20260110_115453_pyphen/
 
-   # Step 4: Start the web interface
-   python -m build_tools.syllable_walk --web
+   # Step 4: Explore syllable walks (choose one interface)
+
+   # CLI-based exploration
+   python -m build_tools.syllable_walk \
+     _working/output/20260110_115453_pyphen/data/pyphen_syllables_annotated.json \
+     --start ka --profile dialect --steps 10
+
+   # Web interface (separate module)
+   python -m build_tools.syllable_walk_web
    # Auto-discovers port starting at 8000
    # Shows all available run directories with selection counts
 
 **When to use this tool:**
 
 - To explore phonetic connectivity in your syllable corpus
-- To browse name selections (first_name, last_name, place_name)
 - To compare different extractors (pyphen vs NLTK) and their phonetic behaviors
 - To test if desired phonetic transitions exist before creating patterns
 - To discover interesting phonetic progressions for name generation
+- To batch-generate walks for analysis
+
+For browsing name selections and interactive web-based exploration, see :doc:`syllable_walk_web`.
 
 Advanced Topics
 ---------------
-
-Web Interface
-~~~~~~~~~~~~~
-
-The simplified web interface provides three main features:
-
-1. **Run Selector** - Choose from discovered pipeline runs
-2. **Selections Browser** - Browse generated name selections
-3. **Quick Walk** - Generate syllable walks with preset profiles
-
-**Starting the Server:**
-
-.. code-block:: bash
-
-   # Auto-discover port starting at 8000
-   python -m build_tools.syllable_walk --web
-
-   # Specify exact port (fails if unavailable)
-   python -m build_tools.syllable_walk --web --port 9000
-
-   # Verbose mode for debugging
-   python -m build_tools.syllable_walk --web --verbose
-
-**Run Discovery:**
-
-The server scans ``_working/output/`` for directories matching the pattern
-``YYYYMMDD_HHMMSS_{extractor}``. For each run, it displays:
-
-- **Folder name** (e.g., ``20260121_084017_nltk``)
-- **Syllable count** from SQLite database or JSON
-- **Selection count** (number of selection files)
-
-Example display: ``20260121_084017_nltk (3,135 syllables, 3 selections)``
-
-**Selections Browser:**
-
-The interface shows tabbed selection categories when a run has selections:
-
-- **First Names** - ``selections/{prefix}_first_name_*.json``
-- **Last Names** - ``selections/{prefix}_last_name_*.json``
-- **Place Names** - ``selections/{prefix}_place_name_*.json``
-
-Each selection displays:
-
-- Name and syllables
-- Admission score
-- Sortable table interface
-
-**Data Sources:**
-
-The walker prefers SQLite ``corpus.db`` for performance, falling back to annotated JSON:
-
-1. ``{run_dir}/data/corpus.db`` - SQLite database (fast, <100ms load)
-2. ``{run_dir}/data/{prefix}_syllables_annotated.json`` - JSON fallback
-
-**API Endpoints:**
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 55
-
-   * - Endpoint
-     - Method
-     - Description
-   * - ``/api/runs``
-     - GET
-     - List all discovered run directories with metadata
-   * - ``/api/runs/{id}/selections/{class}``
-     - GET
-     - Get selection data for a name class
-   * - ``/api/select-run``
-     - POST
-     - Switch to a different run (loads walker)
-   * - ``/api/walk``
-     - POST
-     - Generate a syllable walk
-
-The web server uses Python's standard library ``http.server`` (no Flask dependency).
 
 Algorithm Details
 ~~~~~~~~~~~~~~~~~
@@ -279,26 +210,20 @@ Lower temperature = more deterministic (strongly favors lowest cost)
 Performance
 ~~~~~~~~~~~
 
-**SQLite vs JSON Loading:**
-
-.. list-table::
-   :header-rows: 1
-
-   * - Data Source
-     - Load Time
-     - Notes
-   * - SQLite corpus.db
-     - <100ms
-     - Preferred, indexed queries
-   * - Annotated JSON
-     - 2-3 minutes
-     - Fallback, loads entire file
-
 **Walk Generation:**
 
 - **After initialization**: <10ms per walk (instant)
 - **Deterministic**: Same seed always produces same walk
 - **Scalable**: Speed independent of corpus size
+
+**Initialization:**
+
+The neighbor graph must be built on startup, which takes time depending on
+``max_neighbor_distance``:
+
+- **Distance 1**: ~30 sec initialization
+- **Distance 2**: ~1 min initialization
+- **Distance 3**: ~3 min initialization (recommended for large corpora)
 
 Notes
 -----
@@ -306,49 +231,17 @@ Notes
 **Dependencies:**
 
 - Requires NumPy for efficient feature matrix operations (build-time dependency)
-- Uses standard library ``http.server`` for web interface (no Flask)
 
 **Troubleshooting:**
 
-**Port Already in Use:**
+**Invalid Start Syllable:**
 
-The server auto-discovers available ports starting at 8000. If a specific port is requested
-with ``--port`` and is unavailable, the server will fail with an error message.
-
-.. code-block:: bash
-
-   # Auto-discover (tries 8000, 8001, 8002, ...)
-   python -m build_tools.syllable_walk --web
-
-   # Specific port (fails if unavailable)
-   python -m build_tools.syllable_walk --web --port 9000
-
-**No Runs Found:**
-
-If no runs are discovered, ensure you have pipeline output directories:
+If you get an error about an unknown syllable, use ``--search`` to find valid syllables:
 
 .. code-block:: bash
 
-   # Check for existing runs
-   ls _working/output/
-
-   # Run the extraction pipeline first
-   python -m build_tools.nltk_syllable_extractor --file wordlist.txt
-   python -m build_tools.nltk_syllable_normaliser \
-     --run-dir _working/output/YYYYMMDD_HHMMSS_nltk/
-
-**No Selections Shown:**
-
-Selection files must be in the ``selections/`` subdirectory with the naming pattern
-``{prefix}_{name_class}_{N}syl.json``. Run the name selector to generate them:
-
-.. code-block:: bash
-
-   python -m build_tools.name_selector \
-     --run-dir _working/output/YYYYMMDD_HHMMSS_nltk/ \
-     --candidates candidates/nltk_candidates_2syl.json \
-     --name-class first_name \
-     --count 100
+   # Search for syllables containing "th"
+   python -m build_tools.syllable_walk data.json --search "th"
 
 **Build-time tool:**
 
@@ -356,6 +249,8 @@ This is a build-time analysis tool only - not used during runtime name generatio
 
 **Related Documentation:**
 
+- :doc:`syllable_walk_web` - Web interface for browsing selections and generating walks
+- :doc:`syllable_walk_tui` - Interactive TUI for exploring phonetic space
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
 - :doc:`corpus_sqlite_builder` - Builds SQLite database for fast loading
 - :doc:`name_combiner` - Generates name candidates

@@ -15,8 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from build_tools.syllable_walk.run_discovery import RunInfo
-from build_tools.syllable_walk.server import (
+from build_tools.syllable_walk_web.run_discovery import RunInfo
+from build_tools.syllable_walk_web.server import (
     SimplifiedWalkerHandler,
     find_available_port,
     run_server,
@@ -560,7 +560,7 @@ class TestHandleListRuns:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.discover_runs", return_value=mock_runs):
+        with patch("build_tools.syllable_walk_web.server.discover_runs", return_value=mock_runs):
             handler._handle_list_runs()
 
         handler._send_json_response.assert_called_once()
@@ -582,7 +582,7 @@ class TestHandleListRuns:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.discover_runs", return_value=[]):
+        with patch("build_tools.syllable_walk_web.server.discover_runs", return_value=[]):
             handler._handle_list_runs()
 
         response = handler._send_json_response.call_args[0][0]
@@ -601,7 +601,7 @@ class TestHandleListRuns:
         )
 
         with patch(
-            "build_tools.syllable_walk.server.discover_runs",
+            "build_tools.syllable_walk_web.server.discover_runs",
             side_effect=Exception("Discovery failed"),
         ):
             handler._handle_list_runs()
@@ -636,7 +636,7 @@ class TestHandleGetSelection:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=None):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=None):
             handler._handle_get_selection("/api/runs/nonexistent_run/selections/first_name")
 
         handler._send_error_response.assert_called_once()
@@ -654,7 +654,7 @@ class TestHandleGetSelection:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             handler._handle_get_selection(
                 "/api/runs/20260121_084017_nltk/selections/nonexistent_class"
             )
@@ -676,9 +676,9 @@ class TestHandleGetSelection:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             with patch(
-                "build_tools.syllable_walk.server.get_selection_data",
+                "build_tools.syllable_walk_web.server.get_selection_data",
                 return_value=selection_data,
             ):
                 handler._handle_get_selection(
@@ -697,7 +697,7 @@ class TestHandleGetSelection:
         )
 
         with patch(
-            "build_tools.syllable_walk.server.get_run_by_id",
+            "build_tools.syllable_walk_web.server.get_run_by_id",
             side_effect=Exception("Database error"),
         ):
             handler._handle_get_selection("/api/runs/20260121_084017_nltk/selections/first_name")
@@ -803,7 +803,7 @@ class TestHandleSelectRun:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=None):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=None):
             handler._handle_select_run()
 
         handler._send_error_response.assert_called_once()
@@ -828,7 +828,7 @@ class TestHandleSelectRun:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             handler._handle_select_run()
 
         response = handler._send_json_response.call_args[0][0]
@@ -879,13 +879,13 @@ class TestHandleSelectRun:
         mock_walker = MagicMock()
         mock_walker.syllables = sample_syllables_data
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             with patch(
-                "build_tools.syllable_walk.server.load_syllables",
+                "build_tools.syllable_walk_web.server.load_syllables",
                 return_value=(sample_syllables_data, "JSON (3 syllables)"),
             ):
                 with patch(
-                    "build_tools.syllable_walk.server.SyllableWalker.from_data",
+                    "build_tools.syllable_walk_web.server.SyllableWalker.from_data",
                     return_value=mock_walker,
                 ):
                     handler._handle_select_run()
@@ -922,13 +922,13 @@ class TestHandleSelectRun:
         mock_walker = MagicMock()
         mock_walker.syllables = sample_syllables_data
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             with patch(
-                "build_tools.syllable_walk.server.load_syllables",
+                "build_tools.syllable_walk_web.server.load_syllables",
                 return_value=(sample_syllables_data, "JSON (3 syllables)"),
             ):
                 with patch(
-                    "build_tools.syllable_walk.server.SyllableWalker.from_data",
+                    "build_tools.syllable_walk_web.server.SyllableWalker.from_data",
                     return_value=mock_walker,
                 ):
                     handler._handle_select_run()
@@ -959,9 +959,9 @@ class TestHandleSelectRun:
             handler, SimplifiedWalkerHandler
         )
 
-        with patch("build_tools.syllable_walk.server.get_run_by_id", return_value=mock_run):
+        with patch("build_tools.syllable_walk_web.server.get_run_by_id", return_value=mock_run):
             with patch(
-                "build_tools.syllable_walk.server.load_syllables",
+                "build_tools.syllable_walk_web.server.load_syllables",
                 side_effect=Exception("Load failed"),
             ):
                 handler._handle_select_run()
@@ -1245,7 +1245,7 @@ class TestRunServerVerbose:
             MagicMock(display_name="Run 4", selections={"place_name": "/d"}),
         ]
 
-        with patch("build_tools.syllable_walk.server.discover_runs", return_value=mock_runs):
+        with patch("build_tools.syllable_walk_web.server.discover_runs", return_value=mock_runs):
             with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
                 with patch.object(HTTPServer, "shutdown"):
                     run_server(port=16000, verbose=True)
@@ -1260,8 +1260,8 @@ class TestRunServerVerbose:
 
     def test_run_server_auto_port_verbose(self, capsys):
         """Test run_server auto-port discovery verbose output."""
-        with patch("build_tools.syllable_walk.server.find_available_port", return_value=8042):
-            with patch("build_tools.syllable_walk.server.discover_runs", return_value=[]):
+        with patch("build_tools.syllable_walk_web.server.find_available_port", return_value=8042):
+            with patch("build_tools.syllable_walk_web.server.discover_runs", return_value=[]):
                 with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
                     with patch.object(HTTPServer, "shutdown"):
                         run_server(port=None, verbose=True)
