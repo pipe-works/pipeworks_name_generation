@@ -268,6 +268,16 @@ class SyllableWalkerApp(App):
         """Select names for Patch B using name_selector (mirrors CLI behavior)."""
         self._run_selector("B")
 
+    @on(Button.Pressed, "#export-txt-a")
+    def on_button_export_txt_a(self) -> None:
+        """Export selected names to TXT file for Patch A."""
+        self._export_to_txt("A")
+
+    @on(Button.Pressed, "#export-txt-b")
+    def on_button_export_txt_b(self) -> None:
+        """Export selected names to TXT file for Patch B."""
+        self._export_to_txt("B")
+
     def _generate_walks_for_patch(self, patch_name: str) -> None:
         """
         Generate walks for a patch using SyllableWalker.
@@ -711,6 +721,53 @@ class SyllableWalkerApp(App):
 
         except Exception as e:
             self.notify(f"Selector failed: {e}", severity="error")
+            traceback.print_exc()
+
+    def _export_to_txt(self, patch_name: str) -> None:
+        """
+        Export selected names to a plain text file (one name per line).
+
+        The TXT file is written to the same selections directory as the JSON output,
+        using the same naming convention: {prefix}_{name_class}_{N}syl.txt
+
+        Args:
+            patch_name: "A" or "B" - which patch's selections to export
+        """
+        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
+
+        # Check if there are names to export
+        if not selector.outputs:
+            self.notify(
+                f"Patch {patch_name}: No names to export. Run Select Names first.",
+                severity="warning",
+            )
+            return
+
+        # Check if we have the output path from the selector
+        if not selector.last_output_path:
+            self.notify(
+                f"Patch {patch_name}: No selection output path. Run Select Names first.",
+                severity="warning",
+            )
+            return
+
+        try:
+            # Derive TXT path from JSON path
+            json_path = Path(selector.last_output_path)
+            txt_path = json_path.with_suffix(".txt")
+
+            # Write names to TXT file (one per line)
+            with open(txt_path, "w") as f:
+                for name in selector.outputs:
+                    f.write(f"{name}\n")
+
+            self.notify(
+                f"Exported {len(selector.outputs):,} names → {txt_path.name}",
+                severity="information",
+            )
+
+        except Exception as e:
+            self.notify(f"Export failed: {e}", severity="error")
             traceback.print_exc()
 
     def _handle_selector_mode_selected(self, widget_id: str, mode: str) -> None:

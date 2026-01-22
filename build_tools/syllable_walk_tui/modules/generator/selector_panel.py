@@ -62,6 +62,10 @@ class SelectorPanel(Static):
         margin-bottom: 1;
     }
 
+    SelectorPanel .export-button {
+        margin-bottom: 1;
+    }
+
     SelectorPanel .output-section {
         margin-top: 1;
         border-top: solid $primary-darken-2;
@@ -214,6 +218,14 @@ class SelectorPanel(Static):
             id=f"select-names-{self.patch_name.lower()}",
             variant="primary",
             classes="select-button",
+        )
+
+        # Export to TXT button
+        yield Button(
+            "Export TXT",
+            id=f"export-txt-{self.patch_name.lower()}",
+            variant="default",
+            classes="export-button",
         )
 
         # Output section (metadata and names display)
