@@ -41,6 +41,26 @@ class TestSelectorPanel:
         """CSS should include mode-options class."""
         assert "mode-options" in SelectorPanel.DEFAULT_CSS
 
+    def test_css_includes_order_label(self) -> None:
+        """CSS should include order-label class."""
+        assert "order-label" in SelectorPanel.DEFAULT_CSS
+
+    def test_css_includes_order_options(self) -> None:
+        """CSS should include order-options class."""
+        assert "order-options" in SelectorPanel.DEFAULT_CSS
+
+    def test_css_includes_names_scroll(self) -> None:
+        """CSS should include names-scroll class."""
+        assert "names-scroll" in SelectorPanel.DEFAULT_CSS
+
+    def test_css_includes_names_header(self) -> None:
+        """CSS should include names-header class."""
+        assert "names-header" in SelectorPanel.DEFAULT_CSS
+
+    def test_css_includes_names_list(self) -> None:
+        """CSS should include names-list class."""
+        assert "names-list" in SelectorPanel.DEFAULT_CSS
+
 
 class TestSelectorPanelInit:
     """Tests for SelectorPanel initialization."""
@@ -126,3 +146,58 @@ class TestSelectorPanelMethods:
         panel = SelectorPanel()
         # Should not raise
         panel.set_mode("soft")
+
+    def test_set_order_random(self) -> None:
+        """set_order should accept 'random'."""
+        panel = SelectorPanel()
+        # Should not raise
+        panel.set_order("random")
+
+    def test_set_order_alphabetical(self) -> None:
+        """set_order should accept 'alphabetical'."""
+        panel = SelectorPanel()
+        # Should not raise
+        panel.set_order("alphabetical")
+
+    def test_update_output_with_names(self) -> None:
+        """update_output should accept names list."""
+        panel = SelectorPanel()
+        meta = {
+            "arguments": {
+                "name_class": "first_name",
+                "count": 100,
+                "mode": "hard",
+                "order": "random",
+            },
+            "statistics": {
+                "total_evaluated": 10000,
+                "admitted": 7500,
+                "admitted_percentage": 75.0,
+                "rejected": 2500,
+            },
+            "output": {
+                "selections_count": 100,
+                "selections_file": "/path/to/selections/pyphen_first_name_2syl.json",
+            },
+        }
+        names = ["kali", "sora", "mira", "vela", "nori"]
+        # Should not raise
+        panel.update_output(meta, names)
+
+    def test_update_output_with_none_names(self) -> None:
+        """update_output should accept None for names."""
+        panel = SelectorPanel()
+        meta = {
+            "arguments": {"name_class": "first_name"},
+        }
+        # Should not raise
+        panel.update_output(meta, None)
+
+    def test_update_output_with_empty_names(self) -> None:
+        """update_output should handle empty names list."""
+        panel = SelectorPanel()
+        meta = {
+            "arguments": {"name_class": "first_name"},
+        }
+        # Should not raise
+        panel.update_output(meta, [])

@@ -1484,6 +1484,102 @@ class TestSelectorEventHandlers:
             assert app.state.selector_b.count == 200
 
 
+class TestSelectorOrderEventHandlers:
+    """Tests for selector order-related event handlers."""
+
+    @pytest.mark.asyncio
+    async def test_selector_order_random_updates_state_a(self):
+        """Test that selector order random updates selector_a state."""
+        from build_tools.tui_common.controls import RadioOption
+
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            # Start with alphabetical
+            app.state.selector_a.order = "alphabetical"
+
+            event = RadioOption.Selected(option_name="random", widget_id="selector-order-random-a")
+            app.on_profile_selected(event)
+
+            assert app.state.selector_a.order == "random"
+
+    @pytest.mark.asyncio
+    async def test_selector_order_alphabetical_updates_state_a(self):
+        """Test that selector order alphabetical updates selector_a state."""
+        from build_tools.tui_common.controls import RadioOption
+
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            # Start with random
+            app.state.selector_a.order = "random"
+
+            event = RadioOption.Selected(
+                option_name="alphabetical", widget_id="selector-order-alphabetical-a"
+            )
+            app.on_profile_selected(event)
+
+            assert app.state.selector_a.order == "alphabetical"
+
+    @pytest.mark.asyncio
+    async def test_selector_order_random_updates_state_b(self):
+        """Test that selector order random updates selector_b state."""
+        from build_tools.tui_common.controls import RadioOption
+
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            # Start with alphabetical
+            app.state.selector_b.order = "alphabetical"
+
+            event = RadioOption.Selected(option_name="random", widget_id="selector-order-random-b")
+            app.on_profile_selected(event)
+
+            assert app.state.selector_b.order == "random"
+
+    @pytest.mark.asyncio
+    async def test_selector_order_alphabetical_updates_state_b(self):
+        """Test that selector order alphabetical updates selector_b state."""
+        from build_tools.tui_common.controls import RadioOption
+
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            # Start with random
+            app.state.selector_b.order = "random"
+
+            event = RadioOption.Selected(
+                option_name="alphabetical", widget_id="selector-order-alphabetical-b"
+            )
+            app.on_profile_selected(event)
+
+            assert app.state.selector_b.order == "alphabetical"
+
+    @pytest.mark.asyncio
+    async def test_selector_order_states_are_independent(self):
+        """Test that selector_a and selector_b order states are independent."""
+        from build_tools.tui_common.controls import RadioOption
+
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            # Set A to random
+            event_a = RadioOption.Selected(
+                option_name="random", widget_id="selector-order-random-a"
+            )
+            app.on_profile_selected(event_a)
+
+            # Set B to alphabetical
+            event_b = RadioOption.Selected(
+                option_name="alphabetical", widget_id="selector-order-alphabetical-b"
+            )
+            app.on_profile_selected(event_b)
+
+            # Verify they're independent
+            assert app.state.selector_a.order == "random"
+            assert app.state.selector_b.order == "alphabetical"
+
+
 class TestRunSelector:
     """Tests for _run_selector method."""
 

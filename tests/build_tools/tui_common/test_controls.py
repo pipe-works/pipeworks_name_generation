@@ -17,6 +17,7 @@ from build_tools.tui_common.controls import (
     DirectoryBrowserScreen,
     FloatSlider,
     IntSpinner,
+    JKSelect,
     RadioOption,
     SeedInput,
 )
@@ -422,6 +423,92 @@ class TestRadioOptionMessages:
             await pilot.pause()
 
             assert len(app.messages) == 0
+
+
+# =============================================================================
+# JKSelect Tests
+# =============================================================================
+
+
+class TestJKSelect:
+    """Tests for JKSelect widget with vim-style j/k navigation."""
+
+    def test_initialization(self):
+        """Test JKSelect initializes correctly with options."""
+        select = JKSelect(
+            [("Option 1", "opt1"), ("Option 2", "opt2"), ("Option 3", "opt3")],
+            value="opt1",
+        )
+
+        # Verify widget was created (value is set during mount, not init)
+        assert select is not None
+
+    def test_initialization_with_id(self):
+        """Test JKSelect stores id correctly."""
+        select = JKSelect(
+            [("A", "a"), ("B", "b")],
+            value="a",
+            id="my-select",
+        )
+
+        assert select.id == "my-select"
+
+    def test_initialization_with_allow_blank_false(self):
+        """Test JKSelect respects allow_blank setting."""
+        select = JKSelect(
+            [("A", "a"), ("B", "b")],
+            value="a",
+            allow_blank=False,
+        )
+
+        # _allow_blank is the internal attribute
+        assert select._allow_blank is False
+
+    @pytest.mark.asyncio
+    async def test_compose_creates_jkselect_overlay(self):
+        """Test that compose creates JKSelectOverlay instead of standard overlay."""
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+
+            # The overlay should be a JKSelectOverlay, not SelectOverlay
+            overlays = list(select.query(JKSelectOverlay))
+            assert len(overlays) == 1
+
+
+class TestJKSelectOverlay:
+    """Tests for JKSelectOverlay key handling."""
+
+    @pytest.mark.asyncio
+    async def test_overlay_exists_in_select(self):
+        """Test that JKSelect contains JKSelectOverlay."""
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b"), ("C", "c")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+
+            # Verify JKSelectOverlay is present
+            overlay = select.query_one(JKSelectOverlay)
+            assert overlay is not None
 
 
 # =============================================================================
