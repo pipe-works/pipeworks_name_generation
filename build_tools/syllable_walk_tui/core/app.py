@@ -20,7 +20,7 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
-from textual.widgets import Button, Footer, Header, Label
+from textual.widgets import Button, Footer, Header, Label, Select
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
 from build_tools.syllable_walk.walker import SyllableWalker
@@ -35,7 +35,7 @@ from build_tools.syllable_walk_tui.core.state import AppState
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.database import DatabaseScreen
-from build_tools.syllable_walk_tui.modules.generator import CombinerPanel
+from build_tools.syllable_walk_tui.modules.generator import CombinerPanel, SelectorPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
@@ -196,16 +196,18 @@ class SyllableWalkerApp(App):
 
         # Main view: Four-column layout
         # Column 1: Oscillator A (walk parameters)
-        # Column 2: Combiner A (name generation)
-        # Column 3: Combiner B (name generation)
+        # Column 2: Combiner A + Selector A (name generation + selection)
+        # Column 3: Combiner B + Selector B (name generation + selection)
         # Column 4: Oscillator B (walk parameters)
         with Horizontal(id="main-container"):
             with VerticalScroll(classes="column patch-panel"):
                 yield OscillatorPanel("A", initial_seed=self.state.patch_a.seed, id="patch-a")
             with VerticalScroll(classes="column combiner-column"):
                 yield CombinerPanel(patch_name="A", id="combiner-panel-a")
+                yield SelectorPanel(patch_name="A", id="selector-panel-a")
             with VerticalScroll(classes="column combiner-column"):
                 yield CombinerPanel(patch_name="B", id="combiner-panel-b")
+                yield SelectorPanel(patch_name="B", id="selector-panel-b")
             with VerticalScroll(classes="column patch-panel"):
                 yield OscillatorPanel("B", initial_seed=self.state.patch_b.seed, id="patch-b")
 
@@ -255,6 +257,16 @@ class SyllableWalkerApp(App):
     def on_button_generate_candidates_b(self) -> None:
         """Generate candidates for Patch B using name_combiner (mirrors CLI behavior)."""
         self._run_combiner("B")
+
+    @on(Button.Pressed, "#select-names-a")
+    def on_button_select_names_a(self) -> None:
+        """Select names for Patch A using name_selector (mirrors CLI behavior)."""
+        self._run_selector("A")
+
+    @on(Button.Pressed, "#select-names-b")
+    def on_button_select_names_b(self) -> None:
+        """Select names for Patch B using name_selector (mirrors CLI behavior)."""
+        self._run_selector("B")
 
     def _generate_walks_for_patch(self, patch_name: str) -> None:
         """
@@ -487,6 +499,252 @@ class SyllableWalkerApp(App):
         except Exception as e:
             self.notify(f"Combiner failed: {e}", severity="error")
             traceback.print_exc()
+
+    def _run_selector(self, patch_name: str) -> None:
+        """
+        Run name_selector for a specific patch (mirrors CLI behavior exactly).
+
+        This method mirrors the CLI:
+            python -m build_tools.name_selector \\
+                --run-dir <patch.corpus_dir> \\
+                --candidates <from combiner output> \\
+                --name-class <name_class> \\
+                --count <count> \\
+                --mode <mode>
+
+        Output is written to: <run-dir>/selections/{prefix}_{name_class}_{N}syl.json
+
+        Args:
+            patch_name: "A" or "B" - which patch to use for selection
+        """
+        from datetime import datetime, timezone
+
+        from build_tools.name_selector.name_class import get_default_policy_path, load_name_classes
+        from build_tools.name_selector.selector import compute_selection_statistics, select_names
+
+        # Get the selector and combiner states for this patch (independent A/B)
+        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
+        combiner = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
+        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
+
+        # Validate patch is ready
+        if not patch.is_ready_for_generation():
+            self.notify(
+                f"Patch {patch_name}: Corpus not loaded. "
+                f"Press {1 if patch_name == 'A' else 2} to select a corpus.",
+                severity="warning",
+            )
+            return
+
+        if not patch.corpus_dir:
+            self.notify(
+                f"Patch {patch_name}: No corpus directory set.",
+                severity="error",
+            )
+            return
+
+        # Check if candidates file exists (from combiner output)
+        if not combiner.last_output_path:
+            self.notify(
+                f"Patch {patch_name}: No candidates generated. " f"Run Generate Candidates first.",
+                severity="warning",
+            )
+            return
+
+        candidates_path = Path(combiner.last_output_path)
+        if not candidates_path.exists():
+            self.notify(
+                f"Patch {patch_name}: Candidates file not found: {candidates_path.name}",
+                severity="error",
+            )
+            return
+
+        try:
+            run_dir = patch.corpus_dir
+            prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
+
+            self.notify(
+                f"Selecting {selector.count} {selector.name_class} names...",
+                timeout=2,
+                severity="information",
+            )
+
+            # Load candidates
+            with open(candidates_path) as f:
+                candidates_data = json.load(f)
+            candidates = candidates_data.get("candidates", [])
+
+            if not candidates:
+                self.notify(
+                    f"Patch {patch_name}: No candidates in file.",
+                    severity="error",
+                )
+                return
+
+            # Load policy
+            policy_path = get_default_policy_path()
+            policies = load_name_classes(policy_path)
+
+            if selector.name_class not in policies:
+                self.notify(
+                    f"Unknown name class: {selector.name_class}",
+                    severity="error",
+                )
+                return
+
+            policy = policies[selector.name_class]
+
+            # Compute statistics
+            stats = compute_selection_statistics(
+                candidates, policy, mode=selector.mode  # type: ignore[arg-type]
+            )
+
+            # Select names
+            selected = select_names(
+                candidates, policy, count=selector.count, mode=selector.mode  # type: ignore[arg-type]
+            )
+
+            # Prepare output directory
+            selections_dir = run_dir / "selections"
+            selections_dir.mkdir(parents=True, exist_ok=True)
+
+            # Extract syllable count from candidates filename
+            syllables = combiner.syllables
+
+            output_filename = f"{prefix}_{selector.name_class}_{syllables}syl.json"
+            output_path = selections_dir / output_filename
+
+            # Build output structure
+            output = {
+                "metadata": {
+                    "source_candidates": candidates_path.name,
+                    "name_class": selector.name_class,
+                    "policy_description": policy.description,
+                    "policy_file": str(policy_path),
+                    "mode": selector.mode,
+                    "total_evaluated": stats["total_evaluated"],
+                    "admitted": stats["admitted"],
+                    "rejected": stats["rejected"],
+                    "rejection_reasons": stats["rejection_reasons"],
+                    "score_distribution": stats["score_distribution"],
+                    "output_count": len(selected),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "selections": selected,
+            }
+
+            # Write output
+            with open(output_path, "w") as f:
+                json.dump(output, f, indent=2)
+
+            # Write meta file
+            meta_output = {
+                "tool": "name_selector",
+                "version": "1.0.0",
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "arguments": {
+                    "run_dir": str(run_dir),
+                    "candidates": str(candidates_path),
+                    "name_class": selector.name_class,
+                    "policy_file": str(policy_path),
+                    "count": selector.count,
+                    "mode": selector.mode,
+                },
+                "input": {
+                    "candidates_file": str(candidates_path),
+                    "candidates_loaded": len(candidates),
+                    "policy_file": str(policy_path),
+                    "policy_name": selector.name_class,
+                    "policy_description": policy.description,
+                },
+                "output": {
+                    "selections_file": str(output_path),
+                    "selections_count": len(selected),
+                },
+                "statistics": {
+                    "total_evaluated": stats["total_evaluated"],
+                    "admitted": stats["admitted"],
+                    "admitted_percentage": (
+                        round(stats["admitted"] / stats["total_evaluated"] * 100, 2)
+                        if stats["total_evaluated"] > 0
+                        else 0
+                    ),
+                    "rejected": stats["rejected"],
+                    "rejection_reasons": stats["rejection_reasons"],
+                    "score_distribution": stats["score_distribution"],
+                    "mode": selector.mode,
+                    "source_prefix": prefix,
+                    "syllable_count": syllables,
+                },
+            }
+
+            meta_filename = f"{prefix}_selector_meta.json"
+            meta_path = selections_dir / meta_filename
+            with open(meta_path, "w") as f:
+                json.dump(meta_output, f, indent=2)
+
+            # Update state
+            selector.last_output_path = str(output_path)
+            selector.last_candidates_path = str(candidates_path)
+            selector.outputs = [s["name"] for s in selected[:10]]  # Store top 10 for display
+
+            # Update panel
+            try:
+                panel = self.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
+                panel.update_output(meta_output)
+            except Exception as e:
+                print(f"Warning: Could not update selector panel: {e}")
+
+            self.notify(
+                f"Selected {len(selected):,} {selector.name_class} names → {output_path.name}",
+                severity="information",
+            )
+
+        except Exception as e:
+            self.notify(f"Selector failed: {e}", severity="error")
+            traceback.print_exc()
+
+    def _handle_selector_mode_selected(self, widget_id: str, mode: str) -> None:
+        """
+        Handle selector mode radio option selection.
+
+        Args:
+            widget_id: Widget ID like "selector-mode-hard-a"
+            mode: Mode name ("hard" or "soft")
+        """
+        # Extract patch from widget ID (last character)
+        patch_name = widget_id[-1].upper()
+        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
+
+        # Update selector state
+        selector.mode = mode  # type: ignore[assignment]
+
+        # Update radio button UI - deselect the other option
+        try:
+            hard_option = self.query_one(f"#selector-mode-hard-{patch_name.lower()}", ProfileOption)
+            soft_option = self.query_one(f"#selector-mode-soft-{patch_name.lower()}", ProfileOption)
+
+            if mode == "hard":
+                hard_option.set_selected(True)
+                soft_option.set_selected(False)
+            else:
+                hard_option.set_selected(False)
+                soft_option.set_selected(True)
+        except Exception:  # nosec B110 - Widget may not be mounted yet
+            pass
+
+    def _handle_selector_name_class_changed(self, widget_id: str, value: str) -> None:
+        """
+        Handle selector name class selection change.
+
+        Args:
+            widget_id: Widget ID like "selector-name-class-a"
+            value: Selected name class
+        """
+        # Extract patch from widget ID (last character)
+        patch_name = widget_id[-1].upper()
+        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
+        selector.name_class = value
 
     def action_select_corpus_a(self) -> None:
         """Action: Open corpus selector for Patch A (keybinding: 1)."""
@@ -1016,6 +1274,14 @@ class SyllableWalkerApp(App):
                 comb.count = event.value
             return
 
+        # Check for selector panel widgets (pattern: selector-<param>-<patch>)
+        if widget_id.startswith("selector-"):
+            # Determine which selector (A or B) based on widget ID suffix
+            sel = self.state.selector_a if widget_id.endswith("-a") else self.state.selector_b
+            if "count" in widget_id:
+                sel.count = event.value
+            return
+
         # Parse widget ID to determine patch and parameter
         # Format: "<param>-<patch>" e.g., "min-length-A"
         parts = widget_id.rsplit("-", 1)
@@ -1135,6 +1401,18 @@ class SyllableWalkerApp(App):
         patch.seed = event.value
         patch.rng = __import__("random").Random(event.value)
 
+    @on(Select.Changed)
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle Select widget changes (e.g., name class dropdown)."""
+        widget_id = str(event.control.id) if event.control.id else None
+        if not widget_id:
+            return
+
+        # Handle selector name class dropdown
+        if widget_id.startswith("selector-name-class"):
+            value = str(event.value) if event.value else "first_name"
+            self._handle_selector_name_class_changed(widget_id, value)
+
     @on(ProfileOption.Selected)
     def on_profile_selected(self, event: ProfileOption.Selected) -> None:
         """Handle profile option selection (radio button click)."""
@@ -1142,6 +1420,11 @@ class SyllableWalkerApp(App):
         # Format: "profile-<profile_name>-<patch>" e.g., "profile-clerical-A"
         widget_id = event.widget_id
         if not widget_id:
+            return
+
+        # Handle selector mode options (selector-mode-hard-a, selector-mode-soft-b)
+        if widget_id.startswith("selector-mode-"):
+            self._handle_selector_mode_selected(widget_id, event.profile_name)
             return
 
         parts = widget_id.rsplit("-", 1)
