@@ -174,6 +174,10 @@ python -m build_tools.name_selector \
 | `first_name` | Addressability | Prefers vowel endings, avoids heavy clusters |
 | `last_name` | Durability | Prefers stop endings, avoids vowel endings |
 | `place_name` | Stability | Prefers clusters, allows longer names (2-4 syl) |
+| `location_name` | Meaning Compression | Prefers heavy clusters, all texture features |
+| `object_item` | Distinction | Prefers short vowels, stop endings, avoids vowel endings |
+| `organisation` | Cadence | All texture features, long vowels, nasal/stop endings |
+| `title_epithet` | Authority | Heavy clusters, long vowels, avoids short vowels |
 
 **Feature Aggregation Rules** (syllable → name level):
 
