@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.4...pipeworks-name-generation-v0.5.5) (2026-01-22)
+
+
+### Features
+
+* **name_selector:** Add organisation and title_epithet name classes ([#25](https://github.com/aa-parky/pipeworks_name_generation/issues/25)) ([92b7919](https://github.com/aa-parky/pipeworks_name_generation/commit/92b7919765f0072eb334b75973a57a1360d2a4d9))
+
+
+### Internal Changes
+
+* **build_tools:** Extract web UI to syllable_walk_web module ([#23](https://github.com/aa-parky/pipeworks_name_generation/issues/23)) ([4af4940](https://github.com/aa-parky/pipeworks_name_generation/commit/4af4940105d3abc2abcbb6573461c3fb8832e68a))
+
 ## [0.5.4](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.3...pipeworks-name-generation-v0.5.4) (2026-01-21)
 
 
