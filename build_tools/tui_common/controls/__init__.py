@@ -26,10 +26,12 @@ that don't conflict with app-level bindings.
 - :class:`SeedInput` - Random seed input with two-box design
 - :class:`RadioOption` - Radio button style option selection
 - :class:`DirectoryBrowserScreen` - Modal directory browser with validation
+- :class:`JKSelect` - Dropdown select with vim-style j/k navigation
 """
 
 from build_tools.tui_common.controls.browsers import DirectoryBrowserScreen
 from build_tools.tui_common.controls.inputs import RadioOption, SeedInput
+from build_tools.tui_common.controls.selects import JKSelect
 from build_tools.tui_common.controls.sliders import FloatSlider
 from build_tools.tui_common.controls.spinners import IntSpinner
 
@@ -39,4 +41,5 @@ __all__ = [
     "SeedInput",
     "RadioOption",
     "DirectoryBrowserScreen",
+    "JKSelect",
 ]

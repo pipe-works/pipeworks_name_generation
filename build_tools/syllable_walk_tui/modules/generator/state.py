@@ -106,6 +106,8 @@ class SelectorState:
                Maps to CLI --count (default: 100)
         mode: Evaluation mode - "hard" rejects, "soft" penalizes
               Maps to CLI --mode (default: "hard")
+        order: Ordering for names with equal scores
+               "alphabetical" for deterministic, "random" for variety
 
         outputs: List of selected names (for display)
         last_output_path: Path where selections were written
@@ -127,6 +129,11 @@ class SelectorState:
     # "soft" = apply -10 penalty instead of rejection
     # Maps to CLI --mode (default: "hard")
     mode: Literal["hard", "soft"] = "hard"
+
+    # Ordering for names with equal scores
+    # "alphabetical" = deterministic, sorted by name
+    # "random" = shuffled within score groups (seeded)
+    order: Literal["alphabetical", "random"] = "random"
 
     # Output storage (for display in TUI)
     outputs: list[str] = field(default_factory=list)

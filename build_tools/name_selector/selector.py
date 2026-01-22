@@ -34,6 +34,7 @@ Usage
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING, Literal
 
 from build_tools.name_selector.policy import check_syllable_count, evaluate_candidate
@@ -49,6 +50,8 @@ def select_names(
     policy: NameClassPolicy,
     count: int = 100,
     mode: Literal["hard", "soft"] = "hard",
+    order: Literal["alphabetical", "random"] = "alphabetical",
+    seed: int | None = None,
 ) -> list[dict]:
     """
     Select and rank name candidates against a policy.
@@ -71,6 +74,15 @@ def select_names(
     mode : {"hard", "soft"}, optional
         Evaluation mode. "hard" rejects on discouraged features.
         "soft" applies penalties. Default: "hard".
+
+    order : {"alphabetical", "random"}, optional
+        Ordering for names with equal scores. "alphabetical" sorts by name
+        for deterministic output. "random" shuffles within score groups
+        using the provided seed. Default: "alphabetical".
+
+    seed : int, optional
+        RNG seed for random ordering. Only used when order="random".
+        Required for deterministic random ordering. Default: None.
 
     Returns
     -------
@@ -127,13 +139,64 @@ def select_names(
             }
         )
 
-    # Sort by score (descending), then by name (for deterministic ordering)
-    admitted.sort(key=lambda x: (-x["score"], x["name"]))
+    # Sort by score (descending)
+    if order == "random":
+        # Random shuffle within score groups for variety
+        rng = random.Random(seed)  # nosec B311 - deterministic name ordering, not security
+        # First sort alphabetically for stable grouping, then shuffle within groups
+        admitted.sort(key=lambda x: (-x["score"], x["name"]))
+        # Group by score and shuffle within each group
+        admitted = _shuffle_within_score_groups(admitted, rng)
+    else:
+        # Alphabetical: sort by score (descending), then by name (deterministic)
+        admitted.sort(key=lambda x: (-x["score"], x["name"]))
 
     # Assign ranks and limit output
     result = admitted[:count]
     for i, candidate in enumerate(result, start=1):
         candidate["rank"] = i
+
+    return result
+
+
+def _shuffle_within_score_groups(admitted: list[dict], rng: random.Random) -> list[dict]:
+    """
+    Shuffle candidates within each score group while preserving score order.
+
+    Parameters
+    ----------
+    admitted : list[dict]
+        List of candidates sorted by score descending.
+
+    rng : random.Random
+        Random number generator for shuffling.
+
+    Returns
+    -------
+    list[dict]
+        Candidates with shuffled order within score groups.
+    """
+    if not admitted:
+        return admitted
+
+    result: list[dict] = []
+    current_score = admitted[0]["score"]
+    current_group: list[dict] = []
+
+    for candidate in admitted:
+        if candidate["score"] == current_score:
+            current_group.append(candidate)
+        else:
+            # Shuffle and add the previous group
+            rng.shuffle(current_group)
+            result.extend(current_group)
+            # Start new group
+            current_score = candidate["score"]
+            current_group = [candidate]
+
+    # Don't forget the last group
+    rng.shuffle(current_group)
+    result.extend(current_group)
 
     return result
 

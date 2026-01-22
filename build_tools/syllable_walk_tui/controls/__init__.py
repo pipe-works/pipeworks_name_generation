@@ -32,6 +32,7 @@ from build_tools.tui_common.controls import (
     DirectoryBrowserScreen,
     FloatSlider,
     IntSpinner,
+    JKSelect,
     RadioOption,
     SeedInput,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "FloatSlider",
     "SeedInput",
     "RadioOption",
+    "JKSelect",
     # Local controls
     "CorpusBrowserScreen",
     # Alias for backward compatibility

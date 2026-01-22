@@ -242,3 +242,168 @@ class TestDeterminism:
         # Should be alphabetical (secondary sort by name)
         names = [r["name"] for r in result]
         assert names == sorted(names)
+
+
+class TestOrderParameter:
+    """Test order parameter behavior."""
+
+    def test_alphabetical_order_is_deterministic(self):
+        """Alphabetical order should produce same results every time."""
+        policy = make_policy()  # All score 0
+        candidates = [
+            make_candidate("zebra", ["ze", "bra"]),
+            make_candidate("alpha", ["al", "pha"]),
+            make_candidate("mango", ["man", "go"]),
+        ]
+
+        result1 = select_names(candidates, policy, count=10, order="alphabetical")
+        result2 = select_names(candidates, policy, count=10, order="alphabetical")
+
+        names1 = [r["name"] for r in result1]
+        names2 = [r["name"] for r in result2]
+        assert names1 == names2
+        assert names1 == ["alpha", "mango", "zebra"]
+
+    def test_random_order_with_seed_is_deterministic(self):
+        """Random order with same seed should produce same results."""
+        policy = make_policy()  # All score 0
+        candidates = [make_candidate(f"name{i}", ["na", "me"]) for i in range(20)]
+
+        result1 = select_names(candidates, policy, count=10, order="random", seed=42)
+        result2 = select_names(candidates, policy, count=10, order="random", seed=42)
+
+        names1 = [r["name"] for r in result1]
+        names2 = [r["name"] for r in result2]
+        assert names1 == names2
+
+    def test_random_order_different_seeds_differ(self):
+        """Random order with different seeds should produce different results."""
+        policy = make_policy()  # All score 0
+        candidates = [make_candidate(f"name{i}", ["na", "me"]) for i in range(20)]
+
+        result1 = select_names(candidates, policy, count=10, order="random", seed=42)
+        result2 = select_names(candidates, policy, count=10, order="random", seed=123)
+
+        names1 = [r["name"] for r in result1]
+        names2 = [r["name"] for r in result2]
+        # With enough candidates, different seeds should produce different order
+        assert names1 != names2
+
+    def test_random_order_preserves_score_ranking(self):
+        """Random order should only shuffle within same score groups."""
+        policy = make_policy(ends_with_vowel="preferred", contains_liquid="preferred")
+        candidates = [
+            make_candidate("low1", ["lo", "w1"]),  # Score 0
+            make_candidate("low2", ["lo", "w2"]),  # Score 0
+            make_candidate("mid1", ["mi", "da"], ends_with_vowel=True),  # Score 1
+            make_candidate("mid2", ["mi", "db"], ends_with_vowel=True),  # Score 1
+            make_candidate("high1", ["ka", "li"], ends_with_vowel=True, contains_liquid=True),  # 2
+            make_candidate("high2", ["sa", "li"], ends_with_vowel=True, contains_liquid=True),  # 2
+        ]
+
+        result = select_names(candidates, policy, count=10, order="random", seed=42)
+
+        # Verify score ordering is preserved (descending)
+        scores = [r["score"] for r in result]
+        assert scores == sorted(scores, reverse=True)
+
+        # First 2 should be score 2
+        assert result[0]["score"] == 2
+        assert result[1]["score"] == 2
+        # Next 2 should be score 1
+        assert result[2]["score"] == 1
+        assert result[3]["score"] == 1
+        # Last 2 should be score 0
+        assert result[4]["score"] == 0
+        assert result[5]["score"] == 0
+
+    def test_random_order_without_seed_varies(self):
+        """Random order without seed should produce variety (non-deterministic)."""
+        policy = make_policy()  # All score 0
+        candidates = [make_candidate(f"name{i:02d}", ["na", "me"]) for i in range(50)]
+
+        # Run multiple times and collect unique orderings
+        orderings = set()
+        for _ in range(5):
+            result = select_names(candidates, policy, count=20, order="random")
+            names = tuple(r["name"] for r in result)
+            orderings.add(names)
+
+        # Should have gotten at least 2 different orderings (very likely with 50 candidates)
+        # Note: There's a tiny chance this could fail, but extremely unlikely
+        assert len(orderings) > 1
+
+
+class TestShuffleWithinScoreGroups:
+    """Test _shuffle_within_score_groups helper function."""
+
+    def test_empty_list_returns_empty(self):
+        """Empty input should return empty list."""
+        import random
+
+        from build_tools.name_selector.selector import _shuffle_within_score_groups
+
+        rng = random.Random(42)
+        result = _shuffle_within_score_groups([], rng)
+        assert result == []
+
+    def test_single_group_shuffled(self):
+        """Single score group should be shuffled."""
+        import random
+
+        from build_tools.name_selector.selector import _shuffle_within_score_groups
+
+        candidates = [
+            {"name": "a", "score": 5},
+            {"name": "b", "score": 5},
+            {"name": "c", "score": 5},
+            {"name": "d", "score": 5},
+        ]
+
+        rng = random.Random(42)
+        result = _shuffle_within_score_groups(candidates, rng)
+
+        # All candidates should still be present
+        assert len(result) == 4
+        result_names = {c["name"] for c in result}
+        assert result_names == {"a", "b", "c", "d"}
+
+    def test_multiple_groups_preserved(self):
+        """Multiple score groups should maintain group boundaries."""
+        import random
+
+        from build_tools.name_selector.selector import _shuffle_within_score_groups
+
+        candidates = [
+            {"name": "high1", "score": 10},
+            {"name": "high2", "score": 10},
+            {"name": "mid1", "score": 5},
+            {"name": "mid2", "score": 5},
+            {"name": "low1", "score": 0},
+            {"name": "low2", "score": 0},
+        ]
+
+        rng = random.Random(42)
+        result = _shuffle_within_score_groups(candidates, rng)
+
+        # Score order should be preserved
+        scores = [c["score"] for c in result]
+        assert scores == [10, 10, 5, 5, 0, 0]
+
+    def test_deterministic_with_seed(self):
+        """Same seed should produce same shuffle result."""
+        import random
+
+        from build_tools.name_selector.selector import _shuffle_within_score_groups
+
+        candidates = [{"name": f"n{i}", "score": 5} for i in range(10)]
+
+        rng1 = random.Random(42)
+        result1 = _shuffle_within_score_groups(candidates.copy(), rng1)
+
+        rng2 = random.Random(42)
+        result2 = _shuffle_within_score_groups(candidates.copy(), rng2)
+
+        names1 = [c["name"] for c in result1]
+        names2 = [c["name"] for c in result2]
+        assert names1 == names2

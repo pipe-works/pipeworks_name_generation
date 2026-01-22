@@ -10,14 +10,16 @@ CLI Options → UI Controls:
     --name-class    → Name class dropdown
     --count         → Count spinner (default: 100)
     --mode          → Mode radio (hard/soft, default: hard)
+    --order         → Order radio (random/alphabetical, default: random)
 """
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.widgets import Button, Label, Select, Static
+from textual.containers import VerticalScroll
+from textual.widgets import Button, Label, Static
 
-from build_tools.syllable_walk_tui.controls import IntSpinner, RadioOption
+from build_tools.syllable_walk_tui.controls import IntSpinner, JKSelect, RadioOption
 from build_tools.syllable_walk_tui.modules.generator.state import NAME_CLASSES
 
 
@@ -29,6 +31,7 @@ class SelectorPanel(Static):
     - Name Class: Policy to use for selection (--name-class)
     - Count: Maximum names to output (--count, default: 100)
     - Mode: Evaluation mode (--mode, hard/soft, default: hard)
+    - Order: Ordering for names with equal scores (random/alphabetical)
 
     Args:
         patch_name: Name of the patch ("A" or "B")
@@ -65,6 +68,34 @@ class SelectorPanel(Static):
         padding-top: 1;
     }
 
+    SelectorPanel .output-content {
+        layout: horizontal;
+        height: auto;
+    }
+
+    SelectorPanel .output-meta {
+        width: 1fr;
+        height: auto;
+    }
+
+    SelectorPanel .output-names {
+        width: 1fr;
+        height: auto;
+        margin-left: 2;
+        padding-left: 2;
+        border-left: solid $primary-darken-2;
+    }
+
+    SelectorPanel .names-header {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    SelectorPanel .names-list {
+        color: $text;
+    }
+
     SelectorPanel .output-header {
         text-style: bold;
         color: $primary;
@@ -90,7 +121,23 @@ class SelectorPanel(Static):
         height: auto;
     }
 
-    SelectorPanel Select {
+    SelectorPanel .order-label {
+        margin-top: 1;
+        margin-bottom: 0;
+    }
+
+    SelectorPanel .order-options {
+        layout: horizontal;
+        height: auto;
+    }
+
+    SelectorPanel .names-scroll {
+        height: 15;
+        border: solid $primary-darken-2;
+        padding: 1;
+    }
+
+    SelectorPanel JKSelect {
         width: 100%;
         margin-bottom: 1;
     }
@@ -112,7 +159,7 @@ class SelectorPanel(Static):
 
         # --name-class: Policy to use
         yield Label("Name Class:", classes="control-label")
-        yield Select(
+        yield JKSelect(
             [(nc.replace("_", " ").title(), nc) for nc in NAME_CLASSES],
             value="first_name",
             id=f"selector-name-class-{self.patch_name.lower()}",
@@ -145,6 +192,22 @@ class SelectorPanel(Static):
                 id=f"selector-mode-soft-{self.patch_name.lower()}",
             )
 
+        # Order: Ordering for names with equal scores
+        yield Label("Order:", classes="order-label")
+        with Static(classes="order-options"):
+            yield RadioOption(
+                "random",
+                "Random (shuffled)",
+                is_selected=True,
+                id=f"selector-order-random-{self.patch_name.lower()}",
+            )
+            yield RadioOption(
+                "alphabetical",
+                "Alphabetical",
+                is_selected=False,
+                id=f"selector-order-alphabetical-{self.patch_name.lower()}",
+            )
+
         # Select button
         yield Button(
             "Select Names",
@@ -153,29 +216,44 @@ class SelectorPanel(Static):
             classes="select-button",
         )
 
-        # Output section (metadata display)
+        # Output section (metadata and names display)
         with Static(
             classes="output-section", id=f"selector-output-section-{self.patch_name.lower()}"
         ):
-            yield Label(
-                "(Generate candidates first, then select)",
-                id=f"selector-output-{self.patch_name.lower()}",
-                classes="placeholder",
-            )
+            with Static(classes="output-content"):
+                # Left side: metadata
+                with Static(classes="output-meta"):
+                    yield Label(
+                        "(Generate candidates first, then select)",
+                        id=f"selector-output-{self.patch_name.lower()}",
+                        classes="placeholder",
+                    )
+                # Right side: names list (scrollable)
+                with Static(classes="output-names"):
+                    yield Label("Selected Names:", classes="names-header")
+                    with VerticalScroll(classes="names-scroll"):
+                        yield Label(
+                            "",
+                            id=f"selector-names-{self.patch_name.lower()}",
+                            classes="names-list",
+                        )
 
-    def update_output(self, meta: dict | None = None) -> None:
+    def update_output(self, meta: dict | None = None, names: list[str] | None = None) -> None:
         """
-        Update the output display with selector metadata.
+        Update the output display with selector metadata and selected names.
 
         Args:
             meta: Metadata dict from selector (matches selector_meta.json structure)
+            names: List of selected names to display (typically top N)
         """
         try:
             output_label = self.query_one(f"#selector-output-{self.patch_name.lower()}", Label)
+            names_label = self.query_one(f"#selector-names-{self.patch_name.lower()}", Label)
 
             if meta is None:
                 output_label.update("(Generate candidates first, then select)")
                 output_label.set_classes("placeholder")
+                names_label.update("")
                 return
 
             # Build output text from metadata
@@ -186,6 +264,7 @@ class SelectorPanel(Static):
             lines.append(f"Name Class: {args.get('name_class', '?')}")
             lines.append(f"Count: {args.get('count', '?')}")
             lines.append(f"Mode: {args.get('mode', '?')}")
+            lines.append(f"Order: {args.get('order', '?')}")
             lines.append("")
 
             # Statistics section
@@ -216,12 +295,18 @@ class SelectorPanel(Static):
             output_label.update("\n".join(lines))
             output_label.set_classes("meta-line")
 
+            # Update names display
+            if names:
+                names_label.update("\n".join(names))
+            else:
+                names_label.update("")
+
         except Exception:  # nosec B110 - Widget may not be mounted yet
             pass
 
     def clear_output(self) -> None:
-        """Clear the output display."""
-        self.update_output(None)
+        """Clear the output display and names list."""
+        self.update_output(None, None)
 
     def set_mode(self, mode: str) -> None:
         """
@@ -244,5 +329,29 @@ class SelectorPanel(Static):
             else:
                 hard_option.set_selected(False)
                 soft_option.set_selected(True)
+        except Exception:  # nosec B110 - Widget may not be mounted yet
+            pass
+
+    def set_order(self, order: str) -> None:
+        """
+        Set the order selection.
+
+        Args:
+            order: "random" or "alphabetical"
+        """
+        try:
+            random_option = self.query_one(
+                f"#selector-order-random-{self.patch_name.lower()}", RadioOption
+            )
+            alpha_option = self.query_one(
+                f"#selector-order-alphabetical-{self.patch_name.lower()}", RadioOption
+            )
+
+            if order == "random":
+                random_option.set_selected(True)
+                alpha_option.set_selected(False)
+            else:
+                random_option.set_selected(False)
+                alpha_option.set_selected(True)
         except Exception:  # nosec B110 - Widget may not be mounted yet
             pass

@@ -16,7 +16,7 @@ designed to be reused across multiple TUI applications in the project.
 
 **Key Features:**
 
-- **Reusable Controls**: Spinners, sliders, seed inputs, and radio buttons
+- **Reusable Controls**: Spinners, sliders, seed inputs, radio buttons, and vim-enabled dropdowns
 - **Directory Browser**: Configurable modal with custom validation callbacks
 - **Keybinding Config**: TOML-based configuration management with conflict detection
 - **Consistent Patterns**: Message-based communication, focus management, vim-style navigation
@@ -126,6 +126,39 @@ Radio button style option widget for exclusive selection groups.
         for opt in self.query(RadioOption):
             opt.set_selected(opt.option_name == event.option_name)
 
+JKSelect
+~~~~~~~~
+
+Dropdown select widget with vim-style j/k navigation support.
+
+**Features:**
+
+- Extends Textual's ``Select`` widget
+- ``j``/``k`` keys navigate down/up in the dropdown (in addition to arrow keys)
+- Type-to-search still works for other letters
+- Drop-in replacement for standard ``Select``
+
+.. code-block:: python
+
+    from build_tools.tui_common.controls import JKSelect
+
+    yield JKSelect(
+        [
+            ("First Name", "first_name"),
+            ("Last Name", "last_name"),
+            ("Place Name", "place_name"),
+        ],
+        value="first_name",
+        id="name-class-select",
+    )
+
+**Usage Notes:**
+
+- When the dropdown is open, press ``j`` to move down and ``k`` to move up
+- Arrow keys continue to work as expected
+- Type any other letter to jump to options starting with that letter
+- Press ``Enter`` to select the highlighted option
+
 DirectoryBrowserScreen
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -220,6 +253,7 @@ To use tui_common in a new TUI application:
     from build_tools.tui_common.controls import (
         IntSpinner,
         FloatSlider,
+        JKSelect,
         RadioOption,
         DirectoryBrowserScreen,
     )
@@ -228,6 +262,7 @@ To use tui_common in a new TUI application:
         def compose(self) -> ComposeResult:
             yield IntSpinner("Count", value=5, min_val=1, max_val=10, id="count")
             yield FloatSlider("Weight", value=0.5, min_val=0.0, max_val=1.0, id="weight")
+            yield JKSelect([("A", "a"), ("B", "b")], value="a", id="choice")
 
         @on(IntSpinner.Changed)
         def on_spinner_changed(self, event: IntSpinner.Changed) -> None:

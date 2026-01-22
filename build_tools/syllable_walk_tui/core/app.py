@@ -601,7 +601,12 @@ class SyllableWalkerApp(App):
 
             # Select names
             selected = select_names(
-                candidates, policy, count=selector.count, mode=selector.mode  # type: ignore[arg-type]
+                candidates,
+                policy,
+                count=selector.count,
+                mode=selector.mode,  # type: ignore[arg-type]
+                order=selector.order,  # type: ignore[arg-type]
+                seed=combiner.seed,
             )
 
             # Prepare output directory
@@ -622,6 +627,8 @@ class SyllableWalkerApp(App):
                     "policy_description": policy.description,
                     "policy_file": str(policy_path),
                     "mode": selector.mode,
+                    "order": selector.order,
+                    "seed": combiner.seed,
                     "total_evaluated": stats["total_evaluated"],
                     "admitted": stats["admitted"],
                     "rejected": stats["rejected"],
@@ -649,6 +656,8 @@ class SyllableWalkerApp(App):
                     "policy_file": str(policy_path),
                     "count": selector.count,
                     "mode": selector.mode,
+                    "order": selector.order,
+                    "seed": combiner.seed,
                 },
                 "input": {
                     "candidates_file": str(candidates_path),
@@ -686,12 +695,12 @@ class SyllableWalkerApp(App):
             # Update state
             selector.last_output_path = str(output_path)
             selector.last_candidates_path = str(candidates_path)
-            selector.outputs = [s["name"] for s in selected[:10]]  # Store top 10 for display
+            selector.outputs = [s["name"] for s in selected]  # Store all for scrollable display
 
             # Update panel
             try:
                 panel = self.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
-                panel.update_output(meta_output)
+                panel.update_output(meta_output, selector.outputs)
             except Exception as e:
                 print(f"Warning: Could not update selector panel: {e}")
 
@@ -730,6 +739,39 @@ class SyllableWalkerApp(App):
             else:
                 hard_option.set_selected(False)
                 soft_option.set_selected(True)
+        except Exception:  # nosec B110 - Widget may not be mounted yet
+            pass
+
+    def _handle_selector_order_selected(self, widget_id: str, order: str) -> None:
+        """
+        Handle selector order radio option selection.
+
+        Args:
+            widget_id: Widget ID like "selector-order-random-a"
+            order: Order name ("random" or "alphabetical")
+        """
+        # Extract patch from widget ID (last character)
+        patch_name = widget_id[-1].upper()
+        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
+
+        # Update selector state
+        selector.order = order  # type: ignore[assignment]
+
+        # Update radio button UI - deselect the other option
+        try:
+            random_option = self.query_one(
+                f"#selector-order-random-{patch_name.lower()}", ProfileOption
+            )
+            alpha_option = self.query_one(
+                f"#selector-order-alphabetical-{patch_name.lower()}", ProfileOption
+            )
+
+            if order == "random":
+                random_option.set_selected(True)
+                alpha_option.set_selected(False)
+            else:
+                random_option.set_selected(False)
+                alpha_option.set_selected(True)
         except Exception:  # nosec B110 - Widget may not be mounted yet
             pass
 
@@ -1425,6 +1467,11 @@ class SyllableWalkerApp(App):
         # Handle selector mode options (selector-mode-hard-a, selector-mode-soft-b)
         if widget_id.startswith("selector-mode-"):
             self._handle_selector_mode_selected(widget_id, event.profile_name)
+            return
+
+        # Handle selector order options (selector-order-random-a, selector-order-alphabetical-b)
+        if widget_id.startswith("selector-order-"):
+            self._handle_selector_order_selected(widget_id, event.profile_name)
             return
 
         parts = widget_id.rsplit("-", 1)

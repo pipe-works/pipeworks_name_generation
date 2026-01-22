@@ -17,6 +17,7 @@ from build_tools.tui_common.controls import (
     DirectoryBrowserScreen,
     FloatSlider,
     IntSpinner,
+    JKSelect,
     RadioOption,
     SeedInput,
 )
@@ -422,6 +423,182 @@ class TestRadioOptionMessages:
             await pilot.pause()
 
             assert len(app.messages) == 0
+
+
+# =============================================================================
+# JKSelect Tests
+# =============================================================================
+
+
+class TestJKSelect:
+    """Tests for JKSelect widget with vim-style j/k navigation."""
+
+    def test_initialization(self):
+        """Test JKSelect initializes correctly with options."""
+        select = JKSelect(
+            [("Option 1", "opt1"), ("Option 2", "opt2"), ("Option 3", "opt3")],
+            value="opt1",
+        )
+
+        # Verify widget was created (value is set during mount, not init)
+        assert select is not None
+
+    def test_initialization_with_id(self):
+        """Test JKSelect stores id correctly."""
+        select = JKSelect(
+            [("A", "a"), ("B", "b")],
+            value="a",
+            id="my-select",
+        )
+
+        assert select.id == "my-select"
+
+    def test_initialization_with_allow_blank_false(self):
+        """Test JKSelect respects allow_blank setting."""
+        select = JKSelect(
+            [("A", "a"), ("B", "b")],
+            value="a",
+            allow_blank=False,
+        )
+
+        # _allow_blank is the internal attribute
+        assert select._allow_blank is False
+
+    @pytest.mark.asyncio
+    async def test_compose_creates_jkselect_overlay(self):
+        """Test that compose creates JKSelectOverlay instead of standard overlay."""
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+
+            # The overlay should be a JKSelectOverlay, not SelectOverlay
+            overlays = list(select.query(JKSelectOverlay))
+            assert len(overlays) == 1
+
+
+class TestJKSelectOverlay:
+    """Tests for JKSelectOverlay key handling."""
+
+    @pytest.mark.asyncio
+    async def test_overlay_exists_in_select(self):
+        """Test that JKSelect contains JKSelectOverlay."""
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b"), ("C", "c")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+
+            # Verify JKSelectOverlay is present
+            overlay = select.query_one(JKSelectOverlay)
+            assert overlay is not None
+
+    @pytest.mark.asyncio
+    async def test_on_key_j_calls_cursor_down(self):
+        """Test that 'j' key triggers cursor down action."""
+        from unittest.mock import patch
+
+        from textual import events
+
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b"), ("C", "c")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+            overlay = select.query_one(JKSelectOverlay)
+
+            # Mock the action_cursor_down method
+            with patch.object(overlay, "action_cursor_down") as mock_cursor_down:
+                # Create a mock key event for 'j'
+                key_event = events.Key("j", "j")
+                await overlay._on_key(key_event)
+
+                # Verify cursor_down was called
+                mock_cursor_down.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_on_key_k_calls_cursor_up(self):
+        """Test that 'k' key triggers cursor up action."""
+        from unittest.mock import patch
+
+        from textual import events
+
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b"), ("C", "c")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+            overlay = select.query_one(JKSelectOverlay)
+
+            # Mock the action_cursor_up method
+            with patch.object(overlay, "action_cursor_up") as mock_cursor_up:
+                # Create a mock key event for 'k'
+                key_event = events.Key("k", "k")
+                await overlay._on_key(key_event)
+
+                # Verify cursor_up was called
+                mock_cursor_up.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_on_key_other_calls_super(self):
+        """Test that other keys call super()._on_key."""
+
+        from textual import events
+
+        from build_tools.tui_common.controls.selects import JKSelectOverlay
+
+        class TestApp(App):
+            def compose(self):
+                yield JKSelect(
+                    [("A", "a"), ("B", "b"), ("C", "c")],
+                    value="a",
+                    id="test-select",
+                )
+
+        async with TestApp().run_test() as pilot:
+            app = pilot.app
+            select = app.query_one("#test-select", JKSelect)
+            overlay = select.query_one(JKSelectOverlay)
+
+            # Create a mock key event for some other key
+            key_event = events.Key("x", "x")
+
+            # Call the method - should not raise and should call super
+            # We can't easily mock super(), but we can verify no error occurs
+            await overlay._on_key(key_event)
 
 
 # =============================================================================

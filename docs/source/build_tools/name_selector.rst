@@ -108,6 +108,8 @@ The selector produces JSON with this structure:
        "policy_description": "Direct social address...",
        "policy_file": "data/name_classes.yml",
        "mode": "hard",
+       "order": "alphabetical",
+       "seed": 42,
        "total_evaluated": 10000,
        "admitted": 7420,
        "rejected": 2580,
@@ -210,7 +212,12 @@ candidates produced by the name_combiner against name class policies.
 **Evaluation modes:**
 
 - **hard** (default): Candidates with discouraged features are rejected entirely
-- **soft**: Candidates with discouraged features receive -10 penalty but remain in pool
+- **soft**: Candidates with discouraged features receive -10 penalty instead of rejection
+
+**Ordering modes:**
+
+- **alphabetical** (default): Names with equal scores are sorted alphabetically for deterministic output
+- **random**: Names with equal scores are shuffled within score groups using a seeded RNG for variety while maintaining determinism
 
 Notes
 -----
@@ -221,7 +228,10 @@ Notes
 - Tolerated features: 0
 - Discouraged features: Reject (hard) or -10 (soft)
 
-Names are ranked by total score (descending), with alphabetical tiebreaking for stability.
+Names are ranked by total score (descending). Tiebreaking for equal scores can be:
+
+- **Alphabetical** (default): Deterministic ordering by name for reproducibility
+- **Random**: Shuffled within score groups using a seed for variety while maintaining determinism
 
 **Syllable count filtering:**
 
