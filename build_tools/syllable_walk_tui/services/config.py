@@ -1,20 +1,22 @@
 """
-Configuration management for Syllable Walker TUI - Re-export from tui_common.
+Configuration management for Syllable Walker TUI.
 
-**DEPRECATED**: This module re-exports configuration utilities from tui_common
-for backward compatibility. New code should import directly from tui_common:
+This module extends the base ``tui_common.KeybindingConfig`` with syllable_walk-specific
+functionality, particularly the ``patch_bindings`` attribute for patch operations
+(generate, copy, paste, reset, swap).
+
+This is **not** a deprecated re-export - it provides genuine extensions to the base config.
+Import from here when working with syllable_walk_tui:
 
 .. code-block:: python
 
-    # Preferred
-    from build_tools.tui_common.services import KeybindingConfig, load_keybindings
+    from build_tools.syllable_walk_tui.services.config import KeybindingConfig, load_keybindings
 
-    # Deprecated (still works)
-    from build_tools.syllable_walk_tui.services.config import KeybindingConfig
+For the base config without patch_bindings, use tui_common directly:
 
-**Note**: The tui_common KeybindingConfig uses ``action_bindings`` instead of
-``patch_bindings``. This module provides a backward-compatible subclass that
-maps the old ``patch_bindings`` attribute.
+.. code-block:: python
+
+    from build_tools.tui_common.services import KeybindingConfig as BaseKeybindingConfig
 """
 
 from __future__ import annotations
