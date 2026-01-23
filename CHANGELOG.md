@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.10](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.9...pipeworks-name-generation-v0.5.10) (2026-01-23)
+
+
+### Internal Changes
+
+* **build_tools:** Extract shared CLI code from syllable extractors ([#41](https://github.com/aa-parky/pipeworks_name_generation/issues/41)) ([cb353c9](https://github.com/aa-parky/pipeworks_name_generation/commit/cb353c9ae603b9ba49e2a270c2902b587a73150b))
+
 ## [0.5.9](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.8...pipeworks-name-generation-v0.5.9) (2026-01-23)
 
 
