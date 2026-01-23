@@ -6,185 +6,34 @@ for syllable extraction using NLTK's CMU Pronouncing Dictionary.
 """
 
 import argparse
-import glob
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, List
+from typing import List
+
+# Shared CLI utilities
+from build_tools.tui_common.cli_utils import (
+    CORPUS_DB_AVAILABLE,
+    READLINE_AVAILABLE,
+    discover_files,
+    input_with_completion,
+    record_corpus_db_safe,
+)
 
 from .extractor import NltkSyllableExtractor
 from .file_io import DEFAULT_OUTPUT_DIR, generate_output_filename, save_metadata
 from .models import BatchResult, ExtractionResult, FileProcessingResult
 
-# Corpus DB integration (optional)
-try:
+# Corpus DB integration (import CorpusLedger only if available)
+if CORPUS_DB_AVAILABLE:
     from build_tools.corpus_db import CorpusLedger
-
-    CORPUS_DB_AVAILABLE = True
-except ImportError:
-    CORPUS_DB_AVAILABLE = False
 
 # Version for ledger
 try:
     from build_tools.nltk_syllable_extractor import __version__ as EXTRACTOR_VERSION  # noqa: N812
 except (ImportError, AttributeError):
     EXTRACTOR_VERSION = "unknown"
-
-# Try to enable readline for tab completion (Unix/Mac)
-try:
-    import readline
-
-    READLINE_AVAILABLE = True
-except ImportError:
-    READLINE_AVAILABLE = False
-
-
-def _record_corpus_db_safe(operation: str, func: Callable[[], Any], quiet: bool = False) -> Any:
-    """
-    Execute corpus_db operation with safe error handling.
-
-    If corpus_db recording fails, logs warning to stderr but allows
-    extraction to continue. Ensures corpus_db is purely observational.
-
-    Args:
-        operation: Description of operation (e.g., "start run")
-        func: Callable performing the corpus_db operation
-        quiet: If True, suppress warning messages
-
-    Returns:
-        Result of func() if successful, None if failed
-    """
-    try:
-        return func()
-    except Exception as e:
-        if not quiet:
-            print(f"Warning: Failed to record {operation} to corpus_db: {e}", file=sys.stderr)
-        return None
-
-
-def path_completer(text, state):
-    """
-    Tab completion function for file paths.
-
-    This enables bash-like tab completion for navigating directories
-    and selecting files.
-
-    Args:
-        text: The current text being completed
-        state: The completion state (0 for first call, incremented for each match)
-
-    Returns:
-        The next completion match, or None when no more matches
-    """
-    # Expand user home directory (~)
-    text = os.path.expanduser(text)
-
-    # If text is empty or just a partial path, add wildcard
-    if os.path.isdir(text):
-        # If it's a directory, show contents
-        text = os.path.join(text, "*")
-    else:
-        # Otherwise, treat as partial filename
-        text += "*"
-
-    # Get all matching paths
-    matches = glob.glob(text)
-
-    # Add trailing slash to directories for better UX
-    matches = [f"{match}/" if os.path.isdir(match) else match for match in matches]
-
-    # Return the state-th match
-    try:
-        return matches[state]
-    except IndexError:
-        return None
-
-
-def setup_tab_completion():
-    """
-    Configure readline for tab completion with file paths.
-
-    This enables:
-    - Tab completion for file and directory names
-    - Tilde (~) expansion for home directory
-    - Standard bash-like completion behavior
-    """
-    if not READLINE_AVAILABLE:
-        return
-
-    # Set the completer function
-    readline.set_completer(path_completer)
-
-    # Configure tab completion
-    readline.parse_and_bind("tab: complete")
-
-    # Set delimiters (don't break on /, -, etc. in paths)
-    readline.set_completer_delims(" \t\n")
-
-
-def input_with_completion(prompt: str) -> str:
-    """
-    Get user input with tab completion enabled.
-
-    Args:
-        prompt: The prompt to display
-
-    Returns:
-        User input string
-    """
-    if READLINE_AVAILABLE:
-        setup_tab_completion()
-
-    return input(prompt)
-
-
-def discover_files(source: Path, pattern: str = "*.txt", recursive: bool = False) -> List[Path]:
-    """
-    Discover text files in a directory matching the specified pattern.
-
-    This function searches for files matching a glob pattern in the specified
-    directory, optionally recursing into subdirectories. Results are sorted
-    alphabetically for deterministic processing order.
-
-    Args:
-        source: Directory to search for files. Must be an existing directory.
-        pattern: Glob pattern for file matching (default: "*.txt").
-                Examples: "*.txt", "*.md", "data_*.csv"
-        recursive: If True, search recursively into subdirectories using rglob.
-                  If False, search only the top level (default: False).
-
-    Returns:
-        List of Path objects for matching files, sorted alphabetically.
-        Returns empty list if no files match.
-
-    Raises:
-        ValueError: If source is not a directory or doesn't exist.
-
-    Example:
-        >>> # Find all .txt files in a directory
-        >>> files = discover_files(Path("/data/texts"))
-        >>> print(f"Found {len(files)} files")
-
-        >>> # Find all .md files recursively
-        >>> files = discover_files(Path("/data"), pattern="*.md", recursive=True)
-    """
-    if not source.exists():
-        raise ValueError(f"Source path does not exist: {source}")
-
-    if not source.is_dir():
-        raise ValueError(f"Source path is not a directory: {source}")
-
-    if recursive:
-        files = list(source.rglob(pattern))
-    else:
-        files = list(source.glob(pattern))
-
-    # Filter to only regular files (not directories)
-    files = [f for f in files if f.is_file()]
-
-    # Sort alphabetically for deterministic processing order
-    return sorted(files)
 
 
 def process_single_file_batch(
@@ -629,9 +478,7 @@ def main_interactive():
 
     # Record input to corpus_db
     if run_id is not None and ledger is not None:
-        _record_corpus_db_safe(
-            "input", lambda: ledger.record_input(run_id, input_path), quiet=False
-        )
+        record_corpus_db_safe("input", lambda: ledger.record_input(run_id, input_path), quiet=False)
 
     # Extract syllables
     print(f"\n⏳ Processing {input_path}...")
@@ -642,12 +489,12 @@ def main_interactive():
         print(f"\nError during extraction: {e}")
         # Record failed run to corpus_db before exiting
         if run_id is not None and ledger is not None:
-            _record_corpus_db_safe(
+            record_corpus_db_safe(
                 "complete run",
                 lambda: ledger.complete_run(run_id, exit_code=1, status="failed"),
                 quiet=True,
             )
-            _record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
+            record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
         sys.exit(1)
 
     # Generate output filenames and create result object
@@ -675,12 +522,12 @@ def main_interactive():
         print(f"\nError saving syllables: {e}")
         # Record failed run to corpus_db before exiting
         if run_id is not None and ledger is not None:
-            _record_corpus_db_safe(
+            record_corpus_db_safe(
                 "complete run",
                 lambda: ledger.complete_run(run_id, exit_code=1, status="failed"),
                 quiet=True,
             )
-            _record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
+            record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
         sys.exit(1)
 
     # Save metadata
@@ -692,17 +539,17 @@ def main_interactive():
         print(f"\nError saving metadata: {e}")
         # Record failed run to corpus_db before exiting
         if run_id is not None and ledger is not None:
-            _record_corpus_db_safe(
+            record_corpus_db_safe(
                 "complete run",
                 lambda: ledger.complete_run(run_id, exit_code=1, status="failed"),
                 quiet=True,
             )
-            _record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
+            record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
         sys.exit(1)
 
     # Record output to corpus_db
     if run_id is not None and ledger is not None:
-        _record_corpus_db_safe(
+        record_corpus_db_safe(
             "output",
             lambda: ledger.record_output(
                 run_id,
@@ -715,12 +562,12 @@ def main_interactive():
 
     # Complete corpus_db run recording
     if run_id is not None and ledger is not None:
-        _record_corpus_db_safe(
+        record_corpus_db_safe(
             "complete run",
             lambda: ledger.complete_run(run_id, exit_code=0, status="completed"),
             quiet=False,
         )
-        _record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
+        record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
 
     # Display summary to console
     print("\n" + result.format_metadata())
@@ -853,19 +700,19 @@ def main_batch(args: argparse.Namespace):
     # Record inputs to corpus_db
     if run_id is not None and ledger is not None:
         if args.file:
-            _record_corpus_db_safe(
+            record_corpus_db_safe(
                 "input", lambda: ledger.record_input(run_id, files_to_process[0]), quiet=args.quiet
             )
         elif args.files:
             for file_path in files_to_process:
-                _record_corpus_db_safe(
+                record_corpus_db_safe(
                     "input",
                     lambda fp=file_path: ledger.record_input(run_id, fp),  # type: ignore[misc]
                     quiet=args.quiet,
                 )
         elif args.source:
             source_path = Path(args.source).expanduser().resolve()
-            _record_corpus_db_safe(
+            record_corpus_db_safe(
                 "input",
                 lambda: ledger.record_input(run_id, source_path, file_count=len(files_to_process)),
                 quiet=args.quiet,
@@ -899,7 +746,7 @@ def main_batch(args: argparse.Namespace):
     if run_id is not None and ledger is not None:
         for result in batch_result.results:
             if result.success:
-                _record_corpus_db_safe(
+                record_corpus_db_safe(
                     "output",
                     lambda r=result: ledger.record_output(  # type: ignore[misc]
                         run_id,
@@ -915,12 +762,12 @@ def main_batch(args: argparse.Namespace):
         exit_code = 1 if batch_result.failed > 0 else 0
         status = "completed" if batch_result.failed == 0 else "failed"
 
-        _record_corpus_db_safe(
+        record_corpus_db_safe(
             "complete run",
             lambda: ledger.complete_run(run_id, exit_code=exit_code, status=status),
             quiet=args.quiet,
         )
-        _record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
+        record_corpus_db_safe("close ledger", lambda: ledger.close(), quiet=True)
 
     # Display summary
     if not args.quiet:

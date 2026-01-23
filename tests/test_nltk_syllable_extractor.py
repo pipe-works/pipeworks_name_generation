@@ -1344,23 +1344,23 @@ class TestProcessBatchOutput:
 
 
 class TestRecordCorpusDbSafe:
-    """Tests for _record_corpus_db_safe function."""
+    """Tests for record_corpus_db_safe function (now in tui_common.cli_utils)."""
 
     def test_record_success(self):
         """Test successful recording."""
-        from build_tools.nltk_syllable_extractor.cli import _record_corpus_db_safe
+        from build_tools.tui_common.cli_utils import record_corpus_db_safe
 
-        result = _record_corpus_db_safe("test", lambda: "success")
+        result = record_corpus_db_safe("test", lambda: "success")
         assert result == "success"
 
     def test_record_failure_prints_warning(self, capsys):
         """Test that failures print warning to stderr."""
-        from build_tools.nltk_syllable_extractor.cli import _record_corpus_db_safe
+        from build_tools.tui_common.cli_utils import record_corpus_db_safe
 
         def failing_func():
             raise RuntimeError("Test error")
 
-        result = _record_corpus_db_safe("test operation", failing_func, quiet=False)
+        result = record_corpus_db_safe("test operation", failing_func, quiet=False)
 
         assert result is None
         captured = capsys.readouterr()
@@ -1369,12 +1369,12 @@ class TestRecordCorpusDbSafe:
 
     def test_record_failure_quiet_no_output(self, capsys):
         """Test that failures are silent when quiet=True."""
-        from build_tools.nltk_syllable_extractor.cli import _record_corpus_db_safe
+        from build_tools.tui_common.cli_utils import record_corpus_db_safe
 
         def failing_func():
             raise RuntimeError("Test error")
 
-        result = _record_corpus_db_safe("test operation", failing_func, quiet=True)
+        result = record_corpus_db_safe("test operation", failing_func, quiet=True)
 
         assert result is None
         captured = capsys.readouterr()
@@ -1382,11 +1382,11 @@ class TestRecordCorpusDbSafe:
 
 
 class TestPathCompleter:
-    """Tests for path_completer function."""
+    """Tests for path_completer function (now in tui_common.cli_utils)."""
 
     def test_path_completer_directory(self, tmp_path: Path):
         """Test path completer with directory."""
-        from build_tools.nltk_syllable_extractor.cli import path_completer
+        from build_tools.tui_common.cli_utils import path_completer
 
         # Create test files
         (tmp_path / "file1.txt").write_text("content")
@@ -1400,7 +1400,7 @@ class TestPathCompleter:
 
     def test_path_completer_no_matches(self, tmp_path: Path):
         """Test path completer with no matches."""
-        from build_tools.nltk_syllable_extractor.cli import path_completer
+        from build_tools.tui_common.cli_utils import path_completer
 
         result = path_completer(str(tmp_path / "nonexistent_prefix"), 0)
 
@@ -1409,7 +1409,7 @@ class TestPathCompleter:
 
     def test_path_completer_partial_path(self, tmp_path: Path):
         """Test path completer with partial path."""
-        from build_tools.nltk_syllable_extractor.cli import path_completer
+        from build_tools.tui_common.cli_utils import path_completer
 
         # Create test file
         (tmp_path / "myfile.txt").write_text("content")

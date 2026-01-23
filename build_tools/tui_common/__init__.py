@@ -18,6 +18,7 @@ applications within the pipeworks_name_generation project.
 
     tui_common/
     ├── __init__.py           # This file - package entry point
+    ├── cli_utils.py          # Shared CLI utilities (tab completion, file discovery)
     ├── controls/             # Reusable UI widgets
     │   ├── sliders.py        # FloatSlider - float parameter control
     │   ├── spinners.py       # IntSpinner - integer parameter control
