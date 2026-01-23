@@ -29,6 +29,7 @@ from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.generator import CombinerPanel, SelectorPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
+from build_tools.syllable_walk_tui.modules.renderer import RenderScreen
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
     load_annotated_data,
@@ -72,6 +73,7 @@ class SyllableWalkerApp(App):
         Binding("f1", "help", "Help", priority=True),
         Binding("v", "view_blended", "Blended", priority=True),
         Binding("a", "view_analysis", "Analysis", priority=True),
+        Binding("r", "view_render", "Render", priority=True),
         Binding("d", "view_database_a", "DB A", priority=True),
         Binding("D", "view_database_b", "DB B", priority=True),
         Binding("1", "select_corpus_a", "Corpus A", priority=True),
@@ -409,6 +411,28 @@ class SyllableWalkerApp(App):
                 corpus_path_b=self.state.patch_b.corpus_dir,
                 annotated_data_a=self.state.patch_a.annotated_data,
                 annotated_data_b=self.state.patch_b.annotated_data,
+            )
+        )
+
+    def action_view_render(self) -> None:
+        """Action: Open render screen for styled name display (keybinding: r)."""
+        selector_a = self.state.selector_a
+        selector_b = self.state.selector_b
+
+        # Need at least one patch with selections to display
+        if not selector_a.outputs and not selector_b.outputs:
+            self.notify(
+                "No names selected. Run Select Names first.",
+                severity="warning",
+            )
+            return
+
+        self.push_screen(
+            RenderScreen(
+                names_a=selector_a.outputs,
+                names_b=selector_b.outputs,
+                name_class_a=selector_a.name_class,
+                name_class_b=selector_b.name_class,
             )
         )
 
