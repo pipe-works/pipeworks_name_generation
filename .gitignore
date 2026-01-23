@@ -266,3 +266,4 @@ data/raw/**/*.meta
 # Allow small test fixtures to be committed
 !data/raw/test_fixtures/
 !data/raw/**/.gitkeep
+data/raw/syllable_extractor.db
