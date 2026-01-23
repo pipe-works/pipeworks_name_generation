@@ -72,23 +72,27 @@ CLI Usage:
 """
 
 # CLI entry point (for python -m usage)
-from .cli import (
-    discover_files,
-    main,
-    main_batch,
-    main_interactive,
-    process_batch,
-    process_single_file_batch,
-)
+# Shared utilities (re-exported for backwards compatibility)
+from build_tools.tui_common.cli_utils import discover_files
+
+# Interactive and batch modes
+from .batch import process_batch, process_single_file, run_batch
+from .cli import main
 
 # Core extraction functionality
 from .extractor import NltkSyllableExtractor
 
 # File I/O operations
 from .file_io import DEFAULT_OUTPUT_DIR, generate_output_filename, save_metadata
+from .interactive import run_interactive
 
 # Data models
 from .models import BatchResult, ExtractionResult, FileProcessingResult
+
+# Backwards compatibility aliases (deprecated, use new names)
+main_interactive = run_interactive
+main_batch = run_batch
+process_single_file_batch = process_single_file
 
 __all__ = [
     # Core classes
@@ -102,12 +106,16 @@ __all__ = [
     "save_metadata",
     # CLI - Interactive and Batch
     "main",
-    "main_interactive",
-    "main_batch",
+    "run_interactive",
+    "run_batch",
     # Batch processing utilities
     "discover_files",
-    "process_single_file_batch",
+    "process_single_file",
     "process_batch",
+    # Backwards compatibility (deprecated)
+    "main_interactive",
+    "main_batch",
+    "process_single_file_batch",
 ]
 
 __version__ = "0.1.0"

@@ -1226,7 +1226,7 @@ class TestMainBatchFilesValidation:
 
         # Mock is_detection_available to return True
         with patch(
-            "build_tools.pyphen_syllable_extractor.cli.is_detection_available",
+            "build_tools.pyphen_syllable_extractor.batch.is_detection_available",
             return_value=True,
         ):
             with pytest.raises(SystemExit) as excinfo:
@@ -1261,7 +1261,7 @@ class TestMainBatchFilesValidation:
 
         # Mock is_detection_available to return False
         with patch(
-            "build_tools.pyphen_syllable_extractor.cli.is_detection_available",
+            "build_tools.pyphen_syllable_extractor.batch.is_detection_available",
             return_value=False,
         ):
             with pytest.raises(SystemExit) as excinfo:
