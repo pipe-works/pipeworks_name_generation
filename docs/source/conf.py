@@ -8,16 +8,30 @@ import logging
 import sys
 from pathlib import Path
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+
+def get_version_from_pyproject() -> str:
+    """Read version from pyproject.toml to maintain single source of truth."""
+    pyproject_path = project_root / "pyproject.toml"
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+    return data["project"]["version"]
+
 
 # -- Project information -----------------------------------------------------
 project = "pipeworks_name_generation"
 copyright = "2026, Andrew Park"
 author = "Andrew Park"
-release = "0.1.0"
-version = "0.1.0"
+release = get_version_from_pyproject()
+version = release
 
 # -- General configuration ---------------------------------------------------
 extensions = [
