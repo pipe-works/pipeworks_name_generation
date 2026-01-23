@@ -6,6 +6,8 @@ Tests for module imports and shared CLI utilities integration.
 
 from unittest.mock import patch
 
+import pytest
+
 
 class TestCliImports:
     """Test that CLI module imports correctly."""
@@ -133,3 +135,41 @@ class TestMainFunction:
                 main()
 
                 mock_interactive.assert_called_once()
+
+    def test_main_returns_zero_on_success(self):
+        """Test main() returns 0 on successful execution."""
+        from build_tools.pyphen_syllable_extractor.cli import main
+
+        with patch(
+            "build_tools.pyphen_syllable_extractor.interactive.run_interactive"
+        ) as mock_interactive:
+            mock_interactive.return_value = None
+            result = main([])
+
+        assert result == 0
+
+    def test_main_returns_130_on_keyboard_interrupt(self):
+        """Test main() returns 130 on KeyboardInterrupt."""
+        from build_tools.pyphen_syllable_extractor.cli import main
+
+        with patch(
+            "build_tools.pyphen_syllable_extractor.interactive.run_interactive",
+            side_effect=KeyboardInterrupt(),
+        ):
+            result = main([])
+
+        assert result == 130
+
+    def test_main_returns_1_on_exception(self, capsys: pytest.CaptureFixture[str]):
+        """Test main() returns 1 on general exception."""
+        from build_tools.pyphen_syllable_extractor.cli import main
+
+        with patch(
+            "build_tools.pyphen_syllable_extractor.interactive.run_interactive",
+            side_effect=RuntimeError("Test error"),
+        ):
+            result = main([])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "Error: Test error" in captured.err

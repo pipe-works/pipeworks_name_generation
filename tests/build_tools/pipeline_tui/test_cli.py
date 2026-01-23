@@ -156,3 +156,37 @@ class TestMain:
             output_dir=None,
             theme="nord",
         )
+
+    def test_main_returns_zero_on_success(self) -> None:
+        """Test that main returns 0 on successful execution."""
+        mock_app = MagicMock()
+
+        with patch(
+            "build_tools.pipeline_tui.core.app.PipelineTuiApp",
+            return_value=mock_app,
+        ):
+            result = main([])
+
+        assert result == 0
+
+    def test_main_returns_130_on_keyboard_interrupt(self) -> None:
+        """Test that main returns 130 on KeyboardInterrupt."""
+        with patch(
+            "build_tools.pipeline_tui.core.app.PipelineTuiApp",
+            side_effect=KeyboardInterrupt(),
+        ):
+            result = main([])
+
+        assert result == 130
+
+    def test_main_returns_1_on_exception(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test that main returns 1 on general exception."""
+        with patch(
+            "build_tools.pipeline_tui.core.app.PipelineTuiApp",
+            side_effect=RuntimeError("Test error"),
+        ):
+            result = main([])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "Error: Test error" in captured.err

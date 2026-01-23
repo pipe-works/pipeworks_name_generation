@@ -23,11 +23,12 @@ For interactive web interface, use the separate syllable_walk_web module::
     python -m build_tools.syllable_walk_web
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 from build_tools.syllable_walk.profiles import WALK_PROFILES
 from build_tools.syllable_walk.walker import SyllableWalker
@@ -358,7 +359,7 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
     return parser
 
 
-def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
     """
     Parse command-line arguments.
 
@@ -598,12 +599,15 @@ def search_mode(walker: SyllableWalker, args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for syllable walker CLI.
 
     Parses arguments, validates inputs, initializes walker, and executes
     requested operation mode.
+
+    Args:
+        args: Command-line arguments. If None, uses sys.argv.
 
     Returns:
         Exit code:
@@ -617,11 +621,11 @@ def main() -> int:
         - Normal output goes to stdout
         - Keyboard interrupt (Ctrl+C) exits cleanly with code 130
     """
-    args = parse_arguments()
+    parsed = parse_arguments(args)
 
     try:
         # Validate argument combinations
-        if args.quiet and args.verbose:
+        if parsed.quiet and parsed.verbose:
             print(
                 "Error: --quiet and --verbose are mutually exclusive",
                 file=sys.stderr,
@@ -629,8 +633,8 @@ def main() -> int:
             return 2
 
         # Validate data file exists
-        if not args.data_file.exists():
-            print(f"Error: Data file not found: {args.data_file}", file=sys.stderr)
+        if not parsed.data_file.exists():
+            print(f"Error: Data file not found: {parsed.data_file}", file=sys.stderr)
             print(
                 "\nThe data file should be the output from syllable_feature_annotator:",
                 file=sys.stderr,
@@ -639,22 +643,22 @@ def main() -> int:
             return 1
 
         # Initialize walker
-        if not args.quiet:
+        if not parsed.quiet:
             print("=" * 70)
             print("Syllable Walker")
             print("=" * 70)
-            print(f"\nInitializing from: {args.data_file}")
-            if args.max_neighbor_distance == 3:
+            print(f"\nInitializing from: {parsed.data_file}")
+            if parsed.max_neighbor_distance == 3:
                 print("This may take 2-3 minutes for large datasets (500k+ syllables)...")
             print()
 
         walker = SyllableWalker(
-            args.data_file,
-            max_neighbor_distance=args.max_neighbor_distance,
-            verbose=args.verbose,
+            parsed.data_file,
+            max_neighbor_distance=parsed.max_neighbor_distance,
+            verbose=parsed.verbose,
         )
 
-        if not args.quiet:
+        if not parsed.quiet:
             print("\n" + "=" * 70)
             print("✓ Walker ready!")
             print("=" * 70)
@@ -663,21 +667,21 @@ def main() -> int:
             print()
 
         # Execute mode
-        if args.search:
-            return search_mode(walker, args)
-        elif args.compare_profiles:
-            return compare_profiles_mode(walker, args)
-        elif args.batch:
-            return batch_mode(walker, args)
+        if parsed.search:
+            return search_mode(walker, parsed)
+        elif parsed.compare_profiles:
+            return compare_profiles_mode(walker, parsed)
+        elif parsed.batch:
+            return batch_mode(walker, parsed)
         else:
-            return single_walk_mode(walker, args)
+            return single_walk_mode(walker, parsed)
 
     except KeyboardInterrupt:
         print("\n\nInterrupted by user", file=sys.stderr)
         return 130
     except Exception as e:
         print(f"\nError: {e}", file=sys.stderr)
-        if args.verbose:
+        if parsed.verbose:
             import traceback
 
             traceback.print_exc()

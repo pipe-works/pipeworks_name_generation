@@ -5,12 +5,13 @@ This module provides the main CLI entry point for the nltk_syllable_normaliser t
 which processes NLTK extractor output with fragment cleaning + normalization pipeline.
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 # Import shared components from pyphen normaliser
 from build_tools.pyphen_syllable_normaliser import (
@@ -26,7 +27,7 @@ from build_tools.pyphen_syllable_normaliser import (
 from .fragment_cleaner import FragmentCleaner
 
 
-def detect_nltk_run_directories(source_dir: Path) -> List[Path]:
+def detect_nltk_run_directories(source_dir: Path) -> list[Path]:
     """
     Detect NLTK run directories within source directory.
 
@@ -393,57 +394,57 @@ Examples::
     return parser
 
 
-def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = create_argument_parser()
     return parser.parse_args(args)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for CLI.
 
     Args:
-        argv: Command-line arguments (for testing). If None, uses sys.argv.
+        args: Command-line arguments (for testing). If None, uses sys.argv.
 
     Returns:
         Exit code (0 for success, 1 for error).
     """
-    args = parse_arguments(argv)
+    parsed = parse_arguments(args)
 
     # Validate arguments
-    if args.min < 1:
+    if parsed.min < 1:
         print("ERROR: --min must be >= 1", file=sys.stderr)
         return 1
 
-    if args.max < args.min:
-        print(f"ERROR: --max ({args.max}) must be >= --min ({args.min})", file=sys.stderr)
+    if parsed.max < parsed.min:
+        print(f"ERROR: --max ({parsed.max}) must be >= --min ({parsed.min})", file=sys.stderr)
         return 1
 
     # Create normalization config
     config = NormalizationConfig(
-        min_length=args.min,
-        max_length=args.max,
-        allowed_charset=args.charset,
-        unicode_form=args.unicode_form,
+        min_length=parsed.min,
+        max_length=parsed.max,
+        allowed_charset=parsed.charset,
+        unicode_form=parsed.unicode_form,
     )
 
     try:
         # Determine run directories to process
-        if args.run_dir:
-            run_dirs = [args.run_dir]
+        if parsed.run_dir:
+            run_dirs = [parsed.run_dir]
         else:
             # Auto-detect NLTK run directories
-            run_dirs = detect_nltk_run_directories(args.source)
+            run_dirs = detect_nltk_run_directories(parsed.source)
             if not run_dirs:
-                print(f"No NLTK run directories found in: {args.source}", file=sys.stderr)
+                print(f"No NLTK run directories found in: {parsed.source}", file=sys.stderr)
                 print(
                     "NLTK run directories should match pattern: YYYYMMDD_HHMMSS_nltk/",
                     file=sys.stderr,
                 )
                 return 1
 
-            if not args.quiet:
+            if not parsed.quiet:
                 print(f"Found {len(run_dirs)} NLTK run directories:")
                 for run_dir in run_dirs:
                     print(f"  - {run_dir.name}")
@@ -453,11 +454,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             _ = run_full_pipeline(
                 run_directory=run_dir,
                 config=config,
-                verbose=args.verbose,
-                skip_fragment_cleaning=args.no_fragment_cleaning,
+                verbose=parsed.verbose,
+                skip_fragment_cleaning=parsed.no_fragment_cleaning,
             )
 
-            if not args.quiet:
+            if not parsed.quiet:
                 print(f"\n✓ Successfully processed: {run_dir.name}")
                 print(f"  Outputs written to: {run_dir}")
 
@@ -465,7 +466,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        if args.verbose:
+        if parsed.verbose:
             import traceback
 
             traceback.print_exc()
