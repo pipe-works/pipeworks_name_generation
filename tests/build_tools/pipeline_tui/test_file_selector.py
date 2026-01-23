@@ -5,7 +5,7 @@ Tests FileSelectorScreen modal for selecting files from directories.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from textual.widgets import Button, Checkbox
@@ -102,22 +102,24 @@ class TestFileSelectorScreenCompose:
 class TestFileSelectorScreenFileList:
     """Tests for file list functionality."""
 
-    def test_update_file_list_empty_directory(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_update_file_list_empty_directory(self, tmp_path: Path) -> None:
         """Test file list shows message for empty directory."""
         screen = FileSelectorScreen(initial_dir=tmp_path)
         # Mock the query methods
         mock_file_list = MagicMock()
-        mock_file_list.remove_children = MagicMock()
+        mock_file_list.remove_children = AsyncMock()
         mock_file_list.mount = MagicMock()
 
         with patch.object(screen, "query_one", return_value=mock_file_list):
-            screen._update_file_list(tmp_path)
+            await screen._update_file_list(tmp_path)
 
         assert screen.current_dir == tmp_path
         # Should mount empty message
         mock_file_list.mount.assert_called()
 
-    def test_update_file_list_with_files(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_update_file_list_with_files(self, tmp_path: Path) -> None:
         """Test file list populates with matching files."""
         # Create test files
         (tmp_path / "file1.txt").write_text("test1")
@@ -126,20 +128,21 @@ class TestFileSelectorScreenFileList:
 
         screen = FileSelectorScreen(initial_dir=tmp_path, file_pattern="*.txt")
         mock_file_list = MagicMock()
-        mock_file_list.remove_children = MagicMock()
-        mounted_widgets = []
+        mock_file_list.remove_children = AsyncMock()
+        mounted_widgets: list = []
         mock_file_list.mount = lambda w: mounted_widgets.append(w)
 
         with patch.object(screen, "query_one", return_value=mock_file_list):
             with patch.object(screen, "_update_status"):
-                screen._update_file_list(tmp_path)
+                await screen._update_file_list(tmp_path)
 
         assert screen.current_dir == tmp_path
         # Should have 2 checkboxes (only .txt files)
         checkboxes = [w for w in mounted_widgets if isinstance(w, Checkbox)]
         assert len(checkboxes) == 2
 
-    def test_update_file_list_preserves_selection(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_update_file_list_preserves_selection(self, tmp_path: Path) -> None:
         """Test previously selected files remain selected."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -150,13 +153,13 @@ class TestFileSelectorScreenFileList:
         screen.selected_files = {file1}  # Pre-select file1
 
         mock_file_list = MagicMock()
-        mock_file_list.remove_children = MagicMock()
-        mounted_widgets = []
+        mock_file_list.remove_children = AsyncMock()
+        mounted_widgets: list = []
         mock_file_list.mount = lambda w: mounted_widgets.append(w)
 
         with patch.object(screen, "query_one", return_value=mock_file_list):
             with patch.object(screen, "_update_status"):
-                screen._update_file_list(tmp_path)
+                await screen._update_file_list(tmp_path)
 
         # Find checkbox for file1 - it should be selected
         checkboxes = [w for w in mounted_widgets if isinstance(w, Checkbox)]
@@ -505,7 +508,8 @@ class TestFileSelectorScreenMount:
 class TestFileSelectorScreenExpandToInitialDir:
     """Tests for _expand_to_initial_dir method."""
 
-    def test_expand_to_initial_dir_same_as_root(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_expand_to_initial_dir_same_as_root(self, tmp_path: Path) -> None:
         """Test expansion when initial_dir equals root_dir."""
         screen = FileSelectorScreen(
             initial_dir=tmp_path,
@@ -517,9 +521,10 @@ class TestFileSelectorScreenExpandToInitialDir:
 
         with patch.object(screen, "query_one", return_value=mock_tree):
             # Should not raise - relative_to will return empty parts
-            screen._expand_to_initial_dir()
+            await screen._expand_to_initial_dir()
 
-    def test_expand_to_initial_dir_not_relative(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_expand_to_initial_dir_not_relative(self, tmp_path: Path) -> None:
         """Test handles case when initial_dir is not relative to root_dir."""
         other_path = Path("/some/other/path")
         screen = FileSelectorScreen(
@@ -530,9 +535,10 @@ class TestFileSelectorScreenExpandToInitialDir:
 
         with patch.object(screen, "query_one", return_value=mock_tree):
             # Should handle ValueError from relative_to gracefully and return early
-            screen._expand_to_initial_dir()
+            await screen._expand_to_initial_dir()
 
-    def test_expand_to_initial_dir_expands_tree(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_expand_to_initial_dir_expands_tree(self, tmp_path: Path) -> None:
         """Test tree expansion when initial_dir is below root_dir."""
         subdir = tmp_path / "subdir"
         screen = FileSelectorScreen(
@@ -546,7 +552,7 @@ class TestFileSelectorScreenExpandToInitialDir:
         mock_tree.root = mock_root
 
         with patch.object(screen, "query_one", return_value=mock_tree):
-            screen._expand_to_initial_dir()
+            await screen._expand_to_initial_dir()
 
         # Root should be expanded
         mock_root.expand.assert_called()

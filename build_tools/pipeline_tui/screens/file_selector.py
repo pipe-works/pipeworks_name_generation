@@ -218,7 +218,7 @@ class FileSelectorScreen(ModalScreen[list[Path] | None]):
                 yield Button("Select", variant="primary", id="select-button", disabled=True)
                 yield Button("Cancel", variant="default", id="cancel-button")
 
-    def _update_file_list(self, directory: Path) -> None:
+    async def _update_file_list(self, directory: Path) -> None:
         """
         Update the file list to show files from the given directory.
 
@@ -228,9 +228,9 @@ class FileSelectorScreen(ModalScreen[list[Path] | None]):
         self.current_dir = directory
         file_list = self.query_one("#file-list", VerticalScroll)
 
-        # Clear existing content
+        # Clear existing content (must await to ensure children are removed)
         self._file_checkboxes.clear()
-        file_list.remove_children()
+        await file_list.remove_children()
 
         # Get matching files
         try:
@@ -280,18 +280,18 @@ class FileSelectorScreen(ModalScreen[list[Path] | None]):
             select_button.disabled = False
 
     @on(DirectoryTree.DirectorySelected)
-    def directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+    async def directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
         """Handle directory selection in tree."""
-        self._update_file_list(Path(event.path))
+        await self._update_file_list(Path(event.path))
 
     @on(Tree.NodeExpanded)
-    def node_expanded(self, event: Tree.NodeExpanded) -> None:
+    async def node_expanded(self, event: Tree.NodeExpanded) -> None:
         """Handle directory expansion - also load files."""
         node = event.node
         if node.data and hasattr(node.data, "path"):
             path = Path(node.data.path)
             if path.is_dir():
-                self._update_file_list(path)
+                await self._update_file_list(path)
 
     @on(Checkbox.Changed)
     def checkbox_changed(self, event: Checkbox.Changed) -> None:
@@ -364,7 +364,7 @@ class FileSelectorScreen(ModalScreen[list[Path] | None]):
         if self.initial_dir != self.root_dir:
             self.set_timer(0.1, self._expand_to_initial_dir)
 
-    def _expand_to_initial_dir(self) -> None:
+    async def _expand_to_initial_dir(self) -> None:
         """Expand tree nodes from root to initial_dir."""
         tree = self.query_one("#directory-tree", DirectoryTree)
 
@@ -397,7 +397,7 @@ class FileSelectorScreen(ModalScreen[list[Path] | None]):
             if current_node.data and hasattr(current_node.data, "path"):
                 path = Path(current_node.data.path)
                 if path.is_dir():
-                    self._update_file_list(path)
+                    await self._update_file_list(path)
 
     def action_cursor_down(self) -> None:
         """Move cursor down in directory tree (j key)."""
