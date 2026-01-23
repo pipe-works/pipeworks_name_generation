@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.7...pipeworks-name-generation-v0.5.8) (2026-01-23)
+
+
+### Internal Changes
+
+* **build_tools:** Remove deprecated backward-compatibility shims ([3e1b3f4](https://github.com/aa-parky/pipeworks_name_generation/commit/3e1b3f41e3d68beeefd32187177cae1f36d7140c))
+* **build_tools:** Remove deprecated shims and extract shared CLI utilities ([3800421](https://github.com/aa-parky/pipeworks_name_generation/commit/3800421f9f6c8d077fab23339fa465fc15beea7f))
+* **cli:** Extract shared CLI utilities to tui_common.cli_utils ([cfeb82e](https://github.com/aa-parky/pipeworks_name_generation/commit/cfeb82e98187d06bf27f7dcaa3dab2304d4d8152))
+* **tests:** Split monolithic test_app.py into focused test modules ([fadce70](https://github.com/aa-parky/pipeworks_name_generation/commit/fadce70d16f460bb343c942f52d361ab81edfb2a))
+
 ## [0.5.7](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.6...pipeworks-name-generation-v0.5.7) (2026-01-23)
 
 

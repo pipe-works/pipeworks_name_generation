@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipeworks-name-generation"
-version = "0.5.7"
+version = "0.5.8"
 description = "Phonetically-grounded name generation for games and procedural systems"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
