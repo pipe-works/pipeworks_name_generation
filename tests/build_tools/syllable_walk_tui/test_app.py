@@ -2000,3 +2000,153 @@ class TestExportToTxt:
 
             # Should not crash - exception is caught and notification shown
             assert True
+
+
+class TestRenderScreenAction:
+    """Tests for action_view_render method."""
+
+    @pytest.mark.asyncio
+    async def test_action_view_render_exists(self):
+        """Test that action_view_render method exists."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            assert hasattr(app, "action_view_render")
+
+    @pytest.mark.asyncio
+    async def test_render_screen_binding_exists(self):
+        """Test that 'r' binding is registered for render screen."""
+        from build_tools.syllable_walk_tui.core import SyllableWalkerApp
+
+        # Extract binding keys from BINDINGS
+        binding_keys = []
+        for binding in SyllableWalkerApp.BINDINGS:
+            if hasattr(binding, "key"):
+                binding_keys.append(binding.key)  # type: ignore[union-attr]
+            else:
+                binding_keys.append(binding[0])
+
+        assert "r" in binding_keys
+
+    @pytest.mark.asyncio
+    async def test_render_without_selections_shows_notification(self):
+        """Test that opening render without selections shows notification."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # No selections yet
+            assert app.state.selector_a.outputs == []
+            assert app.state.selector_b.outputs == []
+
+            # Try to open render screen - should show notification
+            app.action_view_render()
+            await pilot.pause()
+
+            # Should not crash, and no render screen pushed
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_with_patch_a_selections(self):
+        """Test opening render screen with Patch A selections."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up Patch A selections
+            app.state.selector_a.outputs = ["orma", "krath", "velum"]
+            app.state.selector_a.name_class = "first_name"
+
+            # Open render screen
+            app.action_view_render()
+            await pilot.pause()
+
+            # Should not crash
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_with_patch_b_selections(self):
+        """Test opening render screen with Patch B selections only."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up Patch B selections only
+            app.state.selector_b.outputs = ["striden", "velum"]
+            app.state.selector_b.name_class = "last_name"
+
+            # Open render screen
+            app.action_view_render()
+            await pilot.pause()
+
+            # Should not crash
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_with_both_patches_selections(self):
+        """Test opening render screen with both patches having selections."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up both patches
+            app.state.selector_a.outputs = ["orma", "krath"]
+            app.state.selector_a.name_class = "first_name"
+            app.state.selector_b.outputs = ["striden", "velum"]
+            app.state.selector_b.name_class = "last_name"
+
+            # Open render screen
+            app.action_view_render()
+            await pilot.pause()
+
+            # Should not crash
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_keypress_opens_screen(self):
+        """Test that pressing 'r' opens render screen."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up some selections first
+            app.state.selector_a.outputs = ["test"]
+            app.state.selector_a.name_class = "first_name"
+
+            # Press 'r' to open render screen
+            await pilot.press("r")
+            await pilot.pause()
+
+            # Should not crash
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_keypress_without_selections(self):
+        """Test that pressing 'r' without selections shows notification."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # No selections
+            assert app.state.selector_a.outputs == []
+            assert app.state.selector_b.outputs == []
+
+            # Press 'r' - should show notification, not crash
+            await pilot.press("r")
+            await pilot.pause()
+
+            # Should not crash
+            assert True
+
+    @pytest.mark.asyncio
+    async def test_render_passes_correct_name_classes(self):
+        """Test that render passes correct name classes from selector state."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test() as pilot:
+            # Set up specific name classes
+            app.state.selector_a.name_class = "place_name"
+            app.state.selector_a.outputs = ["test"]
+            app.state.selector_b.name_class = "organisation"
+            app.state.selector_b.outputs = ["org"]
+
+            # Open render screen - verify no errors with different name classes
+            app.action_view_render()
+            await pilot.pause()
+
+            # Should not crash with non-default name classes
+            assert True

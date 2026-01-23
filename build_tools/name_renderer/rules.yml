@@ -1,0 +1,70 @@
+# Name Renderer - Presentation Rules
+# ==================================
+#
+# This file defines presentation-only styling rules for name rendering.
+# Think of this as "CSS for names" - it controls how names LOOK,
+# not what they ARE.
+#
+# IMPORTANT: This file must NEVER contain:
+#   - Name quality judgements
+#   - Linguistic correctness rules
+#   - Semantic meaning interpretation
+#   - Cultural authenticity criteria
+#   - Any logic that affects selection or generation
+#
+# If you need to control which names are selected, use:
+#   - data/name_classes.yml (policy rules)
+#   - build_tools/name_selector (selection logic)
+
+# Available rendering styles
+# --------------------------
+# Each style defines a text transformation for display purposes.
+
+styles:
+  title:
+    description: Title Case (Orma)
+    transform: title
+
+  upper:
+    description: UPPERCASE (ORMA)
+    transform: upper
+
+  lower:
+    description: lowercase (orma)
+    transform: lower
+
+# Default style when none specified
+default_style: title
+
+# Future: Name-class-aware styling
+# --------------------------------
+# Uncomment and customize when name-class-specific defaults are needed.
+#
+# name_classes:
+#   first_name:
+#     default_style: "title"
+#     description: "Personal names - Title Case"
+#
+#   last_name:
+#     default_style: "title"
+#     description: "Family names - Title Case"
+#
+#   organisation:
+#     default_style: "upper"
+#     description: "Organisation names - UPPERCASE"
+#
+#   place_name:
+#     default_style: "title"
+#     description: "Place names - Title Case"
+#
+#   location_name:
+#     default_style: "title"
+#     description: "Location names - Title Case"
+#
+#   object_item:
+#     default_style: "lower"
+#     description: "Object/item names - lowercase"
+#
+#   title_epithet:
+#     default_style: "title"
+#     description: "Titles and epithets - Title Case"
