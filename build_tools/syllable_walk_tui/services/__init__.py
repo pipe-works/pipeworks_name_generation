@@ -2,9 +2,10 @@
 Backend services for Syllable Walker TUI.
 
 This module contains service layers for corpus loading, configuration management,
-terrain weights, and other backend operations.
+terrain weights, generation, and other backend operations.
 """
 
+from build_tools.syllable_walk_tui.services.combiner_runner import CombinerResult, run_combiner
 from build_tools.syllable_walk_tui.services.config import (
     KeybindingConfig,
     load_config_file,
@@ -16,6 +17,9 @@ from build_tools.syllable_walk_tui.services.corpus import (
     load_corpus_data,
     validate_corpus_directory,
 )
+from build_tools.syllable_walk_tui.services.exporter import export_names_to_txt
+from build_tools.syllable_walk_tui.services.generation import WalkResult, generate_walks_for_patch
+from build_tools.syllable_walk_tui.services.selector_runner import SelectorResult, run_selector
 from build_tools.syllable_walk_tui.services.terrain_weights import (
     DEFAULT_TERRAIN_WEIGHTS,
     AxisWeights,
@@ -37,6 +41,17 @@ __all__ = [
     "get_corpus_info",
     "load_corpus_data",
     "load_annotated_data",
+    # Generation
+    "WalkResult",
+    "generate_walks_for_patch",
+    # Combiner
+    "CombinerResult",
+    "run_combiner",
+    # Selector
+    "SelectorResult",
+    "run_selector",
+    # Export
+    "export_names_to_txt",
     # Terrain Weights
     "AxisWeights",
     "TerrainWeights",

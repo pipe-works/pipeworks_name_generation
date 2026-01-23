@@ -194,7 +194,8 @@ class TestGetInitialBrowseDir:
         app = SyllableWalkerApp()
 
         # Mock the project root to point to tmp_path
-        with patch("build_tools.syllable_walk_tui.core.app.Path") as mock_path:
+        # Note: Path is now in actions.py after refactoring
+        with patch("build_tools.syllable_walk_tui.core.actions.Path") as mock_path:
             # Create _working/output
             working_output = tmp_path / "_working" / "output"
             working_output.mkdir(parents=True)

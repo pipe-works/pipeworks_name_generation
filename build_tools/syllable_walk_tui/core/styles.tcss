@@ -1,0 +1,86 @@
+/* Syllable Walker TUI - Main Application Styles */
+
+Screen {
+    layout: vertical;
+}
+
+#main-container {
+    layout: horizontal;
+    width: 100%;
+    height: 1fr;
+}
+
+.column {
+    width: 1fr;
+    height: 100%;
+    border: solid $primary;
+    padding: 1;
+}
+
+.patch-panel {
+    width: 22%;
+}
+
+.combiner-column {
+    width: 28%;
+}
+
+.stats-panel {
+    width: 30%;
+}
+
+.patch-header {
+    text-style: bold;
+    color: $accent;
+}
+
+.stats-header {
+    text-style: bold;
+    color: $accent;
+}
+
+.section-header {
+    text-style: bold;
+    margin-top: 1;
+}
+
+.divider {
+    color: $primary-darken-2;
+}
+
+.spacer {
+    height: 1;
+}
+
+.button-label {
+    text-align: center;
+}
+
+.output-placeholder {
+    color: $text-muted;
+    text-style: italic;
+}
+
+.corpus-status {
+    color: $text-muted;
+    text-style: italic;
+    margin-bottom: 1;
+}
+
+.corpus-status-valid {
+    color: $success;
+    text-style: none;
+    margin-bottom: 1;
+}
+
+.corpus-label {
+    color: $text-muted;
+    text-style: italic;
+    margin-bottom: 0;
+}
+
+.walks-output {
+    color: $text-muted;
+    text-style: italic;
+    margin-top: 1;
+}

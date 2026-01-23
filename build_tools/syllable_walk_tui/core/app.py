@@ -10,20 +10,12 @@ Architecture:
 - Keyboard-first navigation with configurable keybindings
 """
 
-import json
-import os
-import tempfile
-import traceback
-from pathlib import Path
-
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, Footer, Header, Label, Select
 
-from build_tools.syllable_walk.profiles import WALK_PROFILES
-from build_tools.syllable_walk.walker import SyllableWalker
 from build_tools.syllable_walk_tui.controls import (
     CorpusBrowserScreen,
     FloatSlider,
@@ -31,12 +23,12 @@ from build_tools.syllable_walk_tui.controls import (
     ProfileOption,
     SeedInput,
 )
+from build_tools.syllable_walk_tui.core import actions, handlers
 from build_tools.syllable_walk_tui.core.state import AppState
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
-from build_tools.syllable_walk_tui.modules.database import DatabaseScreen
 from build_tools.syllable_walk_tui.modules.generator import CombinerPanel, SelectorPanel
-from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel, PatchState
+from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
     load_annotated_data,
@@ -44,11 +36,10 @@ from build_tools.syllable_walk_tui.services import (
     load_keybindings,
     validate_corpus_directory,
 )
-
-# BlendedWalkScreen moved to modules.blender.screen.BlendedWalkScreen
-# AnalysisScreen moved to modules.analyzer.screen.AnalysisScreen
-# StatsPanel moved to modules.analyzer.panel.StatsPanel
-# PatchPanel moved to modules.oscillator.panel.OscillatorPanel
+from build_tools.syllable_walk_tui.services.combiner_runner import run_combiner
+from build_tools.syllable_walk_tui.services.exporter import export_names_to_txt
+from build_tools.syllable_walk_tui.services.generation import generate_walks_for_patch
+from build_tools.syllable_walk_tui.services.selector_runner import run_selector
 
 
 class SyllableWalkerApp(App):
@@ -87,92 +78,7 @@ class SyllableWalkerApp(App):
         Binding("2", "select_corpus_b", "Corpus B", priority=True),
     ]
 
-    CSS = """
-    Screen {
-        layout: vertical;
-    }
-
-    #main-container {
-        layout: horizontal;
-        width: 100%;
-        height: 1fr;
-    }
-
-    .column {
-        width: 1fr;
-        height: 100%;
-        border: solid $primary;
-        padding: 1;
-    }
-
-    .patch-panel {
-        width: 22%;
-    }
-
-    .combiner-column {
-        width: 28%;
-    }
-
-    .stats-panel {
-        width: 30%;
-    }
-
-    .patch-header {
-        text-style: bold;
-        color: $accent;
-    }
-
-    .stats-header {
-        text-style: bold;
-        color: $accent;
-    }
-
-    .section-header {
-        text-style: bold;
-        margin-top: 1;
-    }
-
-    .divider {
-        color: $primary-darken-2;
-    }
-
-    .spacer {
-        height: 1;
-    }
-
-    .button-label {
-        text-align: center;
-    }
-
-    .output-placeholder {
-        color: $text-muted;
-        text-style: italic;
-    }
-
-    .corpus-status {
-        color: $text-muted;
-        text-style: italic;
-        margin-bottom: 1;
-    }
-
-    .corpus-status-valid {
-        color: $success;
-        text-style: none;
-        margin-bottom: 1;
-    }
-
-    .corpus-label {
-        color: $text-muted;
-        text-style: italic;
-        margin-bottom: 0;
-    }
-
-    .walks-output {
-        color: $text-muted;
-        text-style: italic;
-        margin-top: 1;
-    }
-    """
+    CSS_PATH = "styles.tcss"
 
     def __init__(self):
         """Initialize application with default state."""
@@ -278,17 +184,29 @@ class SyllableWalkerApp(App):
         """Export selected names to TXT file for Patch B."""
         self._export_to_txt("B")
 
+    # ─────────────────────────────────────────────────────────────
+    # Wrapper methods for actions module (preserves API for tests)
+    # ─────────────────────────────────────────────────────────────
+
+    def _get_initial_browse_dir(self, patch_name: str):
+        """Get smart initial directory for corpus browser. Delegates to actions."""
+        return actions.get_initial_browse_dir(self, patch_name)
+
+    def _open_database_for_patch(self, patch_name: str) -> None:
+        """Open database viewer for a patch. Delegates to actions."""
+        actions.open_database_for_patch(self, patch_name)
+
+    def _compute_metrics_for_patch(self, patch):
+        """Compute corpus shape metrics for a patch. Delegates to actions."""
+        return actions.compute_metrics_for_patch(patch)
+
+    # ─────────────────────────────────────────────────────────────
+    # Core workflow methods
+    # ─────────────────────────────────────────────────────────────
+
     def _generate_walks_for_patch(self, patch_name: str) -> None:
         """
         Generate walks for a patch using SyllableWalker.
-
-        This method:
-        1. Checks if patch has corpus loaded (annotated_data)
-        2. Creates SyllableWalker from annotated data
-        3. Filters syllables by min/max length constraints
-        4. Generates 10 walks with current patch parameters
-        5. Stores results in patch.outputs
-        6. Updates UI to display walks
 
         Args:
             patch_name: "A" or "B"
@@ -300,96 +218,42 @@ class SyllableWalkerApp(App):
             self.notify(f"Patch {patch_name}: Corpus not loaded", severity="warning")
             return
 
+        # Notify user that generation is starting
+        self.notify(
+            f"Patch {patch_name}: Initializing walker...",
+            timeout=2,
+            severity="information",
+        )
+
+        # Delegate to service
+        result = generate_walks_for_patch(patch)
+
+        if result.error:
+            self.notify(f"Patch {patch_name}: {result.error}", severity="error")
+            return
+
+        # Store in patch state
+        patch.outputs = result.walks
+
+        # Update walks output in oscillator panel
         try:
-            # Create temporary JSON file for SyllableWalker
-            # (SyllableWalker expects a file path, not in-memory data)
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-                json.dump(patch.annotated_data, f)
-                temp_path = f.name
+            output_label = self.query_one(f"#walks-output-{patch_name}", Label)
+            output_label.update("\n".join(result.walks))
+        except Exception:  # nosec B110 - Label may not exist in all layouts
+            pass
 
-            # Create walker (this will pre-compute neighbor graph)
-            # Note: This can take 1-2 seconds for large corpora (500k+ syllables)
-            self.notify(
-                f"Patch {patch_name}: Initializing walker...",
-                timeout=2,
-                severity="information",
-            )
-            walker = SyllableWalker(temp_path, verbose=False)
-
-            # Filter syllables by length (simple filtering)
-            valid_syllables = [
-                syl for syl in walker.syllables if patch.min_length <= len(syl) <= patch.max_length
-            ]
-
-            if not valid_syllables:
-                self.notify(
-                    f"Patch {patch_name}: No syllables match length constraints",
-                    severity="error",
-                )
-                os.unlink(temp_path)
-                return
-
-            # Generate walks based on walk_count parameter
-            walks = []
-            for i in range(patch.walk_count):
-                # Pick random starting syllable
-                start = patch.rng.choice(valid_syllables)
-
-                # Generate walk using patch parameters
-                walk = walker.walk(
-                    start=start,
-                    steps=patch.walk_length,
-                    max_flips=patch.max_flips,
-                    temperature=patch.temperature,
-                    frequency_weight=patch.frequency_weight,
-                    seed=patch.seed + i,  # Offset seed for variety
-                )
-
-                # Format walk as string: "syl1 → syl2 → syl3"
-                walk_text = " → ".join(step["syllable"] for step in walk)
-                walks.append(walk_text)
-
-            # Store in patch state
-            patch.outputs = walks
-
-            # Update walks output in oscillator panel
-            try:
-                output_label = self.query_one(f"#walks-output-{patch_name}", Label)
-                output_label.update("\n".join(walks))
-            except Exception:  # nosec B110 - Label may not exist in all layouts
-                pass
-
-            # Clean up temp file
-            os.unlink(temp_path)
-
-            self.notify(f"Patch {patch_name}: Generated {len(walks)} walks", severity="information")
-
-        except Exception as e:
-            self.notify(f"Patch {patch_name}: Generation failed: {e}", severity="error")
-            traceback.print_exc()
+        self.notify(
+            f"Patch {patch_name}: Generated {len(result.walks)} walks",
+            severity="information",
+        )
 
     def _run_combiner(self, patch_name: str) -> None:
         """
         Run name_combiner for a specific patch (mirrors CLI behavior exactly).
 
-        This method mirrors the CLI:
-            python -m build_tools.name_combiner \\
-                --run-dir <patch.corpus_dir> \\
-                --syllables <syllables> \\
-                --count <count> \\
-                --seed <seed> \\
-                --frequency-weight <frequency_weight>
-
-        Output is written to: <run-dir>/candidates/{prefix}_candidates_{N}syl.json
-
         Args:
             patch_name: "A" or "B" - which patch to use for generation
         """
-        import json
-        from datetime import datetime, timezone
-
-        from build_tools.name_combiner.combiner import combine_syllables
-
         # Get the combiner state for this patch (independent A/B)
         comb = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
@@ -403,135 +267,42 @@ class SyllableWalkerApp(App):
             )
             return
 
-        if not patch.corpus_dir:
-            self.notify(
-                f"Patch {patch_name}: No corpus directory set.",
-                severity="error",
-            )
+        self.notify(
+            f"Generating {comb.count:,} {comb.syllables}-syllable candidates...",
+            timeout=2,
+            severity="information",
+        )
+
+        # Delegate to service
+        result = run_combiner(patch, comb)
+
+        if result.error:
+            self.notify(f"Combiner failed: {result.error}", severity="error")
             return
 
-        if not patch.annotated_data:
-            self.notify(
-                f"Patch {patch_name}: Annotated data not loaded.",
-                severity="error",
-            )
-            return
+        # Update state
+        comb.outputs = [c["name"] for c in result.candidates[:10]]  # Preview first 10
+        comb.last_output_path = str(result.output_path)
 
+        # Update panel output with full metadata
         try:
-            run_dir = patch.corpus_dir
-            prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-
-            self.notify(
-                f"Generating {comb.count:,} {comb.syllables}-syllable candidates...",
-                timeout=2,
-                severity="information",
-            )
-
-            # === Generate candidates (mirrors CLI main()) ===
-            candidates = combine_syllables(
-                annotated_data=patch.annotated_data,
-                syllable_count=comb.syllables,
-                count=comb.count,
-                seed=comb.seed,
-                frequency_weight=comb.frequency_weight,
-            )
-
-            # === Prepare output directory (mirrors CLI) ===
-            candidates_dir = run_dir / "candidates"
-            candidates_dir.mkdir(parents=True, exist_ok=True)
-
-            output_filename = f"{prefix}_candidates_{comb.syllables}syl.json"
-            output_path = candidates_dir / output_filename
-
-            # === Build output structure (mirrors CLI) ===
-            output = {
-                "metadata": {
-                    "source_run": run_dir.name,
-                    "source_annotated": f"{prefix}_syllables_annotated.json",
-                    "syllable_count": comb.syllables,
-                    "total_candidates": len(candidates),
-                    "seed": comb.seed,
-                    "frequency_weight": comb.frequency_weight,
-                    "aggregation_rule": "majority",
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                },
-                "candidates": candidates,
-            }
-
-            # === Write output (mirrors CLI) ===
-            with open(output_path, "w") as f:
-                json.dump(output, f, indent=2)
-
-            # === Build meta file (mirrors CLI exactly) ===
-            unique_names = len(set(c["name"] for c in candidates))
-            unique_percentage = unique_names / len(candidates) * 100
-
-            meta_output = {
-                "tool": "name_combiner",
-                "version": "1.0.0",
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "arguments": {
-                    "run_dir": str(run_dir),
-                    "syllables": comb.syllables,
-                    "count": comb.count,
-                    "seed": comb.seed,
-                    "frequency_weight": comb.frequency_weight,
-                },
-                "output": {
-                    "candidates_file": str(output_path),
-                    "candidates_generated": len(candidates),
-                    "unique_names": unique_names,
-                    "unique_percentage": round(unique_percentage, 2),
-                },
-            }
-
-            # === Write meta file ===
-            meta_path = candidates_dir / f"{prefix}_combiner_meta.json"
-            with open(meta_path, "w") as f:
-                json.dump(meta_output, f, indent=2)
-
-            # === Update state ===
-            comb.outputs = [c["name"] for c in candidates[:10]]  # Preview first 10
-            comb.last_output_path = str(output_path)
-
-            # === Update panel output with full metadata ===
-            try:
-                panel = self.query_one(f"#combiner-panel-{patch_name.lower()}", CombinerPanel)
-                panel.update_output(meta_output)
-            except Exception as e:
-                print(f"Warning: Could not update panel: {e}")
-
-            self.notify(
-                f"Generated {len(candidates):,} candidates → {output_path.name}",
-                severity="information",
-            )
-
+            panel = self.query_one(f"#combiner-panel-{patch_name.lower()}", CombinerPanel)
+            panel.update_output(result.meta_output)
         except Exception as e:
-            self.notify(f"Combiner failed: {e}", severity="error")
-            traceback.print_exc()
+            print(f"Warning: Could not update panel: {e}")
+
+        self.notify(
+            f"Generated {len(result.candidates):,} candidates → {result.output_path.name}",
+            severity="information",
+        )
 
     def _run_selector(self, patch_name: str) -> None:
         """
         Run name_selector for a specific patch (mirrors CLI behavior exactly).
 
-        This method mirrors the CLI:
-            python -m build_tools.name_selector \\
-                --run-dir <patch.corpus_dir> \\
-                --candidates <from combiner output> \\
-                --name-class <name_class> \\
-                --count <count> \\
-                --mode <mode>
-
-        Output is written to: <run-dir>/selections/{prefix}_{name_class}_{N}syl.json
-
         Args:
             patch_name: "A" or "B" - which patch to use for selection
         """
-        from datetime import datetime, timezone
-
-        from build_tools.name_selector.name_class import get_default_policy_path, load_name_classes
-        from build_tools.name_selector.selector import compute_selection_statistics, select_names
-
         # Get the selector and combiner states for this patch (independent A/B)
         selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
         combiner = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
@@ -546,189 +317,39 @@ class SyllableWalkerApp(App):
             )
             return
 
-        if not patch.corpus_dir:
-            self.notify(
-                f"Patch {patch_name}: No corpus directory set.",
-                severity="error",
-            )
+        self.notify(
+            f"Selecting {selector.count} {selector.name_class} names...",
+            timeout=2,
+            severity="information",
+        )
+
+        # Delegate to service
+        result = run_selector(patch, combiner, selector)
+
+        if result.error:
+            self.notify(f"Selector failed: {result.error}", severity="error")
             return
 
-        # Check if candidates file exists (from combiner output)
-        if not combiner.last_output_path:
-            self.notify(
-                f"Patch {patch_name}: No candidates generated. " f"Run Generate Candidates first.",
-                severity="warning",
-            )
-            return
+        # Update state
+        selector.last_output_path = str(result.output_path)
+        selector.last_candidates_path = combiner.last_output_path
+        selector.outputs = result.selected_names
 
-        candidates_path = Path(combiner.last_output_path)
-        if not candidates_path.exists():
-            self.notify(
-                f"Patch {patch_name}: Candidates file not found: {candidates_path.name}",
-                severity="error",
-            )
-            return
-
+        # Update panel
         try:
-            run_dir = patch.corpus_dir
-            prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-
-            self.notify(
-                f"Selecting {selector.count} {selector.name_class} names...",
-                timeout=2,
-                severity="information",
-            )
-
-            # Load candidates
-            with open(candidates_path) as f:
-                candidates_data = json.load(f)
-            candidates = candidates_data.get("candidates", [])
-
-            if not candidates:
-                self.notify(
-                    f"Patch {patch_name}: No candidates in file.",
-                    severity="error",
-                )
-                return
-
-            # Load policy
-            policy_path = get_default_policy_path()
-            policies = load_name_classes(policy_path)
-
-            if selector.name_class not in policies:
-                self.notify(
-                    f"Unknown name class: {selector.name_class}",
-                    severity="error",
-                )
-                return
-
-            policy = policies[selector.name_class]
-
-            # Compute statistics
-            stats = compute_selection_statistics(
-                candidates, policy, mode=selector.mode  # type: ignore[arg-type]
-            )
-
-            # Select names
-            selected = select_names(
-                candidates,
-                policy,
-                count=selector.count,
-                mode=selector.mode,  # type: ignore[arg-type]
-                order=selector.order,  # type: ignore[arg-type]
-                seed=combiner.seed,
-            )
-
-            # Prepare output directory
-            selections_dir = run_dir / "selections"
-            selections_dir.mkdir(parents=True, exist_ok=True)
-
-            # Extract syllable count from candidates filename
-            syllables = combiner.syllables
-
-            output_filename = f"{prefix}_{selector.name_class}_{syllables}syl.json"
-            output_path = selections_dir / output_filename
-
-            # Build output structure
-            output = {
-                "metadata": {
-                    "source_candidates": candidates_path.name,
-                    "name_class": selector.name_class,
-                    "policy_description": policy.description,
-                    "policy_file": str(policy_path),
-                    "mode": selector.mode,
-                    "order": selector.order,
-                    "seed": combiner.seed,
-                    "total_evaluated": stats["total_evaluated"],
-                    "admitted": stats["admitted"],
-                    "rejected": stats["rejected"],
-                    "rejection_reasons": stats["rejection_reasons"],
-                    "score_distribution": stats["score_distribution"],
-                    "output_count": len(selected),
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                },
-                "selections": selected,
-            }
-
-            # Write output
-            with open(output_path, "w") as f:
-                json.dump(output, f, indent=2)
-
-            # Write meta file
-            meta_output = {
-                "tool": "name_selector",
-                "version": "1.0.0",
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "arguments": {
-                    "run_dir": str(run_dir),
-                    "candidates": str(candidates_path),
-                    "name_class": selector.name_class,
-                    "policy_file": str(policy_path),
-                    "count": selector.count,
-                    "mode": selector.mode,
-                    "order": selector.order,
-                    "seed": combiner.seed,
-                },
-                "input": {
-                    "candidates_file": str(candidates_path),
-                    "candidates_loaded": len(candidates),
-                    "policy_file": str(policy_path),
-                    "policy_name": selector.name_class,
-                    "policy_description": policy.description,
-                },
-                "output": {
-                    "selections_file": str(output_path),
-                    "selections_count": len(selected),
-                },
-                "statistics": {
-                    "total_evaluated": stats["total_evaluated"],
-                    "admitted": stats["admitted"],
-                    "admitted_percentage": (
-                        round(stats["admitted"] / stats["total_evaluated"] * 100, 2)
-                        if stats["total_evaluated"] > 0
-                        else 0
-                    ),
-                    "rejected": stats["rejected"],
-                    "rejection_reasons": stats["rejection_reasons"],
-                    "score_distribution": stats["score_distribution"],
-                    "mode": selector.mode,
-                    "source_prefix": prefix,
-                    "syllable_count": syllables,
-                },
-            }
-
-            meta_filename = f"{prefix}_selector_meta.json"
-            meta_path = selections_dir / meta_filename
-            with open(meta_path, "w") as f:
-                json.dump(meta_output, f, indent=2)
-
-            # Update state
-            selector.last_output_path = str(output_path)
-            selector.last_candidates_path = str(candidates_path)
-            selector.outputs = [s["name"] for s in selected]  # Store all for scrollable display
-
-            # Update panel
-            try:
-                panel = self.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
-                panel.update_output(meta_output, selector.outputs)
-            except Exception as e:
-                print(f"Warning: Could not update selector panel: {e}")
-
-            self.notify(
-                f"Selected {len(selected):,} {selector.name_class} names → {output_path.name}",
-                severity="information",
-            )
-
+            panel = self.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
+            panel.update_output(result.meta_output, selector.outputs)
         except Exception as e:
-            self.notify(f"Selector failed: {e}", severity="error")
-            traceback.print_exc()
+            print(f"Warning: Could not update selector panel: {e}")
+
+        self.notify(
+            f"Selected {len(result.selected):,} {selector.name_class} names → {result.output_path.name}",
+            severity="information",
+        )
 
     def _export_to_txt(self, patch_name: str) -> None:
         """
         Export selected names to a plain text file (one name per line).
-
-        The TXT file is written to the same selections directory as the JSON output,
-        using the same naming convention: {prefix}_{name_class}_{N}syl.txt
 
         Args:
             patch_name: "A" or "B" - which patch's selections to export
@@ -751,99 +372,16 @@ class SyllableWalkerApp(App):
             )
             return
 
-        try:
-            # Derive TXT path from JSON path
-            json_path = Path(selector.last_output_path)
-            txt_path = json_path.with_suffix(".txt")
+        # Delegate to service
+        txt_path, error = export_names_to_txt(selector.outputs, selector.last_output_path)
 
-            # Write names to TXT file (one per line)
-            with open(txt_path, "w") as f:
-                for name in selector.outputs:
-                    f.write(f"{name}\n")
-
+        if error:
+            self.notify(f"Export failed: {error}", severity="error")
+        else:
             self.notify(
                 f"Exported {len(selector.outputs):,} names → {txt_path.name}",
                 severity="information",
             )
-
-        except Exception as e:
-            self.notify(f"Export failed: {e}", severity="error")
-            traceback.print_exc()
-
-    def _handle_selector_mode_selected(self, widget_id: str, mode: str) -> None:
-        """
-        Handle selector mode radio option selection.
-
-        Args:
-            widget_id: Widget ID like "selector-mode-hard-a"
-            mode: Mode name ("hard" or "soft")
-        """
-        # Extract patch from widget ID (last character)
-        patch_name = widget_id[-1].upper()
-        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
-
-        # Update selector state
-        selector.mode = mode  # type: ignore[assignment]
-
-        # Update radio button UI - deselect the other option
-        try:
-            hard_option = self.query_one(f"#selector-mode-hard-{patch_name.lower()}", ProfileOption)
-            soft_option = self.query_one(f"#selector-mode-soft-{patch_name.lower()}", ProfileOption)
-
-            if mode == "hard":
-                hard_option.set_selected(True)
-                soft_option.set_selected(False)
-            else:
-                hard_option.set_selected(False)
-                soft_option.set_selected(True)
-        except Exception:  # nosec B110 - Widget may not be mounted yet
-            pass
-
-    def _handle_selector_order_selected(self, widget_id: str, order: str) -> None:
-        """
-        Handle selector order radio option selection.
-
-        Args:
-            widget_id: Widget ID like "selector-order-random-a"
-            order: Order name ("random" or "alphabetical")
-        """
-        # Extract patch from widget ID (last character)
-        patch_name = widget_id[-1].upper()
-        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
-
-        # Update selector state
-        selector.order = order  # type: ignore[assignment]
-
-        # Update radio button UI - deselect the other option
-        try:
-            random_option = self.query_one(
-                f"#selector-order-random-{patch_name.lower()}", ProfileOption
-            )
-            alpha_option = self.query_one(
-                f"#selector-order-alphabetical-{patch_name.lower()}", ProfileOption
-            )
-
-            if order == "random":
-                random_option.set_selected(True)
-                alpha_option.set_selected(False)
-            else:
-                random_option.set_selected(False)
-                alpha_option.set_selected(True)
-        except Exception:  # nosec B110 - Widget may not be mounted yet
-            pass
-
-    def _handle_selector_name_class_changed(self, widget_id: str, value: str) -> None:
-        """
-        Handle selector name class selection change.
-
-        Args:
-            widget_id: Widget ID like "selector-name-class-a"
-            value: Selected name class
-        """
-        # Extract patch from widget ID (last character)
-        patch_name = widget_id[-1].upper()
-        selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
-        selector.name_class = value
 
     def action_select_corpus_a(self) -> None:
         """Action: Open corpus selector for Patch A (keybinding: 1)."""
@@ -858,13 +396,10 @@ class SyllableWalkerApp(App):
         self.push_screen(BlendedWalkScreen())
 
     def action_view_analysis(self) -> None:
-        """Action: Open analysis modal screen (keybinding: a).
-
-        Computes corpus shape metrics for loaded patches before displaying.
-        """
-        # Compute metrics for loaded patches
-        metrics_a = self._compute_metrics_for_patch(self.state.patch_a)
-        metrics_b = self._compute_metrics_for_patch(self.state.patch_b)
+        """Action: Open analysis modal screen (keybinding: a)."""
+        # Compute metrics for loaded patches using actions module
+        metrics_a = actions.compute_metrics_for_patch(self.state.patch_a)
+        metrics_b = actions.compute_metrics_for_patch(self.state.patch_b)
 
         self.push_screen(
             AnalysisScreen(
@@ -877,106 +412,13 @@ class SyllableWalkerApp(App):
             )
         )
 
-    def _compute_metrics_for_patch(self, patch: "PatchState"):
-        """
-        Compute corpus shape metrics for a patch.
-
-        Args:
-            patch: PatchState to compute metrics for
-
-        Returns:
-            CorpusShapeMetrics if patch has loaded data, None otherwise
-        """
-        from build_tools.syllable_walk_tui.services.metrics import compute_corpus_shape_metrics
-
-        # Check if patch has required data
-        if not patch.syllables or not patch.frequencies or not patch.annotated_data:
-            return None
-
-        try:
-            return compute_corpus_shape_metrics(
-                patch.syllables,
-                patch.frequencies,
-                patch.annotated_data,
-            )
-        except Exception:
-            # Computation failed
-            return None
-
     def action_view_database_a(self) -> None:
-        """Action: Open database viewer for Patch A (keybinding: d).
-
-        Shows the corpus.db for Patch A if a corpus is loaded.
-        """
-        self._open_database_for_patch("A")
+        """Action: Open database viewer for Patch A (keybinding: d)."""
+        actions.open_database_for_patch(self, "A")
 
     def action_view_database_b(self) -> None:
-        """Action: Open database viewer for Patch B (keybinding: D).
-
-        Shows the corpus.db for Patch B if a corpus is loaded.
-        """
-        self._open_database_for_patch("B")
-
-    def _open_database_for_patch(self, patch_name: str) -> None:
-        """
-        Open database viewer for the specified patch.
-
-        Args:
-            patch_name: "A" or "B"
-        """
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        if patch.corpus_dir:
-            db_path = patch.corpus_dir / "data" / "corpus.db"
-            if db_path.exists():
-                self.push_screen(DatabaseScreen(db_path=db_path, patch_name=patch_name))
-            else:
-                self.notify(
-                    f"No corpus.db found for Patch {patch_name}. "
-                    "The corpus may need to be rebuilt with the pipeline.",
-                    severity="warning",
-                )
-        else:
-            self.notify(
-                f"No corpus loaded for Patch {patch_name}. "
-                f"Press {patch_name == 'A' and '1' or '2'} to select a corpus directory.",
-                severity="warning",
-            )
-
-    def _get_initial_browse_dir(self, patch_name: str) -> Path:
-        """
-        Get smart initial directory for corpus browser.
-
-        Priority order:
-        1. Patch's current corpus_dir (if already set)
-        2. Last browsed directory (if set)
-        3. _working/output/ (if exists)
-        4. Home directory (fallback)
-
-        Args:
-            patch_name: "A" or "B"
-
-        Returns:
-            Path to start browsing from
-        """
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # 1. Use patch's current corpus_dir if set
-        if patch.corpus_dir and patch.corpus_dir.exists():
-            return patch.corpus_dir
-
-        # 2. Use last browsed directory if set
-        if self.state.last_browse_dir and self.state.last_browse_dir.exists():
-            return self.state.last_browse_dir
-
-        # 3. Try _working/output/ if it exists
-        project_root = Path(__file__).parent.parent.parent
-        working_output = project_root / "_working" / "output"
-        if working_output.exists() and working_output.is_dir():
-            return working_output
-
-        # 4. Fall back to home directory
-        return Path.home()
+        """Action: Open database viewer for Patch B (keybinding: D)."""
+        actions.open_database_for_patch(self, "B")
 
     @work
     async def _select_corpus_for_patch(self, patch_name: str) -> None:
@@ -988,7 +430,7 @@ class SyllableWalkerApp(App):
         """
         try:
             # Get smart initial directory
-            initial_dir = self._get_initial_browse_dir(patch_name)
+            initial_dir = actions.get_initial_browse_dir(self, patch_name)
 
             # Open browser modal
             result = await self.push_screen_wait(CorpusBrowserScreen(initial_dir))
@@ -1315,290 +757,37 @@ class SyllableWalkerApp(App):
         self.exit()
 
     # =========================================================================
-    # Parameter Change Handlers - Wire widgets to PatchState
+    # Parameter Change Handlers - Delegate to handlers module
     # =========================================================================
-
-    def _switch_to_custom_mode(self, patch_name: str, patch: "PatchState") -> None:
-        """
-        Switch patch to custom mode when user manually adjusts profile parameters.
-
-        This is called when the user manually changes max_flips, temperature, or
-        frequency_weight - the three parameters that define walk profiles. When
-        manually adjusted, the patch switches from a named profile to "custom" mode.
-
-        Args:
-            patch_name: "A" or "B"
-            patch: PatchState instance to update
-
-        Note:
-            Only switches to custom if currently using a named profile.
-            If already in custom mode, does nothing.
-        """
-        # Only switch if we're currently using a named profile (not already custom)
-        if patch.current_profile == "custom":
-            return
-
-        # Update state to custom mode
-        old_profile = patch.current_profile
-        patch.current_profile = "custom"
-
-        # Update ProfileOption widgets: deselect old, select custom
-        try:
-            # Deselect the previously selected profile
-            old_option = self.query_one(f"#profile-{old_profile}-{patch_name}", ProfileOption)
-            old_option.set_selected(False)
-
-            # Select the custom option
-            custom_option = self.query_one(f"#profile-custom-{patch_name}", ProfileOption)
-            custom_option.set_selected(True)
-        except Exception as e:  # nosec B110 - Safe widget query failure
-            # Widget not found or update failed - log but don't crash
-            print(f"Warning: Could not update profile selection to custom: {e}")
 
     @on(IntSpinner.Changed)
     def on_int_spinner_changed(self, event: IntSpinner.Changed) -> None:
-        """Handle integer spinner value changes and update patch or generator state."""
-        # Use widget_id from the message
-        widget_id = event.widget_id
-        if not widget_id:
-            return
-
-        # Check for combiner panel widgets first (pattern: combiner-<param>-<patch>)
-        if widget_id.startswith("combiner-"):
-            # Determine which combiner (A or B) based on widget ID suffix
-            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
-            if "syllables" in widget_id:
-                comb.syllables = event.value
-            elif "count" in widget_id:
-                comb.count = event.value
-            return
-
-        # Check for selector panel widgets (pattern: selector-<param>-<patch>)
-        if widget_id.startswith("selector-"):
-            # Determine which selector (A or B) based on widget ID suffix
-            sel = self.state.selector_a if widget_id.endswith("-a") else self.state.selector_b
-            if "count" in widget_id:
-                sel.count = event.value
-            return
-
-        # Parse widget ID to determine patch and parameter
-        # Format: "<param>-<patch>" e.g., "min-length-A"
-        parts = widget_id.rsplit("-", 1)
-        if len(parts) != 2:
-            return
-
-        param_name, patch_name = parts
-        if patch_name not in ("A", "B"):
-            return  # Not a patch widget
-
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Update the appropriate parameter in patch state
-        if param_name == "min-length":
-            patch.min_length = event.value
-        elif param_name == "max-length":
-            patch.max_length = event.value
-        elif param_name == "walk-length":
-            patch.walk_length = event.value
-        elif param_name == "max-flips":
-            patch.max_flips = event.value
-            # Max flips is a profile parameter - switch to custom mode
-            # UNLESS we're updating from a profile change (prevents feedback loop)
-            if self._updating_from_profile:
-                # Decrement counter - this is one of the expected profile updates
-                self._pending_profile_updates -= 1
-                if self._pending_profile_updates <= 0:
-                    self._updating_from_profile = False
-                    self._pending_profile_updates = 0
-            elif not self._updating_from_profile:
-                self._switch_to_custom_mode(patch_name, patch)
-        elif param_name == "neighbors":
-            patch.neighbor_limit = event.value
-        elif param_name == "walk-count":
-            patch.walk_count = event.value
+        """Handle integer spinner value changes."""
+        if event.widget_id:
+            handlers.handle_int_spinner_changed(self, event.widget_id, event.value)
 
     @on(FloatSlider.Changed)
     def on_float_slider_changed(self, event: FloatSlider.Changed) -> None:
-        """Handle float slider value changes and update patch or generator state."""
-        # Use widget_id from the message
-        widget_id = event.widget_id
-        if not widget_id:
-            return
-
-        # Check for combiner panel widgets first (pattern: combiner-<param>-<patch>)
-        if widget_id.startswith("combiner-") and "freq-weight" in widget_id:
-            # Determine which combiner (A or B) based on widget ID suffix
-            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
-            comb.frequency_weight = event.value
-            return
-
-        # Parse widget ID to determine patch and parameter
-        parts = widget_id.rsplit("-", 1)
-        if len(parts) != 2:
-            return
-
-        param_name, patch_name = parts
-        if patch_name not in ("A", "B"):
-            return  # Not a patch widget
-
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Update the appropriate parameter in patch state
-        if param_name == "temperature":
-            patch.temperature = event.value
-            # Temperature is a profile parameter - switch to custom mode
-            # UNLESS we're updating from a profile change (prevents feedback loop)
-            if self._updating_from_profile:
-                # Decrement counter - this is one of the expected profile updates
-                self._pending_profile_updates -= 1
-                if self._pending_profile_updates <= 0:
-                    self._updating_from_profile = False
-                    self._pending_profile_updates = 0
-            elif not self._updating_from_profile:
-                self._switch_to_custom_mode(patch_name, patch)
-        elif param_name == "freq-weight":
-            patch.frequency_weight = event.value
-            # Frequency weight is a profile parameter - switch to custom mode
-            # UNLESS we're updating from a profile change (prevents feedback loop)
-            if self._updating_from_profile:
-                # Decrement counter - this is one of the expected profile updates
-                self._pending_profile_updates -= 1
-                if self._pending_profile_updates <= 0:
-                    self._updating_from_profile = False
-                    self._pending_profile_updates = 0
-            elif not self._updating_from_profile:
-                self._switch_to_custom_mode(patch_name, patch)
+        """Handle float slider value changes."""
+        if event.widget_id:
+            handlers.handle_float_slider_changed(self, event.widget_id, event.value)
 
     @on(SeedInput.Changed)
     def on_seed_changed(self, event: SeedInput.Changed) -> None:
-        """Handle seed input changes and update patch or generator state."""
-        # Use widget_id from the message
-        widget_id = event.widget_id
-        if not widget_id:
-            return
-
-        # Check for combiner panel seed widget (pattern: combiner-seed-<patch>)
-        if widget_id.startswith("combiner-seed"):
-            # Determine which combiner (A or B) based on widget ID suffix
-            comb = self.state.combiner_a if widget_id.endswith("-a") else self.state.combiner_b
-            comb.seed = event.value
-            return
-
-        # Parse widget ID to determine patch
-        # Format: "seed-<patch>" e.g., "seed-A"
-        parts = widget_id.rsplit("-", 1)
-        if len(parts) != 2 or parts[0] != "seed":
-            return
-
-        patch_name = parts[1]
-        if patch_name not in ("A", "B"):
-            return  # Not a patch widget
-
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Update seed in patch state with new value
-        patch.seed = event.value
-        patch.rng = __import__("random").Random(event.value)
+        """Handle seed input changes."""
+        if event.widget_id:
+            handlers.handle_seed_changed(self, event.widget_id, event.value)
 
     @on(Select.Changed)
     def on_select_changed(self, event: Select.Changed) -> None:
         """Handle Select widget changes (e.g., name class dropdown)."""
         widget_id = str(event.control.id) if event.control.id else None
-        if not widget_id:
-            return
-
-        # Handle selector name class dropdown
-        if widget_id.startswith("selector-name-class"):
+        if widget_id and widget_id.startswith("selector-name-class"):
             value = str(event.value) if event.value else "first_name"
-            self._handle_selector_name_class_changed(widget_id, value)
+            handlers.handle_selector_name_class_changed(self, widget_id, value)
 
     @on(ProfileOption.Selected)
     def on_profile_selected(self, event: ProfileOption.Selected) -> None:
         """Handle profile option selection (radio button click)."""
-        # Parse widget ID to determine patch
-        # Format: "profile-<profile_name>-<patch>" e.g., "profile-clerical-A"
-        widget_id = event.widget_id
-        if not widget_id:
-            return
-
-        # Handle selector mode options (selector-mode-hard-a, selector-mode-soft-b)
-        if widget_id.startswith("selector-mode-"):
-            self._handle_selector_mode_selected(widget_id, event.profile_name)
-            return
-
-        # Handle selector order options (selector-order-random-a, selector-order-alphabetical-b)
-        if widget_id.startswith("selector-order-"):
-            self._handle_selector_order_selected(widget_id, event.profile_name)
-            return
-
-        parts = widget_id.rsplit("-", 1)
-        if len(parts) != 2:
-            return
-
-        patch_name = parts[1]
-        profile_name = event.profile_name
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Deselect all other profile options for this patch
-        for profile_key in ["clerical", "dialect", "goblin", "ritual", "custom"]:
-            try:
-                option = self.query_one(f"#profile-{profile_key}-{patch_name}", ProfileOption)
-                should_select = profile_key == profile_name
-                option.set_selected(should_select)
-            except Exception:  # nosec B110, B112 - Widget query can fail safely
-                # Widget not found during initialization, ignore
-                pass
-
-        # Update current profile in state
-        patch.current_profile = profile_name
-
-        # If "custom" selected, don't update parameters - user will set them manually
-        if profile_name == "custom":
-            return
-
-        # Load profile parameters and update all controls
-        profile = WALK_PROFILES.get(profile_name)
-        if not profile:
-            # Unknown profile, ignore
-            return
-
-        # Update patch state with profile parameters
-        patch.max_flips = profile.max_flips
-        patch.temperature = profile.temperature
-        patch.frequency_weight = profile.frequency_weight
-
-        # CRITICAL: Set flag and counter to prevent auto-switch to custom during profile update
-        # When we update parameter widgets below, they'll trigger Changed events.
-        # We expect 3 Changed events (max_flips, temperature, freq_weight)
-        # Each handler will decrement the counter and clear the flag when it reaches 0
-        self._updating_from_profile = True
-        self._pending_profile_updates = 3  # Expecting 3 parameter changes
-
-        try:
-            # Update all parameter widget displays to match profile
-            # These will trigger Changed events, but handlers will skip custom switch
-            # Update Max Flips
-            max_flips_widget = self.query_one(f"#max-flips-{patch_name}", IntSpinner)
-            max_flips_widget.set_value(profile.max_flips)
-
-            # Update Temperature
-            temperature_widget = self.query_one(f"#temperature-{patch_name}", FloatSlider)
-            temperature_widget.set_value(profile.temperature)
-
-            # Update Frequency Weight
-            freq_weight_widget = self.query_one(f"#freq-weight-{patch_name}", FloatSlider)
-            freq_weight_widget.set_value(profile.frequency_weight)
-
-        except Exception as e:  # nosec B110 - Safe widget query failure
-            # Widget not found or update failed - log but don't crash
-            print(f"Warning: Could not update parameter widgets for profile: {e}")
-            # Reset flag and counter on error to avoid getting stuck
-            self._updating_from_profile = False
-            self._pending_profile_updates = 0
-
-    # =========================================================================
-    # Combiner Panel Event Handlers
-    # =========================================================================
-    # The existing IntSpinner.Changed, FloatSlider.Changed, and SeedInput.Changed
-    # handlers already route by widget_id and handle combiner widgets.
-    # See on_int_spinner_changed, on_float_slider_changed, and on_seed_changed.
+        if event.widget_id:
+            handlers.handle_profile_selected(self, event.widget_id, event.profile_name)
