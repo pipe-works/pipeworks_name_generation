@@ -266,6 +266,6 @@ class TestPrintExtractionComplete:
         print_extraction_complete(syllables_path, metadata_path, output_base)
         captured = capsys.readouterr()
 
-        # Should fall back to absolute paths
-        assert "syllables/test.txt" in captured.out or "/some/other" in captured.out
+        # Should fall back to absolute paths (check for filename which is cross-platform)
+        assert "test.txt" in captured.out
         assert "Done!" in captured.out
