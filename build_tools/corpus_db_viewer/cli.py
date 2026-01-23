@@ -4,6 +4,8 @@ Command-line interface for corpus database viewer.
 Provides argument parsing and main entry point for the interactive TUI.
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path

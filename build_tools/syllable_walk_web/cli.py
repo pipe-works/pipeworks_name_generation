@@ -19,9 +19,10 @@ Examples::
     python -m build_tools.syllable_walk_web --quiet
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
-from typing import List, Optional
 
 from build_tools.syllable_walk_web.server import run_server
 
@@ -111,7 +112,7 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
     return parser
 
 
-def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
     """
     Parse command-line arguments.
 
@@ -131,11 +132,14 @@ def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def main() -> int:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for syllable walker web interface CLI.
 
     Parses arguments and starts the web server.
+
+    Args:
+        args: Command-line arguments. If None, uses sys.argv.
 
     Returns:
         Exit code:
@@ -147,18 +151,18 @@ def main() -> int:
         - Errors are printed to stderr
         - The server runs until stopped with Ctrl+C
     """
-    args = parse_arguments()
+    parsed = parse_arguments(args)
 
     try:
         run_server(
-            port=args.port,
-            verbose=not args.quiet,
+            port=parsed.port,
+            verbose=not parsed.quiet,
         )
         return 0
     except OSError as e:
         print(f"Error starting server: {e}", file=sys.stderr)
-        if args.port:
-            print(f"\nPort {args.port} may already be in use.", file=sys.stderr)
+        if parsed.port:
+            print(f"\nPort {parsed.port} may already be in use.", file=sys.stderr)
             print("Try using a different port with --port option.", file=sys.stderr)
         else:
             print("\nCould not find an available port.", file=sys.stderr)

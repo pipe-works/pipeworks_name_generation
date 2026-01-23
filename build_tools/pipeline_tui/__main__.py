@@ -13,6 +13,7 @@ This module allows running the TUI with:
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -79,25 +80,37 @@ def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def main() -> None:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for the Pipeline TUI.
 
-    Parses arguments and launches the TUI application.
+    Args:
+        args: Command-line arguments. If None, uses sys.argv.
+
+    Returns:
+        Exit code (0 for success, non-zero for error).
     """
-    args = parse_arguments()
+    parsed = parse_arguments(args)
 
-    # Import here to avoid circular imports and speed up --help
-    from build_tools.pipeline_tui.core.app import PipelineTuiApp
+    try:
+        # Import here to avoid circular imports and speed up --help
+        from build_tools.pipeline_tui.core.app import PipelineTuiApp
 
-    # Create and run the app
-    app = PipelineTuiApp(
-        source_dir=args.source,
-        output_dir=args.output,
-        theme=args.theme,
-    )
-    app.run()
+        # Create and run the app
+        app = PipelineTuiApp(
+            source_dir=parsed.source,
+            output_dir=parsed.output,
+            theme=parsed.theme,
+        )
+        app.run()
+        return 0
+
+    except KeyboardInterrupt:
+        return 130
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

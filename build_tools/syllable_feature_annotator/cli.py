@@ -155,6 +155,8 @@ Notes
 - Exit codes follow Unix conventions (0=success, 1=error)
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path

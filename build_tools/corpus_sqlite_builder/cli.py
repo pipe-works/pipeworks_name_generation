@@ -4,6 +4,8 @@ Command-line interface for corpus SQLite builder.
 This module provides the CLI for converting annotated JSON files to SQLite databases.
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path

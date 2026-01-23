@@ -22,6 +22,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 # Backwards compatibility re-exports (deprecated, import from package instead)
@@ -137,12 +138,18 @@ Note: This extractor only supports English (CMUDict). For other languages, use p
     return parser
 
 
-def main() -> None:
+def main(args: list[str] | None = None) -> int:
     """
     Main entry point for the NLTK syllable extractor CLI.
 
     This function determines whether to run in interactive or batch mode
     based on the presence of command-line arguments.
+
+    Args:
+        args: Command-line arguments. If None, uses sys.argv.
+
+    Returns:
+        Exit code (0 for success, non-zero for error).
 
     Modes:
         - Interactive Mode: No arguments provided. Prompts user for all settings.
@@ -163,18 +170,28 @@ def main() -> None:
     parser = create_argument_parser()
 
     # Parse arguments
-    args = parser.parse_args()
+    parsed = parser.parse_args(args)
 
     # Determine mode: batch if any input argument provided, otherwise interactive
-    has_batch_args = args.file or args.files or args.source
+    has_batch_args = parsed.file or parsed.files or parsed.source
 
-    if has_batch_args:
-        # Batch mode - import here to avoid circular imports and speed up --help
-        from .batch import run_batch
+    try:
+        if has_batch_args:
+            # Batch mode - import here to avoid circular imports and speed up --help
+            from .batch import run_batch
 
-        run_batch(args)
-    else:
-        # Interactive mode - import here to avoid circular imports and speed up --help
-        from .interactive import run_interactive
+            run_batch(parsed)
+        else:
+            # Interactive mode - import here to avoid circular imports and speed up --help
+            from .interactive import run_interactive
 
-        run_interactive()
+            run_interactive()
+
+        return 0
+
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user", file=sys.stderr)
+        return 130
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
