@@ -9,7 +9,7 @@ description = "Phonetically-grounded name generation for games and procedural sy
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "AA.Parky", email = "aa.parky@gmail.com"}
 ]
 requires-python = ">=3.12"
 classifiers = [
