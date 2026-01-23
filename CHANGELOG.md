@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.8...pipeworks-name-generation-v0.5.9) (2026-01-23)
+
+
+### Documentation
+
+* Automate version from pyproject.toml in Sphinx conf.py ([#40](https://github.com/aa-parky/pipeworks_name_generation/issues/40)) ([8a821b8](https://github.com/aa-parky/pipeworks_name_generation/commit/8a821b83bd1b0626110d3a74bd71c0289627855b))
+
+
+### Internal Changes
+
+* **syllable_walk_tui:** Extract UI updates and validation helpers from app.py ([#38](https://github.com/aa-parky/pipeworks_name_generation/issues/38)) ([7d64dc9](https://github.com/aa-parky/pipeworks_name_generation/commit/7d64dc955c916da9a81dc4355b14a66ff4bc2e75))
+
 ## [0.5.8](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.7...pipeworks-name-generation-v0.5.8) (2026-01-23)
 
 
