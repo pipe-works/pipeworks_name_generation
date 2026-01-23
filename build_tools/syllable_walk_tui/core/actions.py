@@ -4,14 +4,31 @@ Action implementations for Syllable Walker TUI.
 Contains action logic extracted from the main App class.
 The actual action_* methods remain on the App (Textual requirement),
 but delegate complex logic here for testability and reuse.
+
+This module provides:
+- Patch validation helpers (validate_patch_ready)
+- Database viewer opening (open_database_for_patch)
+- Browse directory selection (get_initial_browse_dir)
+- Metrics computation (compute_metrics_for_patch)
+- Panel update helpers (update_combiner_panel, update_selector_panel)
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from build_tools.syllable_walk_tui.core.app import SyllableWalkerApp
     from build_tools.syllable_walk_tui.modules.oscillator import PatchState
+
+
+@dataclass
+class PatchValidationResult:
+    """Result of patch validation for generation readiness."""
+
+    is_valid: bool
+    patch: "PatchState | None" = None
+    error_message: str | None = None
 
 
 def compute_metrics_for_patch(patch: "PatchState"):
@@ -109,3 +126,75 @@ def get_initial_browse_dir(app: "SyllableWalkerApp", patch_name: str) -> Path:
 
     # 4. Fall back to home directory
     return Path.home()
+
+
+def validate_patch_ready(
+    app: "SyllableWalkerApp",
+    patch_name: str,
+) -> PatchValidationResult:
+    """
+    Validate that a patch is ready for generation operations.
+
+    Args:
+        app: Application instance for state access and notifications
+        patch_name: "A" or "B"
+
+    Returns:
+        PatchValidationResult with is_valid=True and patch if ready,
+        or is_valid=False with error_message if not ready.
+    """
+    patch = app.state.patch_a if patch_name == "A" else app.state.patch_b
+
+    if not patch.is_ready_for_generation():
+        key_hint = 1 if patch_name == "A" else 2
+        error_msg = f"Patch {patch_name}: Corpus not loaded. Press {key_hint} to select a corpus."
+        app.notify(error_msg, severity="warning")
+        return PatchValidationResult(is_valid=False, error_message=error_msg)
+
+    return PatchValidationResult(is_valid=True, patch=patch)
+
+
+def update_combiner_panel(
+    app: "SyllableWalkerApp",
+    patch_name: str,
+    meta_output: dict,
+) -> None:
+    """
+    Update the combiner panel with generation metadata.
+
+    Args:
+        app: Application instance for widget queries
+        patch_name: "A" or "B"
+        meta_output: Metadata dict from combiner result
+    """
+    from build_tools.syllable_walk_tui.modules.generator import CombinerPanel
+
+    try:
+        panel = app.query_one(f"#combiner-panel-{patch_name.lower()}", CombinerPanel)
+        panel.update_output(meta_output)
+    except Exception as e:
+        print(f"Warning: Could not update combiner panel: {e}")
+
+
+def update_selector_panel(
+    app: "SyllableWalkerApp",
+    patch_name: str,
+    meta_output: dict,
+    selected_names: list[str],
+) -> None:
+    """
+    Update the selector panel with selection metadata.
+
+    Args:
+        app: Application instance for widget queries
+        patch_name: "A" or "B"
+        meta_output: Metadata dict from selector result
+        selected_names: List of selected name strings
+    """
+    from build_tools.syllable_walk_tui.modules.generator import SelectorPanel
+
+    try:
+        panel = app.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
+        panel.update_output(meta_output, selected_names)
+    except Exception as e:
+        print(f"Warning: Could not update selector panel: {e}")

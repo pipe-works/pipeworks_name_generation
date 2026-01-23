@@ -23,7 +23,7 @@ from build_tools.syllable_walk_tui.controls import (
     ProfileOption,
     SeedInput,
 )
-from build_tools.syllable_walk_tui.core import actions, handlers
+from build_tools.syllable_walk_tui.core import actions, handlers, ui_updates
 from build_tools.syllable_walk_tui.core.state import AppState
 from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
@@ -256,18 +256,15 @@ class SyllableWalkerApp(App):
         Args:
             patch_name: "A" or "B" - which patch to use for generation
         """
-        # Get the combiner state for this patch (independent A/B)
-        comb = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Validate patch is ready
-        if not patch.is_ready_for_generation():
-            self.notify(
-                f"Patch {patch_name}: Corpus not loaded. "
-                f"Press {1 if patch_name == 'A' else 2} to select a corpus.",
-                severity="warning",
-            )
+        # Validate patch readiness
+        validation = actions.validate_patch_ready(self, patch_name)
+        if not validation.is_valid:
             return
+
+        # Type narrowing: patch is guaranteed to be set when is_valid is True
+        assert validation.patch is not None
+
+        comb = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
 
         self.notify(
             f"Generating {comb.count:,} {comb.syllables}-syllable candidates...",
@@ -276,7 +273,7 @@ class SyllableWalkerApp(App):
         )
 
         # Delegate to service
-        result = run_combiner(patch, comb)
+        result = run_combiner(validation.patch, comb)
 
         if result.error:
             self.notify(f"Combiner failed: {result.error}", severity="error")
@@ -286,12 +283,8 @@ class SyllableWalkerApp(App):
         comb.outputs = [c["name"] for c in result.candidates[:10]]  # Preview first 10
         comb.last_output_path = str(result.output_path)
 
-        # Update panel output with full metadata
-        try:
-            panel = self.query_one(f"#combiner-panel-{patch_name.lower()}", CombinerPanel)
-            panel.update_output(result.meta_output)
-        except Exception as e:
-            print(f"Warning: Could not update panel: {e}")
+        # Update panel
+        actions.update_combiner_panel(self, patch_name, result.meta_output)
 
         self.notify(
             f"Generated {len(result.candidates):,} candidates → {result.output_path.name}",
@@ -305,19 +298,16 @@ class SyllableWalkerApp(App):
         Args:
             patch_name: "A" or "B" - which patch to use for selection
         """
-        # Get the selector and combiner states for this patch (independent A/B)
+        # Validate patch readiness
+        validation = actions.validate_patch_ready(self, patch_name)
+        if not validation.is_valid:
+            return
+
+        # Type narrowing: patch is guaranteed to be set when is_valid is True
+        assert validation.patch is not None
+
         selector = self.state.selector_a if patch_name == "A" else self.state.selector_b
         combiner = self.state.combiner_a if patch_name == "A" else self.state.combiner_b
-        patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
-
-        # Validate patch is ready
-        if not patch.is_ready_for_generation():
-            self.notify(
-                f"Patch {patch_name}: Corpus not loaded. "
-                f"Press {1 if patch_name == 'A' else 2} to select a corpus.",
-                severity="warning",
-            )
-            return
 
         self.notify(
             f"Selecting {selector.count} {selector.name_class} names...",
@@ -326,7 +316,7 @@ class SyllableWalkerApp(App):
         )
 
         # Delegate to service
-        result = run_selector(patch, combiner, selector)
+        result = run_selector(validation.patch, combiner, selector)
 
         if result.error:
             self.notify(f"Selector failed: {result.error}", severity="error")
@@ -338,11 +328,7 @@ class SyllableWalkerApp(App):
         selector.outputs = result.selected_names
 
         # Update panel
-        try:
-            panel = self.query_one(f"#selector-panel-{patch_name.lower()}", SelectorPanel)
-            panel.update_output(result.meta_output, selector.outputs)
-        except Exception as e:
-            print(f"Warning: Could not update selector panel: {e}")
+        actions.update_selector_panel(self, patch_name, result.meta_output, selector.outputs)
 
         self.notify(
             f"Selected {len(result.selected):,} {selector.name_class} names → {result.output_path.name}",
@@ -470,77 +456,39 @@ class SyllableWalkerApp(App):
                     patch.corpus_type = corpus_type
 
                     # === PHASE 1: Load quick metadata (FAST - synchronous) ===
-                    # Load syllables list and frequencies (~50KB, <100ms)
-                    # This is fast enough to do immediately without blocking
                     try:
                         syllables, frequencies = load_corpus_data(result)
                         patch.syllables = syllables
                         patch.frequencies = frequencies
-
-                        # Remember this location for next time
                         self.state.last_browse_dir = result.parent
 
                         # Update UI to show quick metadata loaded
-                        try:
-                            status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                            corpus_info = get_corpus_info(result)
+                        corpus_info = get_corpus_info(result)
+                        ui_updates.update_corpus_status_quick_load(
+                            self, patch_name, corpus_info, corpus_type
+                        )
+                        ui_updates.update_center_corpus_label(
+                            self, patch_name, result.name, corpus_type
+                        )
 
-                            # Build detailed file list showing what was loaded
-                            corpus_prefix = corpus_type.lower() if corpus_type else "nltk"
-                            files_loaded = (
-                                f"{corpus_info}\n"
-                                f"─────────────────\n"
-                                f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                                f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                                f"⏳ {corpus_prefix}_syllables_annotated.json"
-                            )
-                            status_label.update(files_loaded)
-                            status_label.remove_class("corpus-status")
-                            status_label.add_class("corpus-status-valid")
-                        except Exception as e:
-                            # Log UI update errors but don't fail
-                            print(f"Warning: Could not update status label: {e}")
-
-                        # Update center panel corpus label with directory name and type
-                        try:
-                            corpus_label = self.query_one(f"#walks-corpus-{patch_name}", Label)
-                            dir_name = result.name  # e.g., "20260110_115601_nltk"
-                            corpus_label.update(f"{dir_name} ({corpus_type})")
-                            corpus_label.remove_class("output-placeholder")
-                        except Exception as e:
-                            print(f"Warning: Could not update center corpus label: {e}")
-
-                        # Notify user that quick metadata loaded successfully
                         self.notify(
                             f"Patch {patch_name}: Loaded {len(syllables):,} syllables "
                             f"from {corpus_type} corpus",
                             timeout=2,
                         )
 
-                        # Set focus to the first profile option in this patch
-                        # This makes tab navigation start from the patch that was just loaded
+                        # Set focus to first profile option for tab navigation
                         try:
                             first_profile = self.query_one(f"#profile-clerical-{patch_name}")
                             first_profile.focus()
-                        except Exception:  # nosec B110 - Safe widget query, intentionally silent
-                            # Widget not found during initialization, ignore gracefully
+                        except Exception:  # nosec B110 - Widget may not exist
                             pass
 
                         # === PHASE 2: Kick off background loading (SLOW - async) ===
-                        # Load annotated data with phonetic features (~15MB, 1-2 seconds)
-                        # This runs in background to avoid freezing the UI
-                        # The _load_annotated_data_background method will:
-                        # - Set is_loading_annotated = True
-                        # - Load data in background thread
-                        # - Update UI when complete
-                        # - Handle errors gracefully
                         self._load_annotated_data_background(patch_name)
 
                     except Exception as e:
-                        # Failed to load quick metadata - this is a critical error
-                        # Don't proceed to annotated data loading
                         self.notify(f"Error loading corpus data: {e}", severity="error", timeout=5)
-                        # Reset patch state since loading failed
                         patch.corpus_dir = None
                         patch.corpus_type = None
                         patch.syllables = None
@@ -564,29 +512,14 @@ class SyllableWalkerApp(App):
         """
         Load annotated phonetic data in background worker (non-blocking).
 
-        This method runs in a background thread to load the large annotated.json
-        file (typically 10-15MB, 400k-600k lines) without freezing the UI.
-
-        The loading process:
-        1. Set patch loading state (is_loading_annotated = True)
-        2. Update UI to show "Loading..." status
-        3. Load annotated data file (1-2 seconds)
-        4. Update patch state with loaded data
-        5. Update UI to show "Ready" status
-        6. Handle any errors and update UI accordingly
-
         Args:
             patch_name: "A" or "B" to identify which patch to load for
 
         Note:
-            This method uses the @work decorator which automatically runs
-            the code in a background worker thread, preventing UI freezing.
-            UI updates are scheduled back to the main thread.
+            Uses @work decorator to run in background thread, preventing UI freeze.
         """
-        # Get the patch we're loading for
         patch = self.state.patch_a if patch_name == "A" else self.state.patch_b
 
-        # Safety check: ensure corpus directory is set
         if not patch.corpus_dir:
             self.notify(
                 f"Patch {patch_name}: Cannot load annotated data - no corpus selected",
@@ -595,159 +528,65 @@ class SyllableWalkerApp(App):
             )
             return
 
+        corpus_info = get_corpus_info(patch.corpus_dir)
+
         try:
-            # === STEP 1: Set loading state ===
-            # Mark patch as loading (disables Generate button in UI)
+            # Set loading state
             patch.is_loading_annotated = True
             patch.loading_error = None
 
-            # === STEP 2: Update UI to show loading state ===
-            # This tells the user that background loading is happening
-            try:
-                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                corpus_info = get_corpus_info(patch.corpus_dir)
-
-                # Show loading progress with file list
-                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-                files_loading = (
-                    f"{corpus_info}\n"
-                    f"─────────────────\n"
-                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                    f"⏳ {corpus_prefix}_syllables_annotated.json (loading...)"
-                )
-                status_label.update(files_loading)
-                status_label.remove_class("corpus-status")
-                status_label.add_class("corpus-status-valid")
-            except Exception as e:
-                # Log UI update errors but don't fail the loading
-                print(f"Warning: Could not update status label (loading): {e}")
-
-            # Notify user that background loading started
+            # Update UI to show loading state
+            ui_updates.update_corpus_status_loading(
+                self, patch_name, corpus_info, patch.corpus_type
+            )
             self.notify(
                 f"Patch {patch_name}: Loading phonetic features...",
                 timeout=2,
                 severity="information",
             )
 
-            # === STEP 3: Load annotated data (SLOW - 1-2 seconds) ===
-            # This is the expensive operation that happens in the background
-            # The @work decorator ensures this doesn't block the UI
+            # Load annotated data (SLOW - 1-2 seconds)
             annotated_data, load_metadata = load_annotated_data(patch.corpus_dir)
 
-            # === STEP 4: Update patch state with loaded data ===
+            # Update patch state
             patch.annotated_data = annotated_data
             patch.is_loading_annotated = False
 
-            # === STEP 5: Update UI to show ready state ===
-            try:
-                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                corpus_info = get_corpus_info(patch.corpus_dir)
-                syllable_count = len(annotated_data)
+            # Update UI to show ready state
+            source = load_metadata.get("source", "unknown")
+            load_time = load_metadata.get("load_time_ms", "?")
+            ui_updates.update_corpus_status_ready(
+                self,
+                patch_name,
+                corpus_info,
+                patch.corpus_type,
+                syllable_count=len(annotated_data),
+                source=source,
+                load_time=load_time,
+                file_name=load_metadata.get("file_name"),
+            )
 
-                # Build source indicator based on what was loaded
-                source = load_metadata.get("source", "unknown")
-                load_time = load_metadata.get("load_time_ms", "?")
-
-                # Show only files that were actually loaded
-                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-
-                if source == "sqlite":
-                    # SQLite path: show corpus.db, JSON not loaded
-                    files_ready = (
-                        f"{corpus_info}\n"
-                        f"─────────────────\n"
-                        f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                        f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                        f"✓ corpus.db ({load_time}ms, SQLite)\n"
-                        f"─────────────────\n"
-                        f"Ready: {syllable_count:,} syllables"
-                    )
-                else:
-                    # JSON fallback path: show annotated.json, SQLite not present
-                    file_name = load_metadata.get("file_name", "annotated.json")
-                    files_ready = (
-                        f"{corpus_info}\n"
-                        f"─────────────────\n"
-                        f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                        f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                        f"✓ {file_name} ({load_time}ms, JSON)\n"
-                        f"─────────────────\n"
-                        f"Ready: {syllable_count:,} syllables"
-                    )
-                status_label.update(files_ready)
-                status_label.remove_class("corpus-status")
-                status_label.add_class("corpus-status-valid")
-            except Exception as e:
-                # Log UI update errors but don't fail the loading
-                print(f"Warning: Could not update status label (complete): {e}")
-
-            # Notify user that loading completed successfully
-            if source == "sqlite":
-                self.notify(
-                    f"Patch {patch_name}: Loaded from SQLite ({len(annotated_data):,} syllables, {load_time}ms)",
-                    timeout=3,
-                    severity="information",
-                )
-            else:
-                self.notify(
-                    f"Patch {patch_name}: Loaded from JSON ({len(annotated_data):,} syllables, {load_time}ms)",
-                    timeout=3,
-                    severity="information",
-                )
+            self.notify(
+                f"Patch {patch_name}: Loaded from {source.upper()} "
+                f"({len(annotated_data):,} syllables, {load_time}ms)",
+                timeout=3,
+                severity="information",
+            )
 
         except FileNotFoundError as e:
-            # === ERROR HANDLING: Annotated file doesn't exist ===
-            # This might happen if the corpus hasn't been processed with
-            # syllable_feature_annotator yet
             patch.is_loading_annotated = False
             patch.loading_error = "Annotated data file not found"
-
-            # Update UI to show error with file list
-            try:
-                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-                files_error = (
-                    f"{get_corpus_info(patch.corpus_dir)}\n"
-                    f"─────────────────\n"
-                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                    f"✗ {corpus_prefix}_syllables_annotated.json\n"
-                    f"─────────────────\n"
-                    f"Run syllable_feature_annotator"
-                )
-                status_label.update(files_error)
-                status_label.remove_class("corpus-status-valid")
-                status_label.add_class("corpus-status")
-            except Exception:  # nosec B110
-                pass  # Ignore UI update errors
-
+            ui_updates.update_corpus_status_not_annotated(
+                self, patch_name, corpus_info, patch.corpus_type
+            )
             self.notify(f"Patch {patch_name}: {str(e)}", severity="error", timeout=5)
 
         except Exception as e:
-            # === ERROR HANDLING: Other errors ===
             patch.is_loading_annotated = False
             patch.loading_error = str(e)
-
-            # Update UI to show error with file list
-            try:
-                status_label = self.query_one(f"#corpus-status-{patch_name}", Label)
-                corpus_prefix = patch.corpus_type.lower() if patch.corpus_type else "nltk"
-                files_error = (
-                    f"{get_corpus_info(patch.corpus_dir)}\n"
-                    f"─────────────────\n"
-                    f"✓ {corpus_prefix}_syllables_unique.txt\n"
-                    f"✓ {corpus_prefix}_syllables_frequencies.json\n"
-                    f"✗ {corpus_prefix}_syllables_annotated.json\n"
-                    f"─────────────────\n"
-                    f"Error: {str(e)[:30]}..."
-                )
-                status_label.update(files_error)
-                status_label.remove_class("corpus-status-valid")
-                status_label.add_class("corpus-status")
-            except Exception:  # nosec B110
-                pass  # Ignore UI update errors
-
+            ui_updates.update_corpus_status_error(
+                self, patch_name, corpus_info, patch.corpus_type, str(e)
+            )
             self.notify(
                 f"Patch {patch_name}: Error loading annotated data: {e}",
                 severity="error",
