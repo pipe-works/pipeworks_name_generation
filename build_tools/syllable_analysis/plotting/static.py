@@ -36,9 +36,10 @@ Usage Example
     Path("_working/output_meta.txt").write_text(metadata)
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 import numpy as np  # type: ignore[import-not-found]
@@ -57,9 +58,9 @@ from .styles import (
 
 def create_tsne_scatter(
     tsne_coords: np.ndarray,
-    frequencies: List[int],
+    frequencies: list[int],
     title: str = "t-SNE: Feature Signature Space",
-    figsize: Tuple[int, int] = DEFAULT_FIGURE_SIZE,
+    figsize: tuple[int, int] = DEFAULT_FIGURE_SIZE,
     cmap: str = DEFAULT_COLORMAP,
     alpha: float = DEFAULT_ALPHA,
 ) -> plt.Figure:

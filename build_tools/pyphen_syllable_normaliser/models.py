@@ -5,10 +5,11 @@ This module defines the data structures used to represent normalization
 configuration, statistics, and results.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
 
 
 @dataclass
@@ -178,9 +179,9 @@ class NormalizationResult:
 
     config: NormalizationConfig
     stats: NormalizationStats
-    frequencies: Dict[str, int]
-    unique_syllables: List[str]
-    input_files: List[Path]
+    frequencies: dict[str, int]
+    unique_syllables: list[str]
+    input_files: list[Path]
     output_dir: Path
     timestamp: datetime = field(default_factory=datetime.now)
     raw_file: Path = field(default=Path("syllables_raw.txt"))

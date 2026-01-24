@@ -34,7 +34,6 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 from build_tools.tui_common.cli_utils import READLINE_AVAILABLE, input_with_completion
 
@@ -94,8 +93,8 @@ def prompt_integer(
     prompt_text: str,
     default: int,
     min_value: int = 1,
-    max_value: Optional[int] = None,
-    compare_to: Optional[int] = None,
+    max_value: int | None = None,
+    compare_to: int | None = None,
     compare_label: str = "minimum",
 ) -> int:
     """
@@ -158,7 +157,7 @@ def prompt_extraction_settings(
     default_max: int = 8,
     min_label: str = "Minimum syllable length",
     max_label: str = "Maximum syllable length",
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """
     Prompt for min/max syllable length extraction settings.
 

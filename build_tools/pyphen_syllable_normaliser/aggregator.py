@@ -6,8 +6,9 @@ input files into a single raw syllable file while preserving all occurrences
 and maintaining raw counts.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import List
 
 
 class FileAggregator:
@@ -29,7 +30,7 @@ class FileAggregator:
         >>> aggregator.save_raw_syllables(syllables, Path("syllables_raw.txt"))
     """
 
-    def aggregate_files(self, input_files: List[Path]) -> List[str]:
+    def aggregate_files(self, input_files: list[Path]) -> list[str]:
         """
         Aggregate syllables from multiple input files.
 
@@ -62,7 +63,7 @@ class FileAggregator:
             Files are processed in the order provided. If deterministic
             ordering is required, ensure input_files is sorted before calling.
         """
-        all_syllables: List[str] = []
+        all_syllables: list[str] = []
 
         for file_path in input_files:
             syllables = self.read_syllables_from_file(file_path)
@@ -70,7 +71,7 @@ class FileAggregator:
 
         return all_syllables
 
-    def read_syllables_from_file(self, file_path: Path) -> List[str]:
+    def read_syllables_from_file(self, file_path: Path) -> list[str]:
         """
         Read syllables from a single file.
 
@@ -102,7 +103,7 @@ class FileAggregator:
             files with varying whitespace formatting to be processed
             consistently.
         """
-        syllables: List[str] = []
+        syllables: list[str] = []
 
         with file_path.open("r", encoding="utf-8") as f:
             for line in f:
@@ -113,7 +114,7 @@ class FileAggregator:
 
         return syllables
 
-    def save_raw_syllables(self, syllables: List[str], output_path: Path) -> None:
+    def save_raw_syllables(self, syllables: list[str], output_path: Path) -> None:
         """
         Save raw aggregated syllables to file.
 
@@ -155,7 +156,7 @@ class FileAggregator:
 
 def discover_input_files(
     source_dir: Path, pattern: str = "*.txt", recursive: bool = False
-) -> List[Path]:
+) -> list[Path]:
     """
     Discover input files in a directory matching a pattern.
 

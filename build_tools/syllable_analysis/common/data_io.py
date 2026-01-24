@@ -41,12 +41,14 @@ Module Contents
 - save_json_output(): Save data as formatted JSON
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 
-def load_annotated_syllables(input_path: Path, validate: bool = True) -> List[Dict[str, Any]]:
+def load_annotated_syllables(input_path: Path, validate: bool = True) -> list[dict[str, Any]]:
     """Load annotated syllables from JSON file with optional validation.
 
     This function loads the output of the syllable feature annotator, which contains
@@ -65,7 +67,7 @@ def load_annotated_syllables(input_path: Path, validate: bool = True) -> List[Di
 
     Returns
     -------
-    List[Dict[str, Any]]
+    list[dict[str, Any]]
         List of syllable records, each containing:
         - syllable (str): The syllable text
         - frequency (int): Occurrence count in corpus
@@ -173,10 +175,10 @@ def load_annotated_syllables(input_path: Path, validate: bool = True) -> List[Di
                 f"Found keys: {', '.join(actual_keys)}"
             )
 
-    return cast(List[Dict[str, Any]], records)
+    return cast(list[dict[str, Any]], records)
 
 
-def load_frequency_data(frequencies_path: Path) -> Dict[str, int]:
+def load_frequency_data(frequencies_path: Path) -> dict[str, int]:
     """Load frequency mapping from JSON file.
 
     This function loads the output of the syllable normalizer's frequency analysis,
@@ -189,7 +191,7 @@ def load_frequency_data(frequencies_path: Path) -> Dict[str, int]:
 
     Returns
     -------
-    Dict[str, int]
+    dict[str, int]
         Dictionary mapping syllable strings to their frequency counts
 
     Raises

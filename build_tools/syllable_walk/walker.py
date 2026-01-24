@@ -21,12 +21,13 @@ Example:
     ka → ki → ti → ta → da → de
 """
 
+from __future__ import annotations
+
 import json
 import math
 import random
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -57,7 +58,7 @@ FEATURE_KEYS = [
 # Default feature costs (can be customized per walker instance)
 # Higher cost = less likely to flip this feature
 # These values were tuned to create interesting walks
-DEFAULT_FEATURE_COSTS = {
+DEFAULT_FEATURE_COSTS: dict[str, float] = {
     "starts_with_vowel": 0.2,
     "starts_with_cluster": 1.5,
     "starts_with_heavy_cluster": 2.0,
@@ -124,7 +125,7 @@ class SyllableWalker:
         self,
         data_path: Path | str,
         max_neighbor_distance: int = DEFAULT_MAX_NEIGHBOR_DISTANCE,
-        feature_costs: Optional[Dict[str, float]] = None,
+        feature_costs: dict[str, float] | None = None,
         inertia_cost: float = DEFAULT_INERTIA_COST,
         verbose: bool = False,
     ):
@@ -178,14 +179,14 @@ class SyllableWalker:
                 )
 
         # Data storage (populated by _load_data)
-        self.syllables: List[str] = []
-        self.frequencies: Optional[np.ndarray] = None
-        self.feature_matrix: Optional[np.ndarray] = None
-        self.syllable_to_idx: Dict[str, int] = {}
+        self.syllables: list[str] = []
+        self.frequencies: np.ndarray | None = None
+        self.feature_matrix: np.ndarray | None = None
+        self.syllable_to_idx: dict[str, int] = {}
 
         # Neighbor graph: maps node index to list of neighbor indices
         # This is the key optimization that makes walks fast
-        self.neighbor_graph: Dict[int, List[int]] = defaultdict(list)
+        self.neighbor_graph: dict[int, list[int]] = defaultdict(list)
 
         # Load and process data
         self._load_data()
@@ -419,8 +420,8 @@ class SyllableWalker:
         max_flips: int,
         temperature: float = 1.0,
         frequency_weight: float = 0.0,
-        seed: Optional[int] = None,
-    ) -> List[Dict]:
+        seed: int | None = None,
+    ) -> list[dict]:
         """Execute a syllable walk through feature space.
 
         Starting from a syllable, takes `steps` steps through feature space,
@@ -523,7 +524,7 @@ class SyllableWalker:
         # Execute walk for specified number of steps
         for _ in range(steps):
             # Collect candidate next syllables with their costs
-            candidates: List[tuple[int, float]] = []
+            candidates: list[tuple[int, float]] = []
 
             # Find neighbors within max_flips distance
             for neighbor_idx in self.neighbor_graph[current_idx]:
@@ -558,8 +559,8 @@ class SyllableWalker:
         start: int | str,
         profile: str | WalkProfile,
         steps: int = 5,
-        seed: Optional[int] = None,
-    ) -> List[Dict]:
+        seed: int | None = None,
+    ) -> list[dict]:
         """Execute a walk using a named profile.
 
         Convenience method that uses predefined WalkProfile parameters.
@@ -601,7 +602,7 @@ class SyllableWalker:
             seed=seed,
         )
 
-    def _get_syllable_dict(self, idx: int) -> Dict:
+    def _get_syllable_dict(self, idx: int) -> dict:
         """Get syllable dictionary for a given index.
 
         Args:
@@ -616,7 +617,7 @@ class SyllableWalker:
             "features": self.feature_matrix[idx].tolist(),  # type: ignore[index]
         }
 
-    def get_random_syllable(self, seed: Optional[int] = None) -> str:
+    def get_random_syllable(self, seed: int | None = None) -> str:
         """Get a random syllable from the dataset.
 
         Args:
@@ -634,7 +635,7 @@ class SyllableWalker:
         rng = random.Random(seed)  # nosec B311 - non-cryptographic use
         return rng.choice(self.syllables)
 
-    def get_syllable_info(self, syllable: str) -> Optional[Dict]:
+    def get_syllable_info(self, syllable: str) -> dict | None:
         """Get information about a specific syllable.
 
         Args:
@@ -655,7 +656,7 @@ class SyllableWalker:
         idx = self.syllable_to_idx[syllable]
         return self._get_syllable_dict(idx)
 
-    def format_walk(self, walk: List[Dict], arrow: str = " → ") -> str:
+    def format_walk(self, walk: list[dict], arrow: str = " → ") -> str:
         """Format a walk as a string with arrows.
 
         Args:
@@ -674,7 +675,7 @@ class SyllableWalker:
         """
         return arrow.join(s["syllable"] for s in walk)
 
-    def get_available_profiles(self) -> Dict[str, WalkProfile]:
+    def get_available_profiles(self) -> dict[str, WalkProfile]:
         """Get all available walk profiles.
 
         Returns:
@@ -694,9 +695,9 @@ class SyllableWalker:
     @classmethod
     def from_data(
         cls,
-        data: List[Dict],
+        data: list[dict],
         max_neighbor_distance: int = DEFAULT_MAX_NEIGHBOR_DISTANCE,
-        feature_costs: Optional[Dict[str, float]] = None,
+        feature_costs: dict[str, float] | None = None,
         inertia_cost: float = DEFAULT_INERTIA_COST,
         verbose: bool = False,
     ) -> "SyllableWalker":

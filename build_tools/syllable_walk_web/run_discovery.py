@@ -11,11 +11,12 @@ Functions:
     get_selection_data: Load selection data from a specific file
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -37,8 +38,8 @@ class RunInfo:
     extractor_type: str
     timestamp: str
     display_name: str
-    corpus_db_path: Optional[Path]
-    annotated_json_path: Optional[Path]
+    corpus_db_path: Path | None
+    annotated_json_path: Path | None
     syllable_count: int
     selections: dict[str, Path] = field(default_factory=dict)
 
@@ -101,7 +102,7 @@ def _get_syllable_count_from_json(json_path: Path) -> int:
         return 0
 
 
-def _parse_timestamp(timestamp_str: str) -> Optional[datetime]:
+def _parse_timestamp(timestamp_str: str) -> datetime | None:
     """Parse timestamp string to datetime.
 
     Args:
@@ -174,7 +175,7 @@ def _discover_selections(run_dir: Path, extractor_type: str) -> dict[str, Path]:
     return selections
 
 
-def discover_runs(base_path: Optional[Path] = None) -> list[RunInfo]:
+def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
     """Discover all pipeline run directories.
 
     Scans _working/output/ (or specified base path) for directories matching
@@ -291,7 +292,7 @@ def get_selection_data(selection_path: Path) -> dict:
         return data
 
 
-def get_run_by_id(run_id: str, base_path: Optional[Path] = None) -> Optional[RunInfo]:
+def get_run_by_id(run_id: str, base_path: Path | None = None) -> RunInfo | None:
     """Get a specific run by its directory name.
 
     Args:

@@ -5,11 +5,11 @@ This module provides language mappings and utilities for pyphen's LibreOffice
 hyphenation dictionaries.
 """
 
-from typing import Dict, Optional
+from __future__ import annotations
 
 # Mapping of language names to pyphen locale codes
 # Based on pyphen's LibreOffice dictionary support
-SUPPORTED_LANGUAGES: Dict[str, str] = {
+SUPPORTED_LANGUAGES: dict[str, str] = {
     "Afrikaans": "af_ZA",
     "Albanian": "sq_AL",
     "Assamese": "as_IN",
@@ -63,7 +63,7 @@ SUPPORTED_LANGUAGES: Dict[str, str] = {
 }
 
 
-def get_language_code(language_name: str) -> Optional[str]:
+def get_language_code(language_name: str) -> str | None:
     """
     Get pyphen language code from language name.
 
@@ -80,7 +80,7 @@ def get_language_code(language_name: str) -> Optional[str]:
     return SUPPORTED_LANGUAGES.get(language_name)
 
 
-def get_language_name(code: str) -> Optional[str]:
+def get_language_name(code: str) -> str | None:
     """
     Get language name from pyphen code.
 

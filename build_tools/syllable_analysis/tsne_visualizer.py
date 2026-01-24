@@ -80,10 +80,11 @@ Architecture:
     - plotting.interactive: Create and save Plotly HTML visualizations
 """
 
+from __future__ import annotations
+
 import argparse
 import time
 from pathlib import Path
-from typing import Dict
 
 # Configure matplotlib to use non-interactive backend (for headless environments like CI)
 import matplotlib  # type: ignore[import-not-found]
@@ -128,7 +129,7 @@ def run_tsne_visualization(
     verbose: bool = False,
     save_mapping: bool = False,
     interactive: bool = False,
-) -> Dict:
+) -> dict:
     """Run the complete t-SNE visualization pipeline.
 
     This is the main entry point for programmatic use. It handles the full workflow:

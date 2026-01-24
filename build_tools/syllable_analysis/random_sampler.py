@@ -25,12 +25,14 @@ Usage::
     python -m build_tools.syllable_analysis.random_sampler --samples 50 --seed 42
 """
 
+from __future__ import annotations
+
 import argparse
 import json  # Still needed for JSONDecodeError in exception handling
 import random
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 # Import common utilities (Phase 2 refactoring)
 from build_tools.syllable_analysis.common import (
@@ -43,8 +45,8 @@ from build_tools.syllable_analysis.common import (
 
 
 def sample_syllables(
-    records: List[Dict[str, Any]], sample_count: int, seed: int | None = None
-) -> List[Dict[str, Any]]:
+    records: list[dict[str, Any]], sample_count: int, seed: int | None = None
+) -> list[dict[str, Any]]:
     """Randomly sample syllables from the full corpus.
 
     Args:

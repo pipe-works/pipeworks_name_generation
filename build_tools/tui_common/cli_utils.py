@@ -8,11 +8,14 @@ These utilities were extracted from the syllable extractor CLIs to eliminate
 duplication and ensure consistent behavior across tools.
 """
 
+from __future__ import annotations
+
 import glob
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, List
+from typing import Any
 
 # Try to enable readline for tab completion (Unix/Mac)
 # On Windows, pyreadline3 provides similar functionality
@@ -132,7 +135,7 @@ def input_with_completion(prompt: str) -> str:
     return input(prompt)
 
 
-def discover_files(source: Path, pattern: str = "*.txt", recursive: bool = False) -> List[Path]:
+def discover_files(source: Path, pattern: str = "*.txt", recursive: bool = False) -> list[Path]:
     """
     Discover text files in a directory matching the specified pattern.
 

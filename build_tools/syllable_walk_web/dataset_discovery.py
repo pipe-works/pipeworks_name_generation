@@ -13,11 +13,12 @@ Functions:
     get_default_dataset: Find the most recent dataset
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -37,7 +38,7 @@ class DatasetInfo:
     path: Path
     name: str
     extractor_type: str
-    timestamp: Optional[str]
+    timestamp: str | None
     syllable_count: int
     run_directory: Path
     is_legacy: bool
@@ -59,7 +60,7 @@ class DatasetInfo:
         }
 
 
-def load_dataset_metadata(json_path: Path) -> Optional[DatasetInfo]:
+def load_dataset_metadata(json_path: Path) -> DatasetInfo | None:
     """Load metadata from an annotated syllable dataset file.
 
     Reads the JSON file to determine syllable count and infers metadata from
@@ -147,8 +148,8 @@ def load_dataset_metadata(json_path: Path) -> Optional[DatasetInfo]:
 
 
 def discover_datasets(
-    search_paths: Optional[List[Path]] = None, include_legacy: bool = True
-) -> List[DatasetInfo]:
+    search_paths: list[Path] | None = None, include_legacy: bool = True
+) -> list[DatasetInfo]:
     """Discover available annotated syllable datasets.
 
     Scans specified directories (or default locations) for annotated syllable
@@ -230,7 +231,7 @@ def discover_datasets(
     return datasets
 
 
-def get_default_dataset(datasets: Optional[List[DatasetInfo]] = None) -> Optional[DatasetInfo]:
+def get_default_dataset(datasets: list[DatasetInfo] | None = None) -> DatasetInfo | None:
     """Get the default dataset to load (most recent non-legacy).
 
     Args:

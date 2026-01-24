@@ -6,9 +6,10 @@ from text using CMU Pronouncing Dictionary with phonetically-guided
 orthographic syllabification based on onset/coda principles.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
-from typing import Dict, List
 
 # Optional dependency - only needed at runtime, not for documentation builds
 try:
@@ -139,7 +140,7 @@ class NltkSyllableExtractor:
 
     def extract_syllables_from_text(
         self, text: str, only_hyphenated: bool = True
-    ) -> tuple[List[str], Dict[str, int]]:
+    ) -> tuple[list[str], dict[str, int]]:
         """
         Extract all syllables from a block of text (preserves duplicates).
 
@@ -184,7 +185,7 @@ class NltkSyllableExtractor:
         # Extract words using regex (alphanumeric sequences)
         words = re.findall(r"\b[a-zA-Z]+\b", text)
 
-        syllables: List[str] = []
+        syllables: list[str] = []
         stats = {
             "total_words": len(words),
             "fallback_count": 0,
@@ -450,7 +451,7 @@ class NltkSyllableExtractor:
 
         return [s for s in syllables if s]
 
-    def extract_syllables_from_file(self, input_path: Path) -> tuple[List[str], Dict[str, int]]:
+    def extract_syllables_from_file(self, input_path: Path) -> tuple[list[str], dict[str, int]]:
         """
         Extract all syllables from a text file (preserves duplicates).
 
@@ -488,7 +489,7 @@ class NltkSyllableExtractor:
 
         return self.extract_syllables_from_text(text)
 
-    def save_syllables(self, syllables: List[str], output_path: Path) -> None:
+    def save_syllables(self, syllables: list[str], output_path: Path) -> None:
         """
         Save syllables to a text file (one syllable per line, preserves all).
 

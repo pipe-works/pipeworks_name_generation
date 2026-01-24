@@ -53,9 +53,10 @@ Module Contents
 - generate_output_pair(): Generate pair of timestamped output paths
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
 
 
 def ensure_output_dir(output_dir: Path) -> Path:
@@ -120,7 +121,7 @@ def generate_timestamped_path(
     output_dir: Path,
     suffix: str,
     extension: str = "txt",
-    timestamp: Optional[str] = None,
+    timestamp: str | None = None,
 ) -> Path:
     """Generate timestamped output file path.
 
@@ -219,7 +220,7 @@ def generate_output_pair(
     metadata_suffix: str,
     primary_ext: str = "txt",
     metadata_ext: str = "txt",
-) -> Tuple[Path, Path]:
+) -> tuple[Path, Path]:
     """Generate matching pair of timestamped output paths.
 
     This function is useful for tools that generate both primary output and
@@ -241,7 +242,7 @@ def generate_output_pair(
 
     Returns
     -------
-    Tuple[Path, Path]
+    tuple[Path, Path]
         Tuple of (primary_path, metadata_path) with matching timestamps
 
     Examples

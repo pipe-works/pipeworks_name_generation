@@ -16,8 +16,9 @@ Example:
     1.5
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict
 
 
 @dataclass
@@ -59,7 +60,7 @@ class WalkProfile:
 
 # Predefined walk profiles
 # These profiles were designed to provide distinct, evocative behaviors
-WALK_PROFILES: Dict[str, WalkProfile] = {
+WALK_PROFILES: dict[str, WalkProfile] = {
     "clerical": WalkProfile(
         name="Clerical Walk",
         description="Conservative, favors common syllables, minimal phonetic change",
@@ -118,7 +119,7 @@ def get_profile(name: str) -> WalkProfile:
     return WALK_PROFILES[name_lower]
 
 
-def list_profiles() -> Dict[str, WalkProfile]:
+def list_profiles() -> dict[str, WalkProfile]:
     """Get all available walk profiles.
 
     Returns:

@@ -30,8 +30,9 @@ Note:
     Very short text may produce inaccurate detections.
 """
 
+from __future__ import annotations
+
 import warnings
-from typing import Dict, Optional
 
 # Optional dependency - only needed if language detection is used
 try:
@@ -47,7 +48,7 @@ except ImportError:
 # Comprehensive mapping from ISO 639-1/639-3 codes to pyphen locale codes
 # Only includes languages supported by pyphen (see languages.py)
 # When multiple locales exist (e.g., en_US, en_GB), we choose the most common default
-ISO_TO_PYPHEN_MAP: Dict[str, str] = {
+ISO_TO_PYPHEN_MAP: dict[str, str] = {
     # Major European languages
     "en": "en_US",  # English -> US by default (most common)
     "de": "de_DE",  # German -> Germany by default
@@ -102,7 +103,7 @@ ISO_TO_PYPHEN_MAP: Dict[str, str] = {
 
 # Alternative locale mappings for specific regions/preferences
 # Users can specify these explicitly if they prefer a specific variant
-ALTERNATIVE_LOCALES: Dict[str, list[str]] = {
+ALTERNATIVE_LOCALES: dict[str, list[str]] = {
     "en": ["en_US", "en_GB"],  # US vs UK English
     "de": ["de_DE", "de_AT", "de_CH"],  # Germany, Austria, Switzerland
     "pt": ["pt_PT", "pt_BR"],  # Portugal vs Brazil
@@ -233,7 +234,7 @@ def detect_language_code(
         return default
 
 
-def get_alternative_locales(iso_code: str) -> Optional[list[str]]:
+def get_alternative_locales(iso_code: str) -> list[str] | None:
     """
     Get alternative pyphen locale codes for a given ISO language code.
 
@@ -266,7 +267,7 @@ def get_alternative_locales(iso_code: str) -> Optional[list[str]]:
     return ALTERNATIVE_LOCALES.get(iso_code)
 
 
-def get_default_locale(iso_code: str) -> Optional[str]:
+def get_default_locale(iso_code: str) -> str | None:
     """
     Get the default pyphen locale for an ISO language code.
 
@@ -296,7 +297,7 @@ def get_default_locale(iso_code: str) -> Optional[str]:
     return ISO_TO_PYPHEN_MAP.get(iso_code)
 
 
-def list_supported_languages() -> Dict[str, str]:
+def list_supported_languages() -> dict[str, str]:
     """
     Get a dictionary of all ISO codes and their default pyphen locales.
 

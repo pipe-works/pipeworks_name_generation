@@ -5,8 +5,9 @@ This module provides the DatabaseScreen modal for browsing corpus SQLite
 database contents with pagination and sorting.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
 
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -209,7 +210,7 @@ class DatabaseScreen(Screen):
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         patch_name: str = "",
         *args,
         **kwargs,

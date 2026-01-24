@@ -38,9 +38,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 
 from build_tools.tui_common.cli_utils import CORPUS_DB_AVAILABLE, record_corpus_db_safe
 
@@ -90,12 +91,12 @@ class ExtractionLedgerContext:
         self,
         extractor_tool: str,
         extractor_version: str = "unknown",
-        pyphen_lang: Optional[str] = None,
-        min_len: Optional[int] = None,
-        max_len: Optional[int] = None,
+        pyphen_lang: str | None = None,
+        min_len: int | None = None,
+        max_len: int | None = None,
         recursive: bool = False,
-        pattern: Optional[str] = None,
-        command_line: Optional[str] = None,
+        pattern: str | None = None,
+        command_line: str | None = None,
         quiet: bool = False,
     ) -> None:
         """
@@ -122,9 +123,9 @@ class ExtractionLedgerContext:
         self.command_line = command_line or " ".join(sys.argv)
         self.quiet = quiet
 
-        self._ledger: Optional[CorpusLedger] = None
-        self._run_id: Optional[int] = None
-        self._success: Optional[bool] = None
+        self._ledger: CorpusLedger | None = None
+        self._run_id: int | None = None
+        self._success: bool | None = None
 
     @property
     def is_available(self) -> bool:
@@ -132,7 +133,7 @@ class ExtractionLedgerContext:
         return self._ledger is not None and self._run_id is not None
 
     @property
-    def run_id(self) -> Optional[int]:
+    def run_id(self) -> int | None:
         """Get the current run ID, or None if not initialized."""
         return self._run_id
 
@@ -213,7 +214,7 @@ class ExtractionLedgerContext:
         self,
         operation: str,
         func: Callable[[], Any],
-        quiet: Optional[bool] = None,
+        quiet: bool | None = None,
     ) -> Any:
         """
         Execute a ledger operation with safe error handling.
@@ -245,7 +246,7 @@ class ExtractionLedgerContext:
     def record_input(
         self,
         source_path: Path,
-        file_count: Optional[int] = None,
+        file_count: int | None = None,
     ) -> None:
         """
         Record an input source for this run.
@@ -268,7 +269,7 @@ class ExtractionLedgerContext:
     def record_inputs(
         self,
         files: list[Path],
-        source_dir: Optional[Path] = None,
+        source_dir: Path | None = None,
     ) -> None:
         """
         Record multiple input files for this run.
@@ -300,8 +301,8 @@ class ExtractionLedgerContext:
     def record_output(
         self,
         output_path: Path,
-        unique_syllable_count: Optional[int] = None,
-        meta_path: Optional[Path] = None,
+        unique_syllable_count: int | None = None,
+        meta_path: Path | None = None,
     ) -> None:
         """
         Record an output file for this run.

@@ -49,12 +49,15 @@ Typical Usage:
     >>> recent = ledger.get_recent_runs(limit=10)
 """
 
+from __future__ import annotations
+
 import socket
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any
 
 from .schema import SCHEMA_VERSION, get_all_ddl_statements
 
@@ -84,7 +87,7 @@ class CorpusLedger:
         >>> ledger.complete_run(run_id, exit_code=0, status="completed")
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         """
         Initialize the corpus ledger.
 
@@ -112,7 +115,7 @@ class CorpusLedger:
             db_path = project_root / "data" / "raw" / "syllable_extractor.db"
 
         self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
         # Ensure parent directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -209,15 +212,15 @@ class CorpusLedger:
     def start_run(
         self,
         extractor_tool: str,
-        extractor_version: Optional[str] = None,
-        pyphen_lang: Optional[str] = None,
-        auto_lang_detected: Optional[str] = None,
-        min_len: Optional[int] = None,
-        max_len: Optional[int] = None,
+        extractor_version: str | None = None,
+        pyphen_lang: str | None = None,
+        auto_lang_detected: str | None = None,
+        min_len: int | None = None,
+        max_len: int | None = None,
         recursive: bool = False,
-        pattern: Optional[str] = None,
-        command_line: Optional[str] = None,
-        notes: Optional[str] = None,
+        pattern: str | None = None,
+        command_line: str | None = None,
+        notes: str | None = None,
     ) -> int:
         """
         Record the start of a new extraction run.
@@ -298,7 +301,7 @@ class CorpusLedger:
         self,
         run_id: int,
         source_path: Path,
-        file_count: Optional[int] = None,
+        file_count: int | None = None,
     ) -> None:
         """
         Record an input source for a run.
@@ -334,9 +337,9 @@ class CorpusLedger:
         self,
         run_id: int,
         output_path: Path,
-        syllable_count: Optional[int] = None,
-        unique_syllable_count: Optional[int] = None,
-        meta_path: Optional[Path] = None,
+        syllable_count: int | None = None,
+        unique_syllable_count: int | None = None,
+        meta_path: Path | None = None,
     ) -> None:
         """
         Record an output file for a run.
@@ -425,7 +428,7 @@ class CorpusLedger:
             )
             conn.commit()
 
-    def get_run(self, run_id: int) -> Optional[dict[str, Any]]:
+    def get_run(self, run_id: int) -> dict[str, Any] | None:
         """
         Get details for a specific run.
 
@@ -551,7 +554,7 @@ class CorpusLedger:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def find_run_by_output(self, output_path: Path) -> Optional[dict[str, Any]]:
+    def find_run_by_output(self, output_path: Path) -> dict[str, Any] | None:
         """
         Find which run produced a specific output file.
 

@@ -8,10 +8,12 @@ before we collapse identity" - essential for understanding natural language
 patterns in the source corpus.
 """
 
+from __future__ import annotations
+
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, cast
+from typing import cast
 
 from .models import FrequencyEntry
 
@@ -38,7 +40,7 @@ class FrequencyAnalyzer:
         ['ka', 'mi', 'ra', 'ta']
     """
 
-    def calculate_frequencies(self, syllables: List[str]) -> Dict[str, int]:
+    def calculate_frequencies(self, syllables: list[str]) -> dict[str, int]:
         """
         Calculate frequency counts for canonical syllables.
 
@@ -67,7 +69,7 @@ class FrequencyAnalyzer:
         """
         return dict(Counter(syllables))
 
-    def create_frequency_entries(self, frequencies: Dict[str, int]) -> List[FrequencyEntry]:
+    def create_frequency_entries(self, frequencies: dict[str, int]) -> list[FrequencyEntry]:
         """
         Create ranked frequency entries from frequency counts.
 
@@ -104,7 +106,7 @@ class FrequencyAnalyzer:
         # Sort by frequency (descending), then alphabetically (ascending)
         sorted_items = sorted(frequencies.items(), key=lambda x: (-x[1], x[0]))
 
-        entries: List[FrequencyEntry] = []
+        entries: list[FrequencyEntry] = []
         for rank, (syllable, count) in enumerate(sorted_items, start=1):
             percentage = (count / total_count) * 100
             entry = FrequencyEntry(
@@ -114,7 +116,7 @@ class FrequencyAnalyzer:
 
         return entries
 
-    def extract_unique_syllables(self, syllables: List[str]) -> List[str]:
+    def extract_unique_syllables(self, syllables: list[str]) -> list[str]:
         """
         Extract unique syllables and return in sorted order.
 
@@ -143,7 +145,7 @@ class FrequencyAnalyzer:
         """
         return sorted(set(syllables))
 
-    def save_frequencies(self, frequencies: Dict[str, int], output_path: Path) -> None:
+    def save_frequencies(self, frequencies: dict[str, int], output_path: Path) -> None:
         """
         Save frequency dictionary to JSON file.
 
@@ -182,7 +184,7 @@ class FrequencyAnalyzer:
             json.dump(frequencies, f, indent=2, sort_keys=True, ensure_ascii=False)
             f.write("\n")  # Trailing newline for POSIX compliance
 
-    def save_unique_syllables(self, unique_syllables: List[str], output_path: Path) -> None:
+    def save_unique_syllables(self, unique_syllables: list[str], output_path: Path) -> None:
         """
         Save unique syllables to text file.
 
@@ -222,7 +224,7 @@ class FrequencyAnalyzer:
                 f.write(f"{syllable}\n")
 
 
-def load_frequencies_from_file(file_path: Path) -> Dict[str, int]:
+def load_frequencies_from_file(file_path: Path) -> dict[str, int]:
     """
     Load frequency dictionary from JSON file.
 
@@ -254,10 +256,10 @@ def load_frequencies_from_file(file_path: Path) -> Dict[str, int]:
         follow the same format: {"syllable": count, ...}
     """
     with file_path.open("r", encoding="utf-8") as f:
-        return cast(Dict[str, int], json.load(f))
+        return cast(dict[str, int], json.load(f))
 
 
-def load_unique_syllables_from_file(file_path: Path) -> List[str]:
+def load_unique_syllables_from_file(file_path: Path) -> list[str]:
     """
     Load unique syllables from text file.
 
@@ -288,7 +290,7 @@ def load_unique_syllables_from_file(file_path: Path) -> List[str]:
         Empty lines are skipped. Leading/trailing whitespace is stripped
         from each line.
     """
-    syllables: List[str] = []
+    syllables: list[str] = []
     with file_path.open("r", encoding="utf-8") as f:
         for line in f:
             syllable = line.strip()

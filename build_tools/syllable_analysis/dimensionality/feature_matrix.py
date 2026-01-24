@@ -5,7 +5,7 @@ annotated syllable records. The matrices are suitable for dimensionality reducti
 algorithms like t-SNE, PCA, UMAP, etc.
 """
 
-from typing import Dict, List, Tuple
+from __future__ import annotations
 
 import numpy as np  # type: ignore[import-not-found]
 
@@ -28,8 +28,8 @@ ALL_FEATURES = [
 
 
 def extract_feature_matrix(
-    records: List[Dict], feature_names: List[str] = ALL_FEATURES
-) -> Tuple[np.ndarray, List[int]]:
+    records: list[dict], feature_names: list[str] = ALL_FEATURES
+) -> tuple[np.ndarray, list[int]]:
     """Extract binary feature matrix from annotated syllable records.
 
     Converts feature dictionaries to a numerical matrix suitable for
@@ -128,8 +128,8 @@ def validate_feature_matrix(feature_matrix: np.ndarray, expected_features: int =
 
 
 def get_feature_vector(
-    features: Dict[str, bool], feature_names: List[str] = ALL_FEATURES
-) -> List[int]:
+    features: dict[str, bool], feature_names: list[str] = ALL_FEATURES
+) -> list[int]:
     """Extract a single feature vector from a feature dictionary.
 
     Converts a dictionary of feature flags to an ordered binary vector.

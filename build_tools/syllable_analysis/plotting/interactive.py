@@ -35,9 +35,10 @@ Usage Example
         save_interactive_html(fig, output_path, perplexity=30, random_state=42)
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np  # type: ignore[import-not-found]
 
@@ -63,7 +64,7 @@ except ImportError:
 
 
 def create_interactive_scatter(
-    records: List[Dict],
+    records: list[dict],
     tsne_coords: np.ndarray,
     title: str = "t-SNE: Feature Signature Space (Interactive)",
 ) -> "go.Figure":
@@ -181,7 +182,7 @@ def create_interactive_scatter(
     return fig
 
 
-def build_hover_text(record: Dict, max_features: int = 4) -> str:
+def build_hover_text(record: dict, max_features: int = 4) -> str:
     """Build rich hover text for a single syllable record.
 
     Creates HTML-formatted hover text showing syllable details, frequency,

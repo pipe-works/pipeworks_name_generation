@@ -16,10 +16,12 @@ Usage::
     run_server(port=8000)
 """
 
+from __future__ import annotations
+
 import json
 import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from build_tools.syllable_walk.db import load_syllables
@@ -45,8 +47,8 @@ class SimplifiedWalkerHandler(BaseHTTPRequestHandler):
         verbose: Whether to print progress messages
     """
 
-    walker: Optional[SyllableWalker] = None
-    current_run: Optional[RunInfo] = None
+    walker: SyllableWalker | None = None
+    current_run: RunInfo | None = None
     verbose: bool = True
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -338,7 +340,7 @@ def find_available_port(start: int = 8000, max_attempts: int = 100) -> int:
 
 
 def run_server(
-    port: Optional[int] = None,
+    port: int | None = None,
     verbose: bool = True,
 ) -> None:
     """Start the web server.

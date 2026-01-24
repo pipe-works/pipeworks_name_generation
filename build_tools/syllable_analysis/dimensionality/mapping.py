@@ -4,14 +4,15 @@ This module provides functions for creating and saving mappings between syllable
 and their reduced-dimension coordinates (e.g., from t-SNE, PCA, UMAP).
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np  # type: ignore[import-not-found]
 
 
-def create_tsne_mapping(records: List[Dict], tsne_coords: np.ndarray) -> List[Dict]:
+def create_tsne_mapping(records: list[dict], tsne_coords: np.ndarray) -> list[dict]:
     """Create syllable→features→coordinates mapping.
 
     Combines annotated syllable records with their t-SNE coordinates to create
@@ -94,7 +95,7 @@ def create_tsne_mapping(records: List[Dict], tsne_coords: np.ndarray) -> List[Di
     return mapping
 
 
-def save_tsne_mapping(mapping: List[Dict], output_path: Path, indent: int = 2) -> None:
+def save_tsne_mapping(mapping: list[dict], output_path: Path, indent: int = 2) -> None:
     """Save t-SNE mapping to JSON file.
 
     Writes the syllable→coordinates mapping as formatted JSON for human readability

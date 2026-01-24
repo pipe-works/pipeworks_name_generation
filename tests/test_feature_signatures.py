@@ -5,11 +5,13 @@ ensuring correct extraction, counting, formatting, and reporting of
 feature combinations in the annotated syllable corpus.
 """
 
+from __future__ import annotations
+
 import json
 import tempfile
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from build_tools.syllable_analysis.feature_signatures import (
     analyze_feature_signatures,
@@ -393,7 +395,7 @@ class TestRealWorldScenarios:
 
     def test_realistic_phonetic_features(self):
         """Test with actual phonetic feature combinations."""
-        records: List[Dict[str, Any]] = [
+        records: list[dict[str, Any]] = [
             {
                 "syllable": "kran",
                 "features": {

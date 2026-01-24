@@ -13,11 +13,12 @@ Functions:
     get_random_syllable: Get a random syllable
 """
 
+from __future__ import annotations
+
 import json
 import random
 import sqlite3
 from pathlib import Path
-from typing import Optional
 
 # The 12 phonetic features in the database schema
 FEATURE_COLUMNS = [
@@ -128,7 +129,7 @@ def syllable_exists(db_path: Path, syllable: str) -> bool:
         conn.close()
 
 
-def get_syllable_data(db_path: Path, syllable: str) -> Optional[dict]:
+def get_syllable_data(db_path: Path, syllable: str) -> dict | None:
     """Get data for a specific syllable.
 
     Args:
@@ -164,7 +165,7 @@ def get_syllable_data(db_path: Path, syllable: str) -> Optional[dict]:
         conn.close()
 
 
-def get_random_syllable(db_path: Path, seed: Optional[int] = None) -> str:
+def get_random_syllable(db_path: Path, seed: int | None = None) -> str:
     """Get a random syllable from the database.
 
     Uses frequency-weighted random selection if seed is provided for
@@ -214,7 +215,7 @@ def load_syllables_from_json(json_path: Path) -> list[dict]:
 
 
 def load_syllables(
-    db_path: Optional[Path] = None, json_path: Optional[Path] = None
+    db_path: Path | None = None, json_path: Path | None = None
 ) -> tuple[list[dict], str]:
     """Load syllables from database or JSON, with automatic fallback.
 

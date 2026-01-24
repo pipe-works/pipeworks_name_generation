@@ -5,10 +5,11 @@ This module defines the data structures used to represent extraction results
 and their associated metadata.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 
 @dataclass
@@ -35,15 +36,15 @@ class ExtractionResult:
         processed_words: Words that were successfully processed
     """
 
-    syllables: Set[str]
+    syllables: set[str]
     language_code: str
     min_syllable_length: int
     max_syllable_length: int
     input_path: Path
     timestamp: datetime = field(default_factory=datetime.now)
     only_hyphenated: bool = True
-    length_distribution: Dict[int, int] = field(default_factory=dict)
-    sample_syllables: List[str] = field(default_factory=list)
+    length_distribution: dict[int, int] = field(default_factory=dict)
+    sample_syllables: list[str] = field(default_factory=list)
     total_words: int = 0
     skipped_unhyphenated: int = 0
     rejected_syllables: int = 0
@@ -151,9 +152,9 @@ class FileProcessingResult:
     success: bool
     syllables_count: int
     language_code: str
-    syllables_output_path: Optional[Path] = None
-    metadata_output_path: Optional[Path] = None
-    error_message: Optional[str] = None
+    syllables_output_path: Path | None = None
+    metadata_output_path: Path | None = None
+    error_message: str | None = None
     processing_time: float = 0.0
 
 
@@ -189,7 +190,7 @@ class BatchResult:
     total_files: int
     successful: int
     failed: int
-    results: List[FileProcessingResult]
+    results: list[FileProcessingResult]
     total_time: float
     output_directory: Path
 
@@ -230,7 +231,7 @@ class BatchResult:
 
         # Language distribution
         if self.successful > 0:
-            lang_counts: Dict[str, int] = {}
+            lang_counts: dict[str, int] = {}
             for result in self.results:
                 if result.success:
                     lang_counts[result.language_code] = lang_counts.get(result.language_code, 0) + 1

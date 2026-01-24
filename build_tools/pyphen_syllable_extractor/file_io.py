@@ -5,9 +5,10 @@ This module handles all file reading, writing, and output generation
 for the syllable extractor.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .models import ExtractionResult
 
@@ -16,10 +17,10 @@ DEFAULT_OUTPUT_DIR = Path("_working/output")
 
 
 def generate_output_filename(
-    output_dir: Optional[Path] = None,
-    language_code: Optional[str] = None,
-    run_timestamp: Optional[str] = None,
-    input_filename: Optional[str] = None,
+    output_dir: Path | None = None,
+    language_code: str | None = None,
+    run_timestamp: str | None = None,
+    input_filename: str | None = None,
 ) -> tuple[Path, Path]:
     """
     Generate output filenames in run-based subdirectory structure.

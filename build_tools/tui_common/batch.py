@@ -31,9 +31,10 @@ Usage::
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 if TYPE_CHECKING:
     pass
@@ -60,7 +61,7 @@ SingleFileProcessor = Callable[[Path, Path, str, bool], FileProcessingResultProt
 
 
 def run_batch_extraction(
-    files: List[Path],
+    files: list[Path],
     output_dir: Path,
     process_file_func: SingleFileProcessor,
     batch_result_class: type[Any],
@@ -135,7 +136,7 @@ def run_batch_extraction(
         print(f"Run Directory:    {run_dir}")
         print(f"{'='*70}\n")
 
-    results: List[FileProcessingResultProtocol] = []
+    results: list[FileProcessingResultProtocol] = []
     successful = 0
     failed = 0
 
@@ -176,11 +177,11 @@ def run_batch_extraction(
 
 def collect_files_from_args(
     file_arg: Path | None,
-    files_arg: List[Path] | None,
+    files_arg: list[Path] | None,
     source_arg: Path | None,
     pattern: str,
     recursive: bool,
-) -> tuple[List[Path], Path | None]:
+) -> tuple[list[Path], Path | None]:
     """
     Collect files to process from CLI arguments.
 
@@ -216,7 +217,7 @@ def collect_files_from_args(
 
     from build_tools.tui_common.cli_utils import discover_files
 
-    files_to_process: List[Path] = []
+    files_to_process: list[Path] = []
     source_dir: Path | None = None
 
     if file_arg:

@@ -11,7 +11,6 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import List
 
 from build_tools.tui_common.batch import (
     collect_files_from_args,
@@ -148,7 +147,7 @@ def process_single_file(
 
 
 def process_batch(
-    files: List[Path],
+    files: list[Path],
     language_code: str,
     min_len: int,
     max_len: int,

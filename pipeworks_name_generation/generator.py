@@ -10,8 +10,9 @@ Features to add later:
 For now: Hardcoded syllables, basic logic.
 """
 
+from __future__ import annotations
+
 import random
-from typing import Optional
 
 
 class NameGenerator:
@@ -92,7 +93,7 @@ class NameGenerator:
         self.pattern = pattern
         self._syllables = self._SIMPLE_SYLLABLES.copy()
 
-    def generate(self, seed: int, syllables: Optional[int] = None) -> str:
+    def generate(self, seed: int, syllables: int | None = None) -> str:
         """Generate a single name deterministically.
 
         This is the core method. Given the same seed, it MUST produce

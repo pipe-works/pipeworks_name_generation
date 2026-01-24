@@ -16,12 +16,13 @@ This analysis helps answer questions like:
 Output is saved to _working/analysis/feature_signatures/ for review.
 """
 
+from __future__ import annotations
+
 import argparse
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Counter as CounterType
-from typing import Dict, List, Optional, Tuple
 
 from build_tools.syllable_analysis.common import (
     default_paths,
@@ -31,7 +32,7 @@ from build_tools.syllable_analysis.common import (
 )
 
 
-def extract_signature(features: Dict[str, bool]) -> Tuple[str, ...]:
+def extract_signature(features: dict[str, bool]) -> tuple[str, ...]:
     """Extract the feature signature from a feature dictionary.
 
     A signature is a sorted tuple of feature names where the feature value is True.
@@ -50,7 +51,7 @@ def extract_signature(features: Dict[str, bool]) -> Tuple[str, ...]:
     return tuple(sorted(feature_name for feature_name, is_active in features.items() if is_active))
 
 
-def analyze_feature_signatures(records: List[Dict]) -> Counter:
+def analyze_feature_signatures(records: list[dict]) -> Counter:
     """Analyze feature signatures across all syllable records.
 
     Counts how many syllables share each unique feature signature.
@@ -71,7 +72,7 @@ def analyze_feature_signatures(records: List[Dict]) -> Counter:
         >>> counter[('starts_with_vowel',)]
         1
     """
-    signature_counter: CounterType[Tuple[str, ...]] = Counter()
+    signature_counter: CounterType[tuple[str, ...]] = Counter()
 
     for record in records:
         sig = extract_signature(record["features"])
@@ -81,7 +82,7 @@ def analyze_feature_signatures(records: List[Dict]) -> Counter:
 
 
 def format_signature_report(
-    signature_counter: Counter, total_syllables: int, limit: Optional[int] = None
+    signature_counter: Counter, total_syllables: int, limit: int | None = None
 ) -> str:
     """Format the signature analysis results as a human-readable report.
 
@@ -175,7 +176,7 @@ def save_report(report: str, output_dir: Path) -> Path:
     return output_path
 
 
-def run_analysis(input_path: Path, output_dir: Path, limit: Optional[int] = None) -> Dict:
+def run_analysis(input_path: Path, output_dir: Path, limit: int | None = None) -> dict:
     """Run the complete feature signature analysis pipeline.
 
     Args:

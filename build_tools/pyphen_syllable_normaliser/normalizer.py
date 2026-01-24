@@ -6,8 +6,10 @@ of raw syllables into canonical form through Unicode normalization, diacritic
 stripping, lowercase conversion, and validation.
 """
 
+from __future__ import annotations
+
 import unicodedata
-from typing import Literal, Optional, cast
+from typing import Literal, cast
 
 from .models import NormalizationConfig
 
@@ -57,7 +59,7 @@ class SyllableNormalizer:
         """
         self.config = config
 
-    def normalize(self, syllable: str) -> Optional[str]:
+    def normalize(self, syllable: str) -> str | None:
         """
         Normalize a single syllable to canonical form.
 

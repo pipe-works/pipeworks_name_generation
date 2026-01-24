@@ -5,9 +5,10 @@ This module provides the main SyllableExtractor class for extracting syllables
 from text using pyphen's dictionary-based hyphenation.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
-from typing import Dict, Set
 
 # Optional dependency - only needed at runtime, not for documentation builds
 try:
@@ -100,7 +101,7 @@ class SyllableExtractor:
 
     def extract_syllables_from_text(
         self, text: str, only_hyphenated: bool = True
-    ) -> tuple[Set[str], Dict[str, int]]:
+    ) -> tuple[set[str], dict[str, int]]:
         """
         Extract unique syllables from a block of text.
 
@@ -146,7 +147,7 @@ class SyllableExtractor:
         # Extract words using regex (alphanumeric sequences)
         words = re.findall(r"\b[a-zA-ZÀ-ÿ]+\b", text)
 
-        syllables: Set[str] = set()
+        syllables: set[str] = set()
         stats = {
             "total_words": len(words),
             "skipped_unhyphenated": 0,
@@ -182,7 +183,7 @@ class SyllableExtractor:
 
         return syllables, stats
 
-    def extract_syllables_from_file(self, input_path: Path) -> tuple[Set[str], Dict[str, int]]:
+    def extract_syllables_from_file(self, input_path: Path) -> tuple[set[str], dict[str, int]]:
         """
         Extract unique syllables from a text file.
 
@@ -220,7 +221,7 @@ class SyllableExtractor:
 
         return self.extract_syllables_from_text(text)
 
-    def save_syllables(self, syllables: Set[str], output_path: Path) -> None:
+    def save_syllables(self, syllables: set[str], output_path: Path) -> None:
         """
         Save syllables to a text file (one syllable per line, sorted).
 
@@ -267,7 +268,7 @@ class SyllableExtractor:
         default_language: str = "en_US",
         min_detection_length: int = 20,
         suppress_warnings: bool = False,
-    ) -> tuple[Set[str], Dict[str, int], str]:
+    ) -> tuple[set[str], dict[str, int], str]:
         """
         Extract syllables with automatic language detection.
 
@@ -357,7 +358,7 @@ class SyllableExtractor:
         default_language: str = "en_US",
         min_detection_length: int = 20,
         suppress_warnings: bool = False,
-    ) -> tuple[Set[str], Dict[str, int], str]:
+    ) -> tuple[set[str], dict[str, int], str]:
         """
         Extract syllables from a file with automatic language detection.
 
