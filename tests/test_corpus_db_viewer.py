@@ -944,6 +944,7 @@ class TestHelpModal:
 
             # Press any key to close
             await pilot.press("escape")
+            await pilot.pause()  # Allow Textual to process the event (fixes Windows flakiness)
 
             assert not any(isinstance(s, HelpModal) for s in app.screen_stack)
 
