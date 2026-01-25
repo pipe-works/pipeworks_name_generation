@@ -3,14 +3,14 @@
 > A corpus linguistics toolkit for procedural name generation, featuring dual syllable
 > extraction pipelines, phonetic analysis, and interactive exploration tools.
 
-[![CI](https://github.com/aa-parky/pipeworks_name_generation/actions/workflows/ci.yml/badge.svg)](https://github.com/aa-parky/pipeworks_name_generation/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/aa-parky/pipeworks_name_generation/branch/main/graph/badge.svg)](https://codecov.io/gh/aa-parky/pipeworks_name_generation)
+[![CI](https://github.com/pipe-works/pipeworks_name_generation/actions/workflows/ci.yml/badge.svg)](https://github.com/pipe-works/pipeworks_name_generation/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/pipe-works/pipeworks_name_generation/branch/main/graph/badge.svg)](https://codecov.io/gh/pipe-works/pipeworks_name_generation)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/aa-parky/pipeworks_name_generation)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/pipe-works/pipeworks_name_generation)
 
 `pipeworks_name_generation` is a standalone, GPL-3 licensed toolkit for developers and
 world-builders who want to generate names that *sound right* without being predictable. It
@@ -150,7 +150,7 @@ Meaning, history, and interpretation are applied later, elsewhere.
 ### Setup
 
 ```bash
-git clone https://github.com/aa-parky/pipeworks_name_generation.git
+git clone https://github.com/pipe-works/pipeworks_name_generation.git
 cd pipeworks_name_generation
 pip install -e ".[dev]"
 pytest

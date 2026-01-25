@@ -87,9 +87,9 @@ tui = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aa-parky/pipeworks_name_generation"
-Repository = "https://github.com/aa-parky/pipeworks_name_generation"
-Issues = "https://github.com/aa-parky/pipeworks_name_generation/issues"
+Homepage = "https://github.com/pipe-works/pipeworks_name_generation"
+Repository = "https://github.com/pipe-works/pipeworks_name_generation"
+Issues = "https://github.com/pipe-works/pipeworks_name_generation/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

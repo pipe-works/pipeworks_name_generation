@@ -13,7 +13,7 @@ Be respectful, constructive, and professional in all interactions.
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/aa-parky/pipeworks_name_generation.git
+   git clone https://github.com/pipe-works/pipeworks_name_generation.git
    cd pipeworks_name_generation
    ```
 
