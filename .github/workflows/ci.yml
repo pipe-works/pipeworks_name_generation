@@ -28,3 +28,4 @@ jobs:
       test-os: '["ubuntu-latest", "macos-latest", "windows-latest"]'
       requires-models: false
     secrets: inherit
+# Migration to reusable workflows - testing Windows fix
