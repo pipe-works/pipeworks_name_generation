@@ -1,0 +1,68 @@
+# Standard Codecov configuration for pipe-works organization
+# Copy this file to your repository root as `codecov.yml`
+# Customize the coverage targets as needed for your project
+#
+# IMPORTANT: Ensure your pyproject.toml includes `--cov-report=xml` in pytest addopts
+# Example:
+#   [tool.pytest.ini_options]
+#   addopts = [
+#       "--cov=your_package",
+#       "--cov-report=term-missing",
+#       "--cov-report=html",
+#       "--cov-report=xml",  # Required for Codecov!
+#       "--cov-fail-under=50",
+#   ]
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80%          # Adjust based on your project (50%, 70%, 80%)
+        threshold: 2%        # Allow 2% drop before failing
+        informational: false # Block merge if below threshold
+    patch:
+      default:
+        target: 80%          # New code should have higher coverage
+        threshold: 2%        # Allow 2% drop for new code
+        informational: false
+
+  precision: 2
+  round: down
+  range: "50...100"  # Color coding: 50% is yellow, 100% is bright green
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+# Ignore paths (customize for your project)
+ignore:
+  - "tests/"
+  - "examples/"
+  - "docs/"
+  - "**/__pycache__"
+  - "**/*.egg-info"
+
+# ========================================
+# UI-Specific Ignores (if applicable)
+# ========================================
+# If your project has UI code (Gradio, Flask, FastAPI) that's difficult to unit test,
+# exclude it from coverage calculations. Uncomment and customize patterns below.
+#
+# Example for Gradio projects:
+# ignore:
+#   - "src/*/client/app.py"       # Gradio app entry point
+#   - "src/*/client/tabs/**"      # Gradio UI tabs
+#   - "src/*/client/utils.py"     # UI utility functions
+#   - "src/*/api/server.py"       # API server entry point
+#
+# Example for Flask/FastAPI projects:
+# ignore:
+#   - "src/*/web/app.py"          # Web app entry point
+#   - "src/*/web/routes/**"       # Route handlers (may be hard to test)
+#   - "src/*/web/templates/**"    # Template files
+#
+# IMPORTANT: Also exclude these paths in pyproject.toml [tool.coverage.run] omit section
+# to ensure local coverage calculations match Codecov behavior
