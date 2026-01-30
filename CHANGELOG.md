@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.14](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.13...pipeworks-name-generation-v0.5.14) (2026-01-30)
+
+
+### Fixes
+
+* **ci:** use reusable release-please workflow ([#57](https://github.com/pipe-works/pipeworks_name_generation/issues/57)) ([b20dfd5](https://github.com/pipe-works/pipeworks_name_generation/commit/b20dfd5fc50e46a117219214511d75332e932a18))
+
+
+### Documentation
+
+* rename Quick Command Reference to Common Commands ([#56](https://github.com/pipe-works/pipeworks_name_generation/issues/56)) ([efe7ddf](https://github.com/pipe-works/pipeworks_name_generation/commit/efe7ddf966ae5ebc73550de3f9437ad14949ead9))
+* restructure README to emphasize build tools ecosystem ([#54](https://github.com/pipe-works/pipeworks_name_generation/issues/54)) ([e679c2c](https://github.com/pipe-works/pipeworks_name_generation/commit/e679c2c7a1b035ef56310ea65f253912ea7650dd))
+
 ## [0.5.13](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.12...pipeworks-name-generation-v0.5.13) (2026-01-27)
 
 
