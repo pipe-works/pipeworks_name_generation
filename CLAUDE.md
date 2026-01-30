@@ -12,7 +12,7 @@ deterministic, and lightweight.
 the same name. This is essential for games where entity IDs need to map to consistent names
 across sessions.
 
-## Quick Command Reference
+## Common Commands
 
 ### Setup and Testing
 
