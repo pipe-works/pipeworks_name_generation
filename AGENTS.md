@@ -34,6 +34,8 @@
 - Follow `.github/PULL_REQUEST_TEMPLATE.md` checklist.
 - Include tests for changes and run pre-commit before PR.
 - Keep changes scoped and document any behavior changes.
+- Release Please: use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
+  and/or squash PRs with a conventional title so release-please can open a release PR.
 
 ## Useful Paths
 
