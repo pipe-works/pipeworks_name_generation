@@ -13,10 +13,13 @@ Design Philosophy:
     - "orma" in a list is data; "Orma" in context is a name
 """
 
+from pathlib import Path
+
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Label, Static
+from textual.widgets import Button, Label, Static
 
 from build_tools.name_renderer import (
     get_available_styles,
@@ -150,6 +153,8 @@ class RenderScreen(Screen):
         names_b: list[str],
         name_class_a: str,
         name_class_b: str,
+        selections_dir_a: Path | None = None,
+        selections_dir_b: Path | None = None,
     ) -> None:
         """
         Initialize with selected names from both patches.
@@ -159,6 +164,8 @@ class RenderScreen(Screen):
             names_b: Selected names from Patch B (SelectorState.outputs)
             name_class_a: Name class used for Patch A selection
             name_class_b: Name class used for Patch B selection
+            selections_dir_a: Selections directory for Patch A (for exports)
+            selections_dir_b: Selections directory for Patch B (for exports)
         """
         super().__init__()
 
@@ -167,6 +174,8 @@ class RenderScreen(Screen):
         self.names_b = names_b
         self.name_class_a = name_class_a
         self.name_class_b = name_class_b
+        self.selections_dir_a = selections_dir_a
+        self.selections_dir_b = selections_dir_b
 
         # Display state
         self.available_styles = get_available_styles()
@@ -198,6 +207,11 @@ class RenderScreen(Screen):
                     f"Name Class: {self.name_class_a}",
                     classes="name-class-label",
                 )
+                yield Button(
+                    "Export Sample",
+                    id="export-sample-a",
+                    variant="primary",
+                )
                 with VerticalScroll(classes="names-scroll"):
                     yield Static(
                         self._render_names_list(self.names_a, self.name_class_a),
@@ -210,6 +224,11 @@ class RenderScreen(Screen):
                 yield Label(
                     f"Name Class: {self.name_class_b}",
                     classes="name-class-label",
+                )
+                yield Button(
+                    "Export Sample",
+                    id="export-sample-b",
+                    variant="primary",
                 )
                 with VerticalScroll(classes="names-scroll"):
                     yield Static(
@@ -340,3 +359,71 @@ class RenderScreen(Screen):
             self.notify("Combined names: ON")
         else:
             self.notify("Combined names: OFF")
+
+    @on(Button.Pressed, "#export-sample-a")
+    def on_export_sample_a(self) -> None:
+        """Export a sample JSON for Patch A."""
+        self._export_sample(
+            names=self.names_a,
+            name_class=self.name_class_a,
+            selections_dir=self.selections_dir_a,
+            patch_label="A",
+        )
+
+    @on(Button.Pressed, "#export-sample-b")
+    def on_export_sample_b(self) -> None:
+        """Export a sample JSON for Patch B."""
+        self._export_sample(
+            names=self.names_b,
+            name_class=self.name_class_b,
+            selections_dir=self.selections_dir_b,
+            patch_label="B",
+        )
+
+    def _export_sample(
+        self,
+        names: list[str],
+        name_class: str,
+        selections_dir: Path | None,
+        patch_label: str,
+    ) -> None:
+        """
+        Export a random sample JSON file for the specified patch.
+
+        Args:
+            names: Selected names for the patch
+            name_class: Name class for file naming
+            selections_dir: Directory to write the sample JSON into
+            patch_label: Patch label for user messaging
+        """
+        from build_tools.syllable_walk_tui.services.exporter import export_sample_json
+
+        # Validate there are names to sample
+        if not names:
+            self.notify(f"Patch {patch_label}: No names to sample.", severity="warning")
+            return
+
+        # Ensure the selections directory is available
+        if selections_dir is None:
+            self.notify(
+                f"Patch {patch_label}: No selections directory available.",
+                severity="warning",
+            )
+            return
+
+        # Write the sample JSON file
+        output_path, error = export_sample_json(
+            names=names,
+            name_class=name_class,
+            selections_dir=selections_dir,
+        )
+
+        if error:
+            self.notify(f"Patch {patch_label}: {error}", severity="error")
+            return
+
+        # Tell the user where the sample landed for packaging workflows
+        self.notify(
+            f"Patch {patch_label}: Sample exported → {output_path.name}",
+            severity="information",
+        )

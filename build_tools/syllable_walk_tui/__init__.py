@@ -10,6 +10,7 @@ Features:
 - Name Combiner integration for candidate generation (mirrors CLI)
 - Name Selector integration for policy-based filtering (mirrors CLI)
 - Render Screen for styled name display (title/UPPER/lower case)
+- Package Screen for bundling selections into ZIP archives
 - TXT export for selected names
 - Profile-based parameter presets (clerical, dialect, goblin, ritual, custom)
 - Modal screens: Blended Walk (v), Analysis (a), Render (r), Database (d/D)

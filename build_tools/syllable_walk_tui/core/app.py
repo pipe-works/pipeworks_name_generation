@@ -10,6 +10,8 @@ Architecture:
 - Keyboard-first navigation with configurable keybindings
 """
 
+from pathlib import Path
+
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -29,6 +31,7 @@ from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.generator import CombinerPanel, SelectorPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
+from build_tools.syllable_walk_tui.modules.packager import PackageScreen
 from build_tools.syllable_walk_tui.modules.renderer import RenderScreen
 from build_tools.syllable_walk_tui.services import (
     get_corpus_info,
@@ -74,6 +77,7 @@ class SyllableWalkerApp(App):
         Binding("v", "view_blended", "Blended", priority=True),
         Binding("a", "view_analysis", "Analysis", priority=True),
         Binding("r", "view_render", "Render", priority=True),
+        Binding("p", "view_package", "Package", priority=True),
         Binding("d", "view_database_a", "DB A", priority=True),
         Binding("D", "view_database_b", "DB B", priority=True),
         Binding("1", "select_corpus_a", "Corpus A", priority=True),
@@ -429,14 +433,38 @@ class SyllableWalkerApp(App):
             )
             return
 
+        # Derive selections directories from selector output paths
+        selections_dir_a = (
+            Path(selector_a.last_output_path).parent if selector_a.last_output_path else None
+        )
+        selections_dir_b = (
+            Path(selector_b.last_output_path).parent if selector_b.last_output_path else None
+        )
+
         self.push_screen(
             RenderScreen(
                 names_a=selector_a.outputs,
                 names_b=selector_b.outputs,
                 name_class_a=selector_a.name_class,
                 name_class_b=selector_b.name_class,
+                selections_dir_a=selections_dir_a,
+                selections_dir_b=selections_dir_b,
             )
         )
+
+    def action_view_package(self) -> None:
+        """Action: Open package screen for bundling selections (keybinding: p)."""
+        initial_run_dir = None
+
+        # Prefer Patch A selections if available, otherwise fall back to Patch B
+        if self.state.selector_a.last_output_path:
+            # selector output path points at selections/<file>; move to run dir
+            initial_run_dir = Path(self.state.selector_a.last_output_path).parent.parent
+        elif self.state.selector_b.last_output_path:
+            # selector output path points at selections/<file>; move to run dir
+            initial_run_dir = Path(self.state.selector_b.last_output_path).parent.parent
+
+        self.push_screen(PackageScreen(initial_run_dir=initial_run_dir))
 
     def action_view_database_a(self) -> None:
         """Action: Open database viewer for Patch A (keybinding: d)."""

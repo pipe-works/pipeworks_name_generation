@@ -17,8 +17,20 @@ from build_tools.syllable_walk_tui.services.corpus import (
     load_corpus_data,
     validate_corpus_directory,
 )
-from build_tools.syllable_walk_tui.services.exporter import export_names_to_txt
+from build_tools.syllable_walk_tui.services.exporter import (
+    export_names_to_txt,
+    export_sample_json,
+)
 from build_tools.syllable_walk_tui.services.generation import WalkResult, generate_walks_for_patch
+from build_tools.syllable_walk_tui.services.packager import (
+    PackageOptions,
+    PackageResult,
+    build_package_metadata,
+    collect_included_files,
+    package_selections,
+    scan_selections,
+    write_metadata_json,
+)
 from build_tools.syllable_walk_tui.services.selector_runner import SelectorResult, run_selector
 from build_tools.syllable_walk_tui.services.terrain_weights import (
     DEFAULT_TERRAIN_WEIGHTS,
@@ -52,6 +64,15 @@ __all__ = [
     "run_selector",
     # Export
     "export_names_to_txt",
+    "export_sample_json",
+    # Packaging
+    "PackageOptions",
+    "PackageResult",
+    "build_package_metadata",
+    "collect_included_files",
+    "package_selections",
+    "scan_selections",
+    "write_metadata_json",
     # Terrain Weights
     "AxisWeights",
     "TerrainWeights",
