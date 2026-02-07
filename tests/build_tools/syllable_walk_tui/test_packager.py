@@ -9,9 +9,12 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from build_tools.syllable_walk_tui.services.packager import (
     PackageOptions,
+    _extract_extractor_type,
+    _parse_selection_filename,
     build_package_metadata,
     collect_included_files,
     package_selections,
@@ -222,3 +225,67 @@ def test_write_metadata_json_creates_file(tmp_path: Path) -> None:
     assert error is None
     assert path.exists()
     assert path.name == "sample_package_metadata.json"
+
+
+def test_extract_extractor_type_and_filename_parsing_edges() -> None:
+    """Internal parsers should handle invalid names safely."""
+    assert _extract_extractor_type(Path("badname")) is None
+    assert _extract_extractor_type(Path("20260130_185007_my_tool")) == "my_tool"
+
+    assert _parse_selection_filename("bad.json") == (None, None)
+    assert _parse_selection_filename("pyphen_first_name_bad.json") == (None, None)
+    assert _parse_selection_filename("pyphen_first_name_2syl.json") == ("first_name", "2syl")
+
+
+def test_scan_and_collect_return_errors_for_missing_paths(tmp_path: Path) -> None:
+    """Scan/collect should return descriptive errors when inputs are missing."""
+    missing_run = tmp_path / "missing"
+    inventory, scan_error = scan_selections(missing_run)
+    included, collect_error = collect_included_files(
+        missing_run, include_json=True, include_txt=True, include_meta=True
+    )
+
+    assert inventory is None
+    assert scan_error is not None
+    assert included == []
+    assert collect_error is not None
+
+
+def test_scan_selections_errors_when_selections_subdir_missing(tmp_path: Path) -> None:
+    """scan_selections should error when run dir has no selections folder."""
+    run_dir = tmp_path / "20260130_185007_pyphen"
+    run_dir.mkdir(parents=True)
+
+    inventory, error = scan_selections(run_dir)
+
+    assert inventory is None
+    assert error is not None
+    assert "Selections directory not found" in error
+
+
+def test_package_selections_appends_zip_suffix(tmp_path: Path) -> None:
+    """Package name without .zip suffix should be normalized."""
+    run_dir = tmp_path / "20260130_185007_pyphen"
+    _write_selection_files(run_dir)
+
+    result = package_selections(
+        PackageOptions(
+            run_dir=run_dir,
+            output_dir=tmp_path / "packages",
+            package_name="custom_name",
+        )
+    )
+
+    assert result.error is None
+    assert result.package_path.name == "custom_name.zip"
+
+
+def test_write_metadata_json_returns_error_on_oserror(tmp_path: Path) -> None:
+    """write_metadata_json should return an error tuple when writes fail."""
+    output_dir = tmp_path / "packages"
+
+    with patch("builtins.open", side_effect=OSError("read-only")):
+        path, error = write_metadata_json(output_dir, "sample_package.zip", {"author": "x"})
+
+    assert path.name == "sample_package_metadata.json"
+    assert error is not None

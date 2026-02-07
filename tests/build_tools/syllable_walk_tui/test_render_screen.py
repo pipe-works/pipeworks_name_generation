@@ -6,6 +6,9 @@ Includes both unit tests for methods and async integration tests
 for the full screen lifecycle.
 """
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 from textual.app import App
 from textual.widgets import Label, Static
@@ -798,3 +801,122 @@ class TestRenderScreenManyNames:
             assert "First1 Last1" in result
             assert "First5 Last5" in result
             assert result.count("\n") == 4  # 5 names = 4 newlines
+
+
+class TestRenderScreenSampleExport:
+    """Tests for renderer sample export helpers."""
+
+    def test_export_sample_warns_when_names_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Export should warn when there are no names to sample."""
+        screen = RenderScreen(
+            names_a=[],
+            names_b=[],
+            name_class_a="first_name",
+            name_class_b="last_name",
+        )
+
+        notices: list[tuple[str, str]] = []
+
+        def _capture_notify(message: str, *args: object, **kwargs: object) -> None:
+            severity = str(kwargs.get("severity", "information"))
+            notices.append((message, severity))
+
+        monkeypatch.setattr(screen, "notify", _capture_notify)
+        screen._export_sample([], "first_name", Path("/tmp"), "A")
+
+        assert notices[-1] == ("Patch A: No names to sample.", "warning")
+
+    def test_export_sample_warns_when_dir_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Export should warn when selections dir is unavailable."""
+        screen = RenderScreen(
+            names_a=["alma"],
+            names_b=[],
+            name_class_a="first_name",
+            name_class_b="last_name",
+        )
+
+        notices: list[tuple[str, str]] = []
+
+        def _capture_notify(message: str, *args: object, **kwargs: object) -> None:
+            severity = str(kwargs.get("severity", "information"))
+            notices.append((message, severity))
+
+        monkeypatch.setattr(screen, "notify", _capture_notify)
+        screen._export_sample(["alma"], "first_name", None, "A")
+
+        assert "No selections directory available." in notices[-1][0]
+        assert notices[-1][1] == "warning"
+
+    def test_export_sample_reports_service_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Export should surface service-layer errors."""
+        screen = RenderScreen(
+            names_a=["alma"],
+            names_b=[],
+            name_class_a="first_name",
+            name_class_b="last_name",
+        )
+
+        notices: list[tuple[str, str]] = []
+
+        def _capture_notify(message: str, *args: object, **kwargs: object) -> None:
+            severity = str(kwargs.get("severity", "information"))
+            notices.append((message, severity))
+
+        monkeypatch.setattr(screen, "notify", _capture_notify)
+
+        with patch(
+            "build_tools.syllable_walk_tui.services.exporter.export_sample_json",
+            return_value=(Path("/tmp/first_name_sample.json"), "write failed"),
+        ):
+            screen._export_sample(["alma"], "first_name", Path("/tmp"), "A")
+
+        assert notices[-1] == ("Patch A: write failed", "error")
+
+    def test_export_sample_reports_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Export should notify with success message when file is written."""
+        screen = RenderScreen(
+            names_a=["alma"],
+            names_b=[],
+            name_class_a="first_name",
+            name_class_b="last_name",
+        )
+
+        notices: list[tuple[str, str]] = []
+
+        def _capture_notify(message: str, *args: object, **kwargs: object) -> None:
+            severity = str(kwargs.get("severity", "information"))
+            notices.append((message, severity))
+
+        monkeypatch.setattr(screen, "notify", _capture_notify)
+
+        with patch(
+            "build_tools.syllable_walk_tui.services.exporter.export_sample_json",
+            return_value=(Path("/tmp/first_name_sample.json"), None),
+        ):
+            screen._export_sample(["alma"], "first_name", Path("/tmp"), "A")
+
+        assert notices[-1] == ("Patch A: Sample exported → first_name_sample.json", "information")
+
+    def test_export_button_handlers_delegate_to_export_sample(self) -> None:
+        """Export button handlers should call _export_sample with patch-specific args."""
+        screen = RenderScreen(
+            names_a=["alma"],
+            names_b=["bera"],
+            name_class_a="first_name",
+            name_class_b="last_name",
+            selections_dir_a=Path("/tmp/a"),
+            selections_dir_b=Path("/tmp/b"),
+        )
+        calls: list[tuple[list[str], str, Path | None, str]] = []
+
+        def _capture(
+            names: list[str], name_class: str, selections_dir: Path | None, patch_label: str
+        ):
+            calls.append((names, name_class, selections_dir, patch_label))
+
+        with patch.object(screen, "_export_sample", side_effect=_capture):
+            screen.on_export_sample_a()
+            screen.on_export_sample_b()
+
+        assert calls[0] == (["alma"], "first_name", Path("/tmp/a"), "A")
+        assert calls[1] == (["bera"], "last_name", Path("/tmp/b"), "B")

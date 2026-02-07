@@ -16,6 +16,8 @@ from build_tools.syllable_walk_tui.modules.analyzer import AnalysisScreen
 from build_tools.syllable_walk_tui.modules.blender import BlendedWalkScreen
 from build_tools.syllable_walk_tui.modules.generator import CombinerPanel
 from build_tools.syllable_walk_tui.modules.oscillator import OscillatorPanel
+from build_tools.syllable_walk_tui.modules.packager import PackageScreen
+from build_tools.syllable_walk_tui.modules.renderer import RenderScreen
 
 # Backward compatibility alias for tests
 PatchPanel = OscillatorPanel
@@ -158,6 +160,76 @@ class TestSyllableWalkerApp:
             # Check that corpus selection actions exist
             assert hasattr(app, "action_select_corpus_a")
             assert hasattr(app, "action_select_corpus_b")
+
+    @pytest.mark.asyncio
+    async def test_action_view_render_warns_without_selected_names(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Render action should notify when neither patch has selected names."""
+        app = SyllableWalkerApp()
+
+        async with app.run_test():
+            notices: list[tuple[str, str]] = []
+
+            def _capture_notify(message: str, *args: object, **kwargs: object) -> None:
+                severity = str(kwargs.get("severity", "information"))
+                notices.append((message, severity))
+
+            monkeypatch.setattr(app, "notify", _capture_notify)
+            app.action_view_render()
+            assert notices[-1] == ("No names selected. Run Select Names first.", "warning")
+
+    @pytest.mark.asyncio
+    async def test_action_view_render_passes_selection_directories(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Render action should pass selections dirs derived from selector output paths."""
+        app = SyllableWalkerApp()
+        run_dir = tmp_path / "20260130_185007_pyphen"
+        selections_dir = run_dir / "selections"
+        selections_dir.mkdir(parents=True)
+        out_a = selections_dir / "pyphen_first_name_2syl.json"
+        out_b = selections_dir / "pyphen_last_name_2syl.json"
+
+        async with app.run_test():
+            app.state.selector_a.outputs = ["alma"]
+            app.state.selector_a.last_output_path = str(out_a)
+            app.state.selector_b.outputs = ["bera"]
+            app.state.selector_b.last_output_path = str(out_b)
+
+            pushed: list[RenderScreen] = []
+            monkeypatch.setattr(app, "push_screen", lambda screen: pushed.append(screen))
+            app.action_view_render()
+
+            assert len(pushed) == 1
+            screen = pushed[0]
+            assert isinstance(screen, RenderScreen)
+            assert screen.selections_dir_a == selections_dir
+            assert screen.selections_dir_b == selections_dir
+
+    @pytest.mark.asyncio
+    async def test_action_view_package_prefers_patch_a_then_patch_b(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Package action should choose A run dir first, then fall back to B."""
+        app = SyllableWalkerApp()
+        run_a = tmp_path / "20260130_185007_pyphen"
+        run_b = tmp_path / "20260130_185023_nltk"
+        out_a = run_a / "selections" / "pyphen_first_name_2syl.json"
+        out_b = run_b / "selections" / "nltk_last_name_2syl.json"
+
+        async with app.run_test():
+            pushed: list[PackageScreen] = []
+            monkeypatch.setattr(app, "push_screen", lambda screen: pushed.append(screen))
+
+            app.state.selector_a.last_output_path = str(out_a)
+            app.state.selector_b.last_output_path = str(out_b)
+            app.action_view_package()
+            assert pushed[-1].run_dir == run_a
+
+            app.state.selector_a.last_output_path = None
+            app.action_view_package()
+            assert pushed[-1].run_dir == run_b
 
 
 class TestGetInitialBrowseDir:
