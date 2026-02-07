@@ -16,14 +16,19 @@ from pipeworks_name_generation.webapp.server import (
     WebAppHandler,
     _coerce_int,
     _connect_database,
+    _extract_syllable_option_from_source_txt_name,
     _fetch_text_rows,
+    _get_generation_selection_stats,
     _get_package_table,
     _import_package_pair,
     _initialize_schema,
     _insert_text_rows,
+    _list_generation_package_options,
+    _list_generation_syllable_options,
     _list_package_tables,
     _list_packages,
     _load_metadata_json,
+    _map_source_txt_name_to_generation_class,
     _parse_optional_int,
     _parse_required_int,
     _port_is_available,
@@ -242,6 +247,37 @@ def test_api_endpoints_import_and_browse_rows(tmp_path: Path) -> None:
     assert rows_payload["rows"]
     assert rows_payload["limit"] == 20
 
+    generation_options = _HandlerHarness(path="/api/generation/package-options", db_path=db_path)
+    generation_options.do_GET()
+    options_payload = generation_options.json_body()
+    assert generation_options.response_status == 200
+    assert options_payload["name_classes"]
+    first_name_entry = next(
+        entry for entry in options_payload["name_classes"] if entry["key"] == "first_name"
+    )
+    assert first_name_entry["packages"]
+    syllables = _HandlerHarness(
+        path=f"/api/generation/package-syllables?class_key=first_name&package_id={package_id}",
+        db_path=db_path,
+    )
+    syllables.do_GET()
+    syllables_payload = syllables.json_body()
+    assert syllables.response_status == 200
+    assert syllables_payload["syllable_options"] == [{"key": "2syl", "label": "2 syllables"}]
+
+    selection_stats = _HandlerHarness(
+        path=(
+            "/api/generation/selection-stats"
+            f"?class_key=first_name&package_id={package_id}&syllable_key=2syl"
+        ),
+        db_path=db_path,
+    )
+    selection_stats.do_GET()
+    stats_payload = selection_stats.json_body()
+    assert selection_stats.response_status == 200
+    assert stats_payload["max_items"] == 3
+    assert stats_payload["max_unique_combinations"] == 3
+
     missing = _HandlerHarness(path="/api/database/table-rows", db_path=db_path)
     missing.do_GET()
     missing_payload = missing.json_body()
@@ -255,6 +291,28 @@ def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
     bound = create_handler_class(verbose=False, db_path=db_path)
     assert bound.verbose is False
     assert bound.db_path == db_path
+
+
+def test_generation_package_options_endpoint_without_imports(tmp_path: Path) -> None:
+    """Generation options endpoint should return empty package lists before imports."""
+    db_path = tmp_path / "db.sqlite3"
+    with _connect_database(db_path) as conn:
+        _initialize_schema(conn)
+
+    harness = _HandlerHarness(path="/api/generation/package-options", db_path=db_path)
+    harness.do_GET()
+    payload = harness.json_body()
+    assert harness.response_status == 200
+    assert [entry["key"] for entry in payload["name_classes"]] == [
+        "first_name",
+        "last_name",
+        "place_name",
+        "location_name",
+        "object_item",
+        "organisation",
+        "title_epithet",
+    ]
+    assert all(not entry["packages"] for entry in payload["name_classes"])
 
 
 def test_log_message_respects_verbose_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -309,6 +367,19 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     root.do_GET()
     assert root.response_status == 200
     assert root.response_headers.get("Content-Type") == "text/html"
+    root_html = root.wfile.getvalue().decode("utf-8")
+    assert "Generation Placeholder" in root_html
+    assert "API Builder" in root_html
+    assert 'id="generation-package-first_name"' in root_html
+    assert 'id="generation-syllables-first_name"' in root_html
+    assert 'id="generation-send-first_name"' in root_html
+    assert 'id="generation-package-title_epithet"' in root_html
+    assert 'id="generation-toggle-btn"' in root_html
+    assert 'id="generation-class-card-section"' in root_html
+    assert "generation-class-grid-collapsed" in root_html
+    assert 'id="api-builder-queue"' in root_html
+    assert 'id="api-builder-combined"' in root_html
+    assert 'id="api-builder-preview"' in root_html
 
     favicon = _HandlerHarness(path="/favicon.ico", db_path=db_path)
     favicon.do_GET()
@@ -322,7 +393,7 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
 def test_get_database_routes_validation_and_error_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Database GET handlers should expose both validation and runtime errors."""
+    """Database and generation option GET handlers should expose runtime errors."""
     db_path = tmp_path / "db.sqlite3"
 
     # Validation error for package_id.
@@ -331,11 +402,52 @@ def test_get_database_routes_validation_and_error_paths(
     assert missing_package.response_status == 400
     assert "package_id" in missing_package.json_body()["error"]
 
+    missing_selection_stats_class = _HandlerHarness(
+        path="/api/generation/selection-stats?package_id=1&syllable_key=2syl",
+        db_path=db_path,
+    )
+    missing_selection_stats_class.do_GET()
+    assert missing_selection_stats_class.response_status == 400
+    assert "class_key" in missing_selection_stats_class.json_body()["error"]
+
+    missing_selection_stats_syllable = _HandlerHarness(
+        path="/api/generation/selection-stats?package_id=1&class_key=first_name",
+        db_path=db_path,
+    )
+    missing_selection_stats_syllable.do_GET()
+    assert missing_selection_stats_syllable.response_status == 400
+    assert "syllable_key" in missing_selection_stats_syllable.json_body()["error"]
+
+    unknown_class = _HandlerHarness(
+        path="/api/generation/package-syllables?class_key=bad_key&package_id=1",
+        db_path=db_path,
+    )
+    unknown_class.do_GET()
+    assert unknown_class.response_status == 400
+    assert "Unsupported generation class_key" in unknown_class.json_body()["error"]
+
     # Validation error for table_id.
     missing_table = _HandlerHarness(path="/api/database/table-rows", db_path=db_path)
     missing_table.do_GET()
     assert missing_table.response_status == 400
     assert "table_id" in missing_table.json_body()["error"]
+
+    # Validation error for class_key/package_id in syllable options route.
+    missing_class = _HandlerHarness(
+        path="/api/generation/package-syllables?package_id=1",
+        db_path=db_path,
+    )
+    missing_class.do_GET()
+    assert missing_class.response_status == 400
+    assert "class_key" in missing_class.json_body()["error"]
+
+    missing_package = _HandlerHarness(
+        path="/api/generation/package-syllables?class_key=first_name",
+        db_path=db_path,
+    )
+    missing_package.do_GET()
+    assert missing_package.response_status == 400
+    assert "package_id" in missing_package.json_body()["error"]
 
     def boom(_db_path: Path) -> Any:
         raise RuntimeError("db down")
@@ -362,6 +474,27 @@ def test_get_database_routes_validation_and_error_paths(
     table_rows.do_GET()
     assert table_rows.response_status == 500
     assert "Failed to load table rows" in table_rows.json_body()["error"]
+
+    generation_options = _HandlerHarness(path="/api/generation/package-options", db_path=db_path)
+    generation_options.do_GET()
+    assert generation_options.response_status == 500
+    assert "Failed to list generation package options" in generation_options.json_body()["error"]
+
+    generation_syllables = _HandlerHarness(
+        path="/api/generation/package-syllables?class_key=first_name&package_id=1",
+        db_path=db_path,
+    )
+    generation_syllables.do_GET()
+    assert generation_syllables.response_status == 500
+    assert "Failed to list generation syllable options" in generation_syllables.json_body()["error"]
+
+    selection_stats = _HandlerHarness(
+        path="/api/generation/selection-stats?class_key=first_name&package_id=1&syllable_key=2syl",
+        db_path=db_path,
+    )
+    selection_stats.do_GET()
+    assert selection_stats.response_status == 500
+    assert "Failed to compute generation selection stats" in selection_stats.json_body()["error"]
 
 
 def test_table_rows_not_found_returns_404(tmp_path: Path) -> None:
@@ -505,6 +638,182 @@ def test_import_with_optional_files_included_missing(tmp_path: Path) -> None:
         _initialize_schema(conn)
         result = _import_package_pair(conn, metadata_path=metadata_path, zip_path=zip_path)
     assert result["tables"]
+
+
+def test_generation_class_mapping_from_source_txt_names() -> None:
+    """Source txt filename stems should map to expected generation class keys."""
+    assert _map_source_txt_name_to_generation_class("nltk_first_name_2syl.txt") == "first_name"
+    assert _map_source_txt_name_to_generation_class("nltk_last_name_all.txt") == "last_name"
+    assert _map_source_txt_name_to_generation_class("nltk_place_name_all.txt") == "place_name"
+    assert _map_source_txt_name_to_generation_class("nltk_location_name_all.txt") == "location_name"
+    assert _map_source_txt_name_to_generation_class("nltk_object_item_all.txt") == "object_item"
+    assert _map_source_txt_name_to_generation_class("nltk_organisation_all.txt") == "organisation"
+    assert _map_source_txt_name_to_generation_class("nltk_title_epithet_all.txt") == "title_epithet"
+    assert _map_source_txt_name_to_generation_class("nltk_unknown_domain.txt") is None
+
+
+def test_extract_syllable_option_from_source_txt_names() -> None:
+    """Syllable mode parser should normalize numeric and all-file naming patterns."""
+    assert _extract_syllable_option_from_source_txt_name("nltk_first_name_2syl.txt") == "2syl"
+    assert _extract_syllable_option_from_source_txt_name("nltk_first_name_3syl.txt") == "3syl"
+    assert _extract_syllable_option_from_source_txt_name("nltk_first_name_all.txt") == "all"
+    assert _extract_syllable_option_from_source_txt_name("nltk_first_name_sample.txt") is None
+
+
+def test_list_generation_package_options_grouped_by_class(tmp_path: Path) -> None:
+    """Generation options helper should return per-class package dropdown entries."""
+    metadata_path, zip_path = _build_sample_package_pair(tmp_path)
+    db_path = tmp_path / "webapp.sqlite3"
+
+    with _connect_database(db_path) as conn:
+        _initialize_schema(conn)
+        _import_package_pair(conn, metadata_path=metadata_path, zip_path=zip_path)
+        grouped = _list_generation_package_options(conn)
+
+    grouped_map = {entry["key"]: entry["packages"] for entry in grouped}
+    assert grouped_map["first_name"]
+    assert grouped_map["last_name"]
+    assert grouped_map["place_name"] == []
+    assert grouped_map["location_name"] == []
+    assert grouped_map["object_item"] == []
+    assert grouped_map["organisation"] == []
+    assert grouped_map["title_epithet"] == []
+
+
+def test_list_generation_syllable_options_for_package_class(tmp_path: Path) -> None:
+    """Per-package syllable options should be deduplicated and sorted for one class."""
+    db_path = tmp_path / "db.sqlite3"
+    with _connect_database(db_path) as conn:
+        _initialize_schema(conn)
+        imported = conn.execute(
+            """
+            INSERT INTO imported_packages (
+                package_name,
+                imported_at,
+                metadata_json_path,
+                package_zip_path
+            ) VALUES (?, ?, ?, ?)
+            """,
+            ("Custom Package", "2026-02-07T00:00:00+00:00", "/tmp/meta.json", "/tmp/pkg.zip"),
+        )
+        if imported.lastrowid is None:
+            raise AssertionError("Expected sqlite row id for imported package insert.")
+        package_id = int(imported.lastrowid)
+        conn.executemany(
+            """
+            INSERT INTO package_tables (package_id, source_txt_name, table_name, row_count)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (package_id, "nltk_first_name_4syl.txt", "t1", 10),
+                (package_id, "nltk_first_name_2syl.txt", "t2", 10),
+                (package_id, "nltk_first_name_all.txt", "t3", 10),
+                (package_id, "nltk_last_name_3syl.txt", "t4", 10),
+                (package_id, "nltk_first_name_2syl_alt.txt", "t5", 10),
+            ],
+        )
+        conn.commit()
+
+        first_name_options = _list_generation_syllable_options(
+            conn, class_key="first_name", package_id=package_id
+        )
+        last_name_options = _list_generation_syllable_options(
+            conn, class_key="last_name", package_id=package_id
+        )
+
+    assert first_name_options == [
+        {"key": "2syl", "label": "2 syllables"},
+        {"key": "4syl", "label": "4 syllables"},
+        {"key": "all", "label": "All syllables"},
+    ]
+    assert last_name_options == [{"key": "3syl", "label": "3 syllables"}]
+
+
+def test_list_generation_syllable_options_rejects_unknown_class(tmp_path: Path) -> None:
+    """Unknown class keys should fail with ``ValueError``."""
+    with _connect_database(tmp_path / "db.sqlite3") as conn:
+        _initialize_schema(conn)
+        with pytest.raises(ValueError, match="Unsupported generation class_key"):
+            _list_generation_syllable_options(conn, class_key="not_real", package_id=1)
+
+
+def test_get_generation_selection_stats_counts_rows_and_uniques(tmp_path: Path) -> None:
+    """Selection stats should report row totals and deduped values per filter."""
+    with _connect_database(tmp_path / "db.sqlite3") as conn:
+        _initialize_schema(conn)
+        imported = conn.execute(
+            """
+            INSERT INTO imported_packages (
+                package_name,
+                imported_at,
+                metadata_json_path,
+                package_zip_path
+            ) VALUES (?, ?, ?, ?)
+            """,
+            ("Stats Package", "2026-02-07T00:00:00+00:00", "/tmp/meta.json", "/tmp/pkg.zip"),
+        )
+        if imported.lastrowid is None:
+            raise AssertionError("Expected sqlite row id for imported package insert.")
+        package_id = int(imported.lastrowid)
+
+        conn.executemany(
+            """
+            INSERT INTO package_tables (package_id, source_txt_name, table_name, row_count)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (package_id, "nltk_first_name_2syl.txt", "stats_t1", 2),
+                (package_id, "nltk_first_name_2syl_alt.txt", "stats_t2", 2),
+                (package_id, "nltk_first_name_3syl.txt", "stats_t3", 1),
+            ],
+        )
+        conn.executescript("""
+            CREATE TABLE stats_t1 (id INTEGER PRIMARY KEY AUTOINCREMENT, line_number INTEGER, value TEXT);
+            CREATE TABLE stats_t2 (id INTEGER PRIMARY KEY AUTOINCREMENT, line_number INTEGER, value TEXT);
+            CREATE TABLE stats_t3 (id INTEGER PRIMARY KEY AUTOINCREMENT, line_number INTEGER, value TEXT);
+        """)
+        conn.executemany(
+            "INSERT INTO stats_t1 (line_number, value) VALUES (?, ?)",
+            [(1, "alfa"), (2, "beta")],
+        )
+        conn.executemany(
+            "INSERT INTO stats_t2 (line_number, value) VALUES (?, ?)",
+            [(1, "beta"), (2, "gamma")],
+        )
+        conn.executemany(
+            "INSERT INTO stats_t3 (line_number, value) VALUES (?, ?)",
+            [(1, "delta")],
+        )
+        conn.commit()
+
+        stats_2syl = _get_generation_selection_stats(
+            conn,
+            class_key="first_name",
+            package_id=package_id,
+            syllable_key="2syl",
+        )
+        stats_3syl = _get_generation_selection_stats(
+            conn,
+            class_key="first_name",
+            package_id=package_id,
+            syllable_key="3syl",
+        )
+
+    assert stats_2syl == {"max_items": 4, "max_unique_combinations": 3}
+    assert stats_3syl == {"max_items": 1, "max_unique_combinations": 1}
+
+
+def test_get_generation_selection_stats_rejects_invalid_syllable(tmp_path: Path) -> None:
+    """Selection stats helper should reject unsupported syllable mode keys."""
+    with _connect_database(tmp_path / "db.sqlite3") as conn:
+        _initialize_schema(conn)
+        with pytest.raises(ValueError, match="Unsupported generation syllable_key"):
+            _get_generation_selection_stats(
+                conn,
+                class_key="first_name",
+                package_id=1,
+                syllable_key="banana",
+            )
 
 
 def test_metadata_and_txt_helpers_error_paths(tmp_path: Path) -> None:

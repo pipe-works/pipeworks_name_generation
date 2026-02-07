@@ -173,6 +173,94 @@ HTML_TEMPLATE = """<!doctype html>
       gap: 1.1rem;
       align-items: start;
     }
+    .generation-class-wrapper {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      background: color-mix(in srgb, var(--panel-2) 70%, black 30%);
+      margin-top: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+    .generation-class-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.85rem;
+      align-items: stretch;
+    }
+    .generation-class-grid-collapsed {
+      display: none;
+    }
+    .generation-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem;
+      background: color-mix(in srgb, var(--panel-2) 84%, black 16%);
+      min-height: 132px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .generation-card h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.01em;
+    }
+    .generation-card p {
+      margin: 0;
+      font-size: 0.86rem;
+      line-height: 1.35;
+    }
+    .generation-card .generation-package-select {
+      margin-top: 0.15rem;
+    }
+    .generation-card .generation-syllable-select {
+      margin-top: 0.1rem;
+    }
+    .generation-card .generation-send-btn {
+      align-self: flex-start;
+      margin-top: 0.2rem;
+    }
+    .generation-placeholder {
+      justify-content: center;
+    }
+    .generation-card-full-width {
+      grid-column: 1 / -1;
+    }
+    .api-builder-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0.8rem;
+      width: 100%;
+    }
+    .api-builder-pane {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem;
+      background: color-mix(in srgb, var(--panel-2) 78%, black 22%);
+      min-height: 132px;
+    }
+    .api-builder-pane h4 {
+      margin: 0 0 0.45rem 0;
+      font-size: 0.88rem;
+      letter-spacing: 0.01em;
+    }
+    #api-builder-queue {
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+    #api-builder-combined {
+      margin: 0.6rem 0 0 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    #api-builder-preview {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.35;
+    }
     .db-sidebar .grid {
       grid-template-columns: 90px 1fr;
     }
@@ -205,9 +293,14 @@ HTML_TEMPLATE = """<!doctype html>
     }
     @media (max-width: 980px) {
       .split { grid-template-columns: 1fr; }
+      .generation-class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 800px) {
       .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .generation-class-grid { grid-template-columns: 1fr; }
+      .api-builder-layout { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -237,24 +330,104 @@ HTML_TEMPLATE = """<!doctype html>
       </section>
 
       <section class="panel" id="panel-generation">
-        <div class="grid">
-          <label for="name-class">Name Class</label>
-          <select id="name-class">
-            <option value="first_name">First Name</option>
-            <option value="last_name">Last Name</option>
-            <option value="object_name">Object Name</option>
-            <option value="place_name">Place Name</option>
-          </select>
-        </div>
-        <div class="grid">
-          <label for="name-count">Count</label>
-          <input id="name-count" type="number" min="1" max="20" value="5" />
-        </div>
-        <div class="row-buttons">
-          <button type="button" id="generate-btn">Generate</button>
-        </div>
-        <p id="generation-status" class="muted">No names generated yet.</p>
-        <ul id="generation-list"></ul>
+        <article class="generation-card generation-placeholder generation-card-full-width">
+          <h3>Generation Placeholder</h3>
+          <p class="muted">Reserved for future blended generation controls.</p>
+        </article>
+
+        <section class="generation-class-wrapper generation-card-full-width">
+          <div class="row-buttons">
+            <button type="button" id="generation-toggle-btn">Show Name Class Cards</button>
+            <span id="generation-toggle-status" class="muted">Cards collapsed to save vertical space.</span>
+          </div>
+          <div id="generation-class-card-section" class="generation-class-grid generation-class-grid-collapsed">
+            <article class="generation-card generation-class-card" data-class-key="first_name">
+              <h3>First Name</h3>
+              <select id="generation-package-first_name" class="generation-package-select"></select>
+              <select id="generation-syllables-first_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-first_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-first_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="last_name">
+              <h3>Last Name</h3>
+              <select id="generation-package-last_name" class="generation-package-select"></select>
+              <select id="generation-syllables-last_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-last_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-last_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="place_name">
+              <h3>Place Name</h3>
+              <select id="generation-package-place_name" class="generation-package-select"></select>
+              <select id="generation-syllables-place_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-place_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-place_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="location_name">
+              <h3>Location Name</h3>
+              <select id="generation-package-location_name" class="generation-package-select"></select>
+              <select id="generation-syllables-location_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-location_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-location_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="object_item">
+              <h3>Object Item</h3>
+              <select id="generation-package-object_item" class="generation-package-select"></select>
+              <select id="generation-syllables-object_item" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-object_item" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-object_item" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="organisation">
+              <h3>Organisation</h3>
+              <select id="generation-package-organisation" class="generation-package-select"></select>
+              <select id="generation-syllables-organisation" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-organisation" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-organisation" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="title_epithet">
+              <h3>Title Epithet</h3>
+              <select id="generation-package-title_epithet" class="generation-package-select"></select>
+              <select id="generation-syllables-title_epithet" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-title_epithet" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-title_epithet" class="muted">Loading package options...</p>
+            </article>
+          </div>
+        </section>
+
+        <article class="generation-card generation-placeholder generation-card-full-width">
+          <h3>API Builder</h3>
+          <div class="api-builder-layout">
+            <section class="api-builder-pane">
+              <h4>Selected Inputs</h4>
+              <ul id="api-builder-queue"></ul>
+              <p id="api-builder-combined">Combined unique combinations: 0</p>
+            </section>
+            <section class="api-builder-pane">
+              <h4>Builder Preview</h4>
+              <p id="api-builder-preview">No selections queued yet.</p>
+            </section>
+          </div>
+        </article>
+        <p id="generation-status" class="muted">Loading package options...</p>
       </section>
 
       <section class="panel" id="panel-database">
@@ -319,6 +492,26 @@ HTML_TEMPLATE = """<!doctype html>
       total: 0,
       packageId: null,
     };
+    const generationCardKeys = [
+      'first_name',
+      'last_name',
+      'place_name',
+      'location_name',
+      'object_item',
+      'organisation',
+      'title_epithet',
+    ];
+    const generationCardLabels = {
+      first_name: 'First Name',
+      last_name: 'Last Name',
+      place_name: 'Place Name',
+      location_name: 'Location Name',
+      object_item: 'Object Item',
+      organisation: 'Organisation',
+      title_epithet: 'Title Epithet',
+    };
+    const apiBuilderSelections = [];
+    let generationCardsCollapsed = true;
 
     function setActiveTab(tabName) {
       for (const tab of tabs) {
@@ -331,6 +524,22 @@ HTML_TEMPLATE = """<!doctype html>
 
     for (const tab of tabs) {
       tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+    }
+
+    function setGenerationCardsCollapsed(isCollapsed) {
+      generationCardsCollapsed = isCollapsed;
+      const section = document.getElementById('generation-class-card-section');
+      const button = document.getElementById('generation-toggle-btn');
+      const status = document.getElementById('generation-toggle-status');
+      section.classList.toggle('generation-class-grid-collapsed', isCollapsed);
+      button.textContent = isCollapsed ? 'Show Name Class Cards' : 'Hide Name Class Cards';
+      status.textContent = isCollapsed
+        ? 'Cards collapsed to save vertical space.'
+        : 'Cards expanded.';
+    }
+
+    function toggleGenerationCards() {
+      setGenerationCardsCollapsed(!generationCardsCollapsed);
     }
 
     async function importPair() {
@@ -354,41 +563,238 @@ HTML_TEMPLATE = """<!doctype html>
 
       if (response.ok) {
         await loadPackages();
+        await loadGenerationPackageOptions();
       }
     }
 
-    async function generateNames() {
-      const status = document.getElementById('generation-status');
-      const list = document.getElementById('generation-list');
-      status.className = 'muted';
-      status.textContent = 'Generating...';
-      list.innerHTML = '';
+    function setGenerationCardState(classKey, isEnabled, noteText, options) {
+      const select = document.getElementById(`generation-package-${classKey}`);
+      const sendButton = document.getElementById(`generation-send-${classKey}`);
+      const note = document.getElementById(`generation-note-${classKey}`);
+      select.innerHTML = '';
 
-      const payload = {
-        name_class: document.getElementById('name-class').value,
-        count: Number(document.getElementById('name-count').value || '5'),
-      };
+      if (!isEnabled) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No package available';
+        select.appendChild(opt);
+        select.disabled = true;
+        sendButton.disabled = true;
+        setGenerationSyllableState(classKey, false, 'No syllable options available', []);
+        note.className = 'muted';
+        note.textContent = noteText;
+        return;
+      }
 
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const prompt = document.createElement('option');
+      prompt.value = '';
+      prompt.textContent = 'Select package';
+      select.appendChild(prompt);
+
+      for (const item of options) {
+        const opt = document.createElement('option');
+        opt.value = String(item.package_id);
+        opt.textContent = `${item.package_name} (id ${item.package_id})`;
+        select.appendChild(opt);
+      }
+
+      select.disabled = false;
+      sendButton.disabled = false;
+      setGenerationSyllableState(classKey, false, 'Select a package to list available syllables.', []);
+      note.className = 'ok';
+      note.textContent = noteText;
+    }
+
+    function setGenerationSyllableState(classKey, isEnabled, placeholderText, options) {
+      const select = document.getElementById(`generation-syllables-${classKey}`);
+      select.innerHTML = '';
+
+      const prompt = document.createElement('option');
+      prompt.value = '';
+      prompt.textContent = placeholderText;
+      select.appendChild(prompt);
+
+      if (!isEnabled) {
+        select.disabled = true;
+        return;
+      }
+
+      for (const item of options) {
+        const opt = document.createElement('option');
+        opt.value = String(item.key);
+        opt.textContent = item.label;
+        select.appendChild(opt);
+      }
+      select.disabled = false;
+    }
+
+    async function loadGenerationSyllableOptions(classKey) {
+      const packageSelect = document.getElementById(`generation-package-${classKey}`);
+      const note = document.getElementById(`generation-note-${classKey}`);
+      const packageId = Number(packageSelect.value || '0');
+      if (!packageId) {
+        setGenerationSyllableState(classKey, false, 'Select package first', []);
+        note.className = 'muted';
+        note.textContent = 'Select a package to list available syllable options.';
+        return;
+      }
+
+      note.className = 'muted';
+      note.textContent = 'Loading syllable options...';
+      const query = new URLSearchParams({ class_key: classKey, package_id: String(packageId) });
+      const response = await fetch(`/api/generation/package-syllables?${query.toString()}`);
       const data = await response.json();
+      if (!response.ok) {
+        setGenerationSyllableState(classKey, false, 'No syllables available', []);
+        note.className = 'err';
+        note.textContent = data.error || 'Failed to load syllable options.';
+        return;
+      }
 
+      const syllableOptions = data.syllable_options || [];
+      if (!syllableOptions.length) {
+        setGenerationSyllableState(classKey, false, 'No syllables found', []);
+        note.className = 'muted';
+        note.textContent = 'Selected package has no mapped syllable options for this class.';
+        return;
+      }
+
+      setGenerationSyllableState(classKey, true, 'Select syllable mode', syllableOptions);
+      note.className = 'ok';
+      note.textContent = `Loaded ${syllableOptions.length} syllable option(s).`;
+    }
+
+    function renderApiBuilder() {
+      const queue = document.getElementById('api-builder-queue');
+      const preview = document.getElementById('api-builder-preview');
+      const combined = document.getElementById('api-builder-combined');
+      queue.innerHTML = '';
+
+      if (!apiBuilderSelections.length) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = 'No selections queued.';
+        queue.appendChild(li);
+        combined.textContent = 'Combined unique combinations: 0';
+        preview.textContent = 'No selections queued yet.';
+        return;
+      }
+
+      // Use BigInt to avoid overflow when selections from multiple classes are multiplied.
+      let combinedUnique = 1n;
+
+      for (const item of apiBuilderSelections) {
+        const li = document.createElement('li');
+        li.textContent =
+          `${item.class_label}: ${item.package_label} [${item.syllable_label}] ` +
+          `(max items ${item.max_items}, max unique ${item.max_unique_combinations})`;
+        queue.appendChild(li);
+        const uniqueCount = Math.max(0, Number(item.max_unique_combinations || 0));
+        combinedUnique *= BigInt(uniqueCount);
+      }
+
+      const combinedDisplay = String(combinedUnique).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+      combined.textContent = `Combined unique combinations: ${combinedDisplay}`;
+      preview.textContent = JSON.stringify(apiBuilderSelections, null, 2);
+    }
+
+    async function sendToApiBuilder(classKey) {
+      const packageSelect = document.getElementById(`generation-package-${classKey}`);
+      const syllableSelect = document.getElementById(`generation-syllables-${classKey}`);
+      const note = document.getElementById(`generation-note-${classKey}`);
+
+      if (!packageSelect.value) {
+        note.className = 'err';
+        note.textContent = 'Select a package before sending to API Builder.';
+        return;
+      }
+      if (!syllableSelect.value) {
+        note.className = 'err';
+        note.textContent = 'Select a syllable option before sending to API Builder.';
+        return;
+      }
+
+      note.className = 'muted';
+      note.textContent = 'Loading max item and unique combination limits...';
+      const query = new URLSearchParams({
+        class_key: classKey,
+        package_id: packageSelect.value,
+        syllable_key: syllableSelect.value,
+      });
+      const response = await fetch(`/api/generation/selection-stats?${query.toString()}`);
+      const stats = await response.json();
+      if (!response.ok) {
+        note.className = 'err';
+        note.textContent = stats.error || 'Failed to load selection limits.';
+        return;
+      }
+
+      apiBuilderSelections.push({
+        class_key: classKey,
+        class_label: generationCardLabels[classKey] || classKey,
+        package_id: Number(packageSelect.value),
+        package_label: packageSelect.selectedOptions[0]?.textContent || '',
+        syllable_key: syllableSelect.value,
+        syllable_label: syllableSelect.selectedOptions[0]?.textContent || '',
+        max_items: Number(stats.max_items || 0),
+        max_unique_combinations: Number(stats.max_unique_combinations || 0),
+      });
+      renderApiBuilder();
+      note.className = 'ok';
+      note.textContent = `Selection sent. Max items ${stats.max_items}; max unique combinations ${stats.max_unique_combinations}.`;
+    }
+
+    async function loadGenerationPackageOptions() {
+      const status = document.getElementById('generation-status');
+      status.className = 'muted';
+      status.textContent = 'Loading package options...';
+
+      const response = await fetch('/api/generation/package-options');
+      const data = await response.json();
       if (!response.ok) {
         status.className = 'err';
-        status.textContent = data.error || 'Generation failed.';
+        status.textContent = data.error || 'Failed to load generation package options.';
+        return;
+      }
+
+      const classEntries = data.name_classes || [];
+      const classMap = {};
+      for (const entry of classEntries) {
+        classMap[entry.key] = entry;
+      }
+
+      let nonEmptyClassCount = 0;
+
+      for (const classKey of generationCardKeys) {
+        const entry = classMap[classKey];
+        const packages = entry?.packages || [];
+        if (!packages.length) {
+          setGenerationCardState(
+            classKey,
+            false,
+            'No imported package currently maps to this name class.',
+            []
+          );
+          continue;
+        }
+
+        nonEmptyClassCount += 1;
+        setGenerationCardState(
+          classKey,
+          true,
+          `${packages.length} package(s) available for this class.`,
+          packages
+        );
+      }
+
+      if (!nonEmptyClassCount) {
+        status.className = 'muted';
+        status.textContent = 'No generation package options available yet. Import a package pair first.';
         return;
       }
 
       status.className = 'ok';
-      status.textContent = data.message || 'Generated.';
-      for (const name of data.names || []) {
-        const li = document.createElement('li');
-        li.textContent = name;
-        list.appendChild(li);
-      }
+      status.textContent = `Loaded package options for ${nonEmptyClassCount} name class(es).`;
     }
 
     async function loadPackages() {
@@ -556,7 +962,17 @@ HTML_TEMPLATE = """<!doctype html>
     }
 
     document.getElementById('import-btn').addEventListener('click', importPair);
-    document.getElementById('generate-btn').addEventListener('click', generateNames);
+    document.getElementById('generation-toggle-btn').addEventListener('click', toggleGenerationCards);
+    for (const classKey of generationCardKeys) {
+      const select = document.getElementById(`generation-package-${classKey}`);
+      const sendButton = document.getElementById(`generation-send-${classKey}`);
+      select.addEventListener('change', () => {
+        loadGenerationSyllableOptions(classKey);
+      });
+      sendButton.addEventListener('click', () => {
+        void sendToApiBuilder(classKey);
+      });
+    }
     document.getElementById('db-refresh-packages').addEventListener('click', loadPackages);
     document.getElementById('db-package-select').addEventListener('change', loadPackageTables);
     document.getElementById('db-table-select').addEventListener('change', () => {
@@ -570,6 +986,9 @@ HTML_TEMPLATE = """<!doctype html>
     document.getElementById('db-next-btn').addEventListener('click', pageNext);
 
     loadPackages();
+    loadGenerationPackageOptions();
+    renderApiBuilder();
+    setGenerationCardsCollapsed(true);
   </script>
 </body>
 </html>
@@ -590,6 +1009,39 @@ SAMPLE_SYLLABLES = [
     "grim",
 ]
 
+# Canonical class keys and labels used by the Generation tab card layout.
+GENERATION_NAME_CLASSES: list[tuple[str, str]] = [
+    ("first_name", "First Name"),
+    ("last_name", "Last Name"),
+    ("place_name", "Place Name"),
+    ("location_name", "Location Name"),
+    ("object_item", "Object Item"),
+    ("organisation", "Organisation"),
+    ("title_epithet", "Title Epithet"),
+]
+
+# Filename pattern hints used to map imported txt source files to generation
+# classes. Patterns are compared against a normalized lowercase stem.
+GENERATION_CLASS_PATTERNS: dict[str, tuple[str, ...]] = {
+    "first_name": ("first_name",),
+    "last_name": ("last_name",),
+    "place_name": ("place_name",),
+    "location_name": ("location_name",),
+    "object_item": ("object_item", "object_name"),
+    "organisation": ("organisation", "organization", "org_name"),
+    "title_epithet": ("title_epithet", "epithet"),
+}
+
+GENERATION_CLASS_KEYS: set[str] = {key for key, _ in GENERATION_NAME_CLASSES}
+
+# Display labels for normalized syllable mode keys presented in the UI.
+GENERATION_SYLLABLE_LABELS: dict[str, str] = {
+    "2syl": "2 syllables",
+    "3syl": "3 syllables",
+    "4syl": "4 syllables",
+    "all": "All syllables",
+}
+
 
 class WebAppHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the tabbed web UI and JSON API.
@@ -598,6 +1050,9 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     - ``GET /``: Web UI shell
     - ``GET /api/health``: Liveness check
+    - ``GET /api/generation/package-options``: Per-class package dropdown options
+    - ``GET /api/generation/package-syllables``: Syllable options for one package/class
+    - ``GET /api/generation/selection-stats``: Max item/unique limits for one selection
     - ``GET /api/database/packages``: Imported package list
     - ``GET /api/database/package-tables``: Table list for one package
     - ``GET /api/database/table-rows``: Paginated rows for one table
@@ -670,6 +1125,96 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
         if route == "/api/health":
             self._send_json({"ok": True})
+            return
+
+        if route == "/api/generation/package-options":
+            try:
+                with _connect_database(self.db_path) as conn:
+                    _initialize_schema(conn)
+                    name_classes = _list_generation_package_options(conn)
+                self._send_json({"name_classes": name_classes})
+            except Exception as exc:  # nosec B110 - converted into controlled API response
+                self._send_json(
+                    {"error": f"Failed to list generation package options: {exc}"},
+                    status=500,
+                )
+            return
+
+        if route == "/api/generation/package-syllables":
+            try:
+                package_id = _parse_required_int(query, "package_id", minimum=1)
+                class_values = query.get("class_key", [])
+                class_key = class_values[0].strip() if class_values else ""
+                if not class_key:
+                    raise ValueError("Missing required query parameter: class_key")
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+                return
+
+            try:
+                with _connect_database(self.db_path) as conn:
+                    _initialize_schema(conn)
+                    syllable_options = _list_generation_syllable_options(
+                        conn,
+                        class_key=class_key,
+                        package_id=package_id,
+                    )
+                self._send_json(
+                    {
+                        "class_key": class_key,
+                        "package_id": package_id,
+                        "syllable_options": syllable_options,
+                    }
+                )
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+            except Exception as exc:  # nosec B110 - converted into controlled API response
+                self._send_json(
+                    {"error": f"Failed to list generation syllable options: {exc}"},
+                    status=500,
+                )
+            return
+
+        if route == "/api/generation/selection-stats":
+            try:
+                package_id = _parse_required_int(query, "package_id", minimum=1)
+                class_values = query.get("class_key", [])
+                class_key = class_values[0].strip() if class_values else ""
+                if not class_key:
+                    raise ValueError("Missing required query parameter: class_key")
+
+                syllable_values = query.get("syllable_key", [])
+                syllable_key = syllable_values[0].strip() if syllable_values else ""
+                if not syllable_key:
+                    raise ValueError("Missing required query parameter: syllable_key")
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+                return
+
+            try:
+                with _connect_database(self.db_path) as conn:
+                    _initialize_schema(conn)
+                    stats = _get_generation_selection_stats(
+                        conn,
+                        class_key=class_key,
+                        package_id=package_id,
+                        syllable_key=syllable_key,
+                    )
+                self._send_json(
+                    {
+                        "class_key": class_key,
+                        "package_id": package_id,
+                        "syllable_key": syllable_key,
+                        **stats,
+                    }
+                )
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, status=400)
+            except Exception as exc:  # nosec B110 - converted into controlled API response
+                self._send_json(
+                    {"error": f"Failed to compute generation selection stats: {exc}"},
+                    status=500,
+                )
             return
 
         if route == "/api/database/packages":
@@ -1111,6 +1656,310 @@ def _insert_text_rows(
         query,
         rows,
     )
+
+
+def _map_source_txt_name_to_generation_class(source_txt_name: str) -> str | None:
+    """Map one imported txt filename to a canonical generation class key.
+
+    The source filename stem is normalized to lowercase ``snake_case`` before
+    matching against known pattern hints for each Generation tab class.
+
+    Args:
+        source_txt_name: Imported ``*.txt`` source filename.
+
+    Returns:
+        Canonical generation class key, or ``None`` when no mapping is known.
+    """
+    normalized = re.sub(r"[^a-z0-9]+", "_", Path(source_txt_name).stem.lower()).strip("_")
+    for class_key, patterns in GENERATION_CLASS_PATTERNS.items():
+        if any(pattern in normalized for pattern in patterns):
+            return class_key
+    return None
+
+
+def _extract_syllable_option_from_source_txt_name(source_txt_name: str) -> str | None:
+    """Extract normalized syllable option key from one source txt filename.
+
+    Supported values are keys like ``2syl``, ``3syl``, ``4syl``, and ``all``
+    derived from common source filename conventions (for example
+    ``nltk_first_name_2syl.txt`` or ``nltk_first_name_all.txt``).
+
+    Args:
+        source_txt_name: Imported ``*.txt`` source filename.
+
+    Returns:
+        Normalized syllable option key, or ``None`` when no known mode exists.
+    """
+    normalized = re.sub(r"[^a-z0-9]+", "_", Path(source_txt_name).stem.lower()).strip("_")
+    if "_all" in normalized or normalized.endswith("all"):
+        return "all"
+
+    match = re.search(r"_(\d+)syl(?:_|$)", normalized)
+    if match:
+        return f"{match.group(1)}syl"
+
+    return None
+
+
+def _syllable_option_sort_key(option_key: str) -> tuple[int, int, str]:
+    """Return deterministic sort key for syllable option keys.
+
+    Numeric options (for example ``2syl``) are sorted by number first, followed
+    by non-numeric options such as ``all``.
+    """
+    if option_key == "all":
+        return (1, 9999, option_key)
+
+    match = re.fullmatch(r"(\d+)syl", option_key)
+    if match:
+        return (0, int(match.group(1)), option_key)
+
+    return (2, 9999, option_key)
+
+
+def _list_generation_syllable_options(
+    conn: sqlite3.Connection, *, class_key: str, package_id: int
+) -> list[dict[str, str]]:
+    """List syllable options for one package within one generation class.
+
+    Args:
+        conn: Open SQLite connection.
+        class_key: Canonical generation class key.
+        package_id: Imported package id.
+
+    Returns:
+        Sorted syllable option dictionaries with ``key`` and ``label`` values.
+
+    Raises:
+        ValueError: If ``class_key`` is not one of the supported generation
+            classes.
+    """
+    if class_key not in GENERATION_CLASS_KEYS:
+        raise ValueError(f"Unsupported generation class_key: {class_key!r}")
+
+    rows = conn.execute(
+        """
+        SELECT source_txt_name
+        FROM package_tables
+        WHERE package_id = ?
+        ORDER BY source_txt_name COLLATE NOCASE
+        """,
+        (package_id,),
+    ).fetchall()
+
+    option_keys: set[str] = set()
+    for row in rows:
+        source_txt_name = str(row["source_txt_name"])
+        mapped_class = _map_source_txt_name_to_generation_class(source_txt_name)
+        if mapped_class != class_key:
+            continue
+
+        option_key = _extract_syllable_option_from_source_txt_name(source_txt_name)
+        if option_key is None:
+            continue
+        option_keys.add(option_key)
+
+    sorted_keys = sorted(option_keys, key=_syllable_option_sort_key)
+    return [{"key": key, "label": GENERATION_SYLLABLE_LABELS.get(key, key)} for key in sorted_keys]
+
+
+def _validate_generation_syllable_key(syllable_key: str) -> str:
+    """Validate and normalize one generation syllable mode key.
+
+    Accepted values are ``all`` or a numeric ``Nsyl`` shape (for example
+    ``2syl``). Invalid values fail fast so API callers receive a clear,
+    deterministic validation error.
+
+    Args:
+        syllable_key: Raw syllable key string from API query.
+
+    Returns:
+        Lower-cased, validated syllable key.
+
+    Raises:
+        ValueError: If the key does not match supported syllable modes.
+    """
+    normalized = syllable_key.strip().lower()
+    if normalized == "all":
+        return normalized
+    if re.fullmatch(r"\d+syl", normalized):
+        return normalized
+    raise ValueError(f"Unsupported generation syllable_key: {syllable_key!r}")
+
+
+def _list_generation_matching_tables(
+    conn: sqlite3.Connection, *, class_key: str, package_id: int, syllable_key: str
+) -> list[dict[str, Any]]:
+    """List imported txt tables matching one generation class+syllable filter.
+
+    The filter is based on each ``package_tables.source_txt_name`` value:
+    filename patterns are mapped to canonical class keys and syllable keys, and
+    only exact matches are returned.
+
+    Args:
+        conn: Open SQLite connection.
+        class_key: Canonical generation class key.
+        package_id: Imported package id.
+        syllable_key: Validated syllable option key (for example ``2syl``).
+
+    Returns:
+        Matching table metadata dictionaries with ``table_name`` and
+        ``row_count`` values.
+
+    Raises:
+        ValueError: If ``class_key`` or ``syllable_key`` is unsupported.
+    """
+    if class_key not in GENERATION_CLASS_KEYS:
+        raise ValueError(f"Unsupported generation class_key: {class_key!r}")
+    normalized_syllable_key = _validate_generation_syllable_key(syllable_key)
+
+    rows = conn.execute(
+        """
+        SELECT source_txt_name, table_name, row_count
+        FROM package_tables
+        WHERE package_id = ?
+        ORDER BY source_txt_name COLLATE NOCASE
+        """,
+        (package_id,),
+    ).fetchall()
+
+    matches: list[dict[str, Any]] = []
+    for row in rows:
+        source_txt_name = str(row["source_txt_name"])
+        mapped_class = _map_source_txt_name_to_generation_class(source_txt_name)
+        if mapped_class != class_key:
+            continue
+
+        mapped_syllable = _extract_syllable_option_from_source_txt_name(source_txt_name)
+        if mapped_syllable != normalized_syllable_key:
+            continue
+
+        matches.append(
+            {
+                "source_txt_name": source_txt_name,
+                "table_name": str(row["table_name"]),
+                "row_count": int(row["row_count"]),
+            }
+        )
+
+    return matches
+
+
+def _count_distinct_values_across_tables(
+    conn: sqlite3.Connection, table_names: Sequence[str]
+) -> int:
+    """Count distinct ``value`` strings across one or more imported txt tables.
+
+    Args:
+        conn: Open SQLite connection.
+        table_names: Physical table names to include in the distinct count.
+
+    Returns:
+        Count of unique ``value`` strings across all listed tables.
+    """
+    if not table_names:
+        return 0
+
+    unique_values: set[str] = set()
+    for table_name in table_names:
+        quoted = _quote_identifier(table_name)
+        query = f"SELECT value FROM {quoted}"  # nosec B608
+        rows = conn.execute(query).fetchall()
+        for row in rows:
+            unique_values.add(str(row["value"]))
+    return len(unique_values)
+
+
+def _get_generation_selection_stats(
+    conn: sqlite3.Connection, *, class_key: str, package_id: int, syllable_key: str
+) -> dict[str, int]:
+    """Compute size/uniqueness limits for one Generation card selection.
+
+    Args:
+        conn: Open SQLite connection.
+        class_key: Canonical generation class key.
+        package_id: Imported package id.
+        syllable_key: Syllable mode key selected by the user.
+
+    Returns:
+        Dictionary with:
+        - ``max_items``: Total available rows across matching table(s).
+        - ``max_unique_combinations``: Distinct values across matching table(s).
+    """
+    matching_tables = _list_generation_matching_tables(
+        conn,
+        class_key=class_key,
+        package_id=package_id,
+        syllable_key=syllable_key,
+    )
+    if not matching_tables:
+        return {"max_items": 0, "max_unique_combinations": 0}
+
+    max_items = sum(int(item["row_count"]) for item in matching_tables)
+    table_names = [str(item["table_name"]) for item in matching_tables]
+    max_unique_combinations = _count_distinct_values_across_tables(conn, table_names)
+    return {
+        "max_items": max_items,
+        "max_unique_combinations": max_unique_combinations,
+    }
+
+
+def _list_generation_package_options(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return per-class package options for Generation tab dropdown cards.
+
+    The response is intentionally grouped by canonical generation class. Each
+    class includes packages that currently have at least one imported txt source
+    file mapping to that class.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        List of class dictionaries with package option entries.
+    """
+    rows = conn.execute("""
+        SELECT
+            p.id AS package_id,
+            p.package_name,
+            t.source_txt_name
+        FROM imported_packages AS p
+        INNER JOIN package_tables AS t ON t.package_id = p.id
+        ORDER BY p.package_name COLLATE NOCASE, p.id, t.source_txt_name COLLATE NOCASE
+        """).fetchall()
+
+    per_class: dict[str, dict[int, dict[str, Any]]] = {
+        class_key: {} for class_key, _ in GENERATION_NAME_CLASSES
+    }
+    for row in rows:
+        class_key = _map_source_txt_name_to_generation_class(str(row["source_txt_name"]))
+        if class_key is None:
+            continue
+
+        package_id = int(row["package_id"])
+        package_name = str(row["package_name"])
+        source_txt_name = str(row["source_txt_name"])
+
+        existing = per_class[class_key].get(package_id)
+        if existing is None:
+            per_class[class_key][package_id] = {
+                "package_id": package_id,
+                "package_name": package_name,
+                "source_txt_names": [source_txt_name],
+            }
+            continue
+
+        existing["source_txt_names"].append(source_txt_name)
+
+    result: list[dict[str, Any]] = []
+    for class_key, label in GENERATION_NAME_CLASSES:
+        packages = list(per_class[class_key].values())
+        packages.sort(key=lambda item: (str(item["package_name"]).lower(), int(item["package_id"])))
+        for package in packages:
+            deduped_sources = sorted({str(name) for name in package["source_txt_names"]})
+            package["source_txt_names"] = deduped_sources
+        result.append({"key": class_key, "label": label, "packages": packages})
+
+    return result
 
 
 def _list_packages(conn: sqlite3.Connection) -> list[dict[str, Any]]:
