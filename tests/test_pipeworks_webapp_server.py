@@ -10,18 +10,35 @@ from typing import Any
 
 import pytest
 
+import pipeworks_name_generation.webapp.server as server_module
+from pipeworks_name_generation.webapp.config import ServerSettings
 from pipeworks_name_generation.webapp.server import (
     WebAppHandler,
+    _coerce_int,
     _connect_database,
     _fetch_text_rows,
     _get_package_table,
     _import_package_pair,
     _initialize_schema,
+    _insert_text_rows,
     _list_package_tables,
     _list_packages,
+    _load_metadata_json,
+    _parse_optional_int,
+    _parse_required_int,
+    _port_is_available,
     _quote_identifier,
+    _read_txt_rows,
     _slugify_identifier,
+    build_settings_from_args,
+    create_argument_parser,
     create_handler_class,
+    find_available_port,
+    main,
+    parse_arguments,
+    resolve_server_port,
+    run_server,
+    start_http_server,
 )
 
 
@@ -238,3 +255,419 @@ def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
     bound = create_handler_class(verbose=False, db_path=db_path)
     assert bound.verbose is False
     assert bound.db_path == db_path
+
+
+def test_log_message_respects_verbose_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Handler should only delegate log messages when verbose is enabled."""
+    calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    def fake_super_log_message(self: Any, fmt: str, *args: Any) -> None:
+        calls.append((fmt, args))
+
+    monkeypatch.setattr(server_module.BaseHTTPRequestHandler, "log_message", fake_super_log_message)
+
+    handler = WebAppHandler.__new__(WebAppHandler)
+    handler.verbose = False
+    WebAppHandler.log_message(handler, "x%s", "1")
+    assert not calls
+
+    handler.verbose = True
+    WebAppHandler.log_message(handler, "y%s", "2")
+    assert calls == [("y%s", ("2",))]
+
+
+def test_read_json_body_validation_errors(tmp_path: Path) -> None:
+    """Invalid request body/header shapes should raise clear ``ValueError`` messages."""
+    harness = _HandlerHarness(path="/api/import", db_path=tmp_path / "db.sqlite3")
+
+    harness.headers = {"Content-Length": "abc"}
+    with pytest.raises(ValueError, match="Invalid Content-Length"):
+        harness._read_json_body()
+
+    harness.headers = {"Content-Length": "0"}
+    harness.rfile = io.BytesIO(b"")
+    with pytest.raises(ValueError, match="Request body is required"):
+        harness._read_json_body()
+
+    harness.headers = {"Content-Length": "1"}
+    harness.rfile = io.BytesIO(b"{")
+    with pytest.raises(ValueError, match="must be valid JSON"):
+        harness._read_json_body()
+
+    payload = json.dumps(["not", "object"]).encode("utf-8")
+    harness.headers = {"Content-Length": str(len(payload))}
+    harness.rfile = io.BytesIO(payload)
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        harness._read_json_body()
+
+
+def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
+    """Root, favicon, and unknown GET routes should return expected responses."""
+    db_path = tmp_path / "db.sqlite3"
+
+    root = _HandlerHarness(path="/", db_path=db_path)
+    root.do_GET()
+    assert root.response_status == 200
+    assert root.response_headers.get("Content-Type") == "text/html"
+
+    favicon = _HandlerHarness(path="/favicon.ico", db_path=db_path)
+    favicon.do_GET()
+    assert favicon.response_status == 204
+
+    unknown = _HandlerHarness(path="/does-not-exist", db_path=db_path)
+    unknown.do_GET()
+    assert unknown.error_status == 404
+
+
+def test_get_database_routes_validation_and_error_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Database GET handlers should expose both validation and runtime errors."""
+    db_path = tmp_path / "db.sqlite3"
+
+    # Validation error for package_id.
+    missing_package = _HandlerHarness(path="/api/database/package-tables", db_path=db_path)
+    missing_package.do_GET()
+    assert missing_package.response_status == 400
+    assert "package_id" in missing_package.json_body()["error"]
+
+    # Validation error for table_id.
+    missing_table = _HandlerHarness(path="/api/database/table-rows", db_path=db_path)
+    missing_table.do_GET()
+    assert missing_table.response_status == 400
+    assert "table_id" in missing_table.json_body()["error"]
+
+    def boom(_db_path: Path) -> Any:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(server_module, "_connect_database", boom)
+
+    packages = _HandlerHarness(path="/api/database/packages", db_path=db_path)
+    packages.do_GET()
+    assert packages.response_status == 500
+    assert "Failed to list packages" in packages.json_body()["error"]
+
+    package_tables = _HandlerHarness(
+        path="/api/database/package-tables?package_id=1",
+        db_path=db_path,
+    )
+    package_tables.do_GET()
+    assert package_tables.response_status == 500
+    assert "Failed to list package tables" in package_tables.json_body()["error"]
+
+    table_rows = _HandlerHarness(
+        path="/api/database/table-rows?table_id=1&offset=0&limit=20",
+        db_path=db_path,
+    )
+    table_rows.do_GET()
+    assert table_rows.response_status == 500
+    assert "Failed to load table rows" in table_rows.json_body()["error"]
+
+
+def test_table_rows_not_found_returns_404(tmp_path: Path) -> None:
+    """Row endpoint should return 404 when the table id does not exist."""
+    db_path = tmp_path / "db.sqlite3"
+    with _connect_database(db_path) as conn:
+        _initialize_schema(conn)
+
+    missing = _HandlerHarness(path="/api/database/table-rows?table_id=999", db_path=db_path)
+    missing.do_GET()
+    assert missing.response_status == 404
+    assert "not found" in missing.json_body()["error"]
+
+
+def test_post_generate_and_unknown_routes(tmp_path: Path) -> None:
+    """POST dispatcher should route generation and unknown paths correctly."""
+    db_path = tmp_path / "db.sqlite3"
+
+    gen = _HandlerHarness(
+        path="/api/generate",
+        db_path=db_path,
+        body={"name_class": "first_name", "count": 3},
+    )
+    gen.do_POST()
+    payload = gen.json_body()
+    assert gen.response_status == 200
+    assert len(payload["names"]) == 3
+
+    unknown = _HandlerHarness(path="/api/nope", db_path=db_path, body={})
+    unknown.do_POST()
+    assert unknown.error_status == 404
+
+
+def test_handle_import_validation_and_exception_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Import route should cover payload validation and failure branches."""
+    db_path = tmp_path / "db.sqlite3"
+
+    # Missing required fields.
+    missing = _HandlerHarness(path="/api/import", db_path=db_path, body={})
+    missing.do_POST()
+    assert missing.response_status == 400
+    assert "required" in missing.json_body()["error"]
+
+    # Non-existing file paths should return 400.
+    missing_files = _HandlerHarness(
+        path="/api/import",
+        db_path=db_path,
+        body={
+            "metadata_json_path": str(tmp_path / "missing.json"),
+            "package_zip_path": str(tmp_path / "missing.zip"),
+        },
+    )
+    missing_files.do_POST()
+    assert missing_files.response_status == 400
+
+    metadata_path, zip_path = _build_sample_package_pair(tmp_path)
+
+    def fail_import(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("unexpected crash")
+
+    monkeypatch.setattr(server_module, "_import_package_pair", fail_import)
+    crashing = _HandlerHarness(
+        path="/api/import",
+        db_path=db_path,
+        body={
+            "metadata_json_path": str(metadata_path),
+            "package_zip_path": str(zip_path),
+        },
+    )
+    crashing.do_POST()
+    assert crashing.response_status == 500
+    assert "Import failed" in crashing.json_body()["error"]
+
+
+def test_handle_generation_validation_paths(tmp_path: Path) -> None:
+    """Generation route should reject invalid body and non-integer count values."""
+    db_path = tmp_path / "db.sqlite3"
+
+    empty = _HandlerHarness(path="/api/generate", db_path=db_path)
+    empty.do_POST()
+    assert empty.response_status == 400
+
+    invalid_count = _HandlerHarness(
+        path="/api/generate",
+        db_path=db_path,
+        body={"name_class": "last_name", "count": "abc"},
+    )
+    invalid_count.do_POST()
+    assert invalid_count.response_status == 400
+    assert "must be an integer" in invalid_count.json_body()["error"]
+
+
+def test_import_package_pair_other_error_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Importer helper should cover missing inputs, bad zip, and rollback branch."""
+    db_path = tmp_path / "db.sqlite3"
+    metadata_path, zip_path = _build_sample_package_pair(tmp_path)
+
+    with _connect_database(db_path) as conn:
+        _initialize_schema(conn)
+
+        with pytest.raises(FileNotFoundError, match="Metadata JSON does not exist"):
+            _import_package_pair(
+                conn,
+                metadata_path=tmp_path / "missing-metadata.json",
+                zip_path=zip_path,
+            )
+
+        with pytest.raises(FileNotFoundError, match="Package ZIP does not exist"):
+            _import_package_pair(
+                conn,
+                metadata_path=metadata_path,
+                zip_path=tmp_path / "missing.zip",
+            )
+
+        bad_zip = tmp_path / "bad.zip"
+        bad_zip.write_text("not a zip", encoding="utf-8")
+        with pytest.raises(ValueError, match="Invalid ZIP file"):
+            _import_package_pair(conn, metadata_path=metadata_path, zip_path=bad_zip)
+
+        def fail_rows(*args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError("read fail")
+
+        monkeypatch.setattr(server_module, "_read_txt_rows", fail_rows)
+        with pytest.raises(RuntimeError, match="read fail"):
+            _import_package_pair(conn, metadata_path=metadata_path, zip_path=zip_path)
+
+
+def test_import_with_optional_files_included_missing(tmp_path: Path) -> None:
+    """Importer should accept metadata that omits ``files_included`` entirely."""
+    metadata_path = tmp_path / "meta.json"
+    zip_path = tmp_path / "pkg.zip"
+    metadata_path.write_text(json.dumps({"common_name": "No List"}), encoding="utf-8")
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("selections/nltk_first_name_2syl.txt", "a\nb\n")
+
+    with _connect_database(tmp_path / "db.sqlite3") as conn:
+        _initialize_schema(conn)
+        result = _import_package_pair(conn, metadata_path=metadata_path, zip_path=zip_path)
+    assert result["tables"]
+
+
+def test_metadata_and_txt_helpers_error_paths(tmp_path: Path) -> None:
+    """Metadata/txt helper functions should raise on invalid structures and bytes."""
+    not_object = tmp_path / "metadata.json"
+    not_object.write_text(json.dumps(["bad"]), encoding="utf-8")
+    with pytest.raises(ValueError, match="root must be an object"):
+        _load_metadata_json(not_object)
+
+    archive_path = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("valid.txt", "alpha\nbeta\n")
+        archive.writestr("bad.txt", b"\xff\xfe")
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        with pytest.raises(ValueError, match="missing from zip"):
+            _read_txt_rows(archive, "missing.txt")
+        with pytest.raises(ValueError, match="not valid UTF-8"):
+            _read_txt_rows(archive, "bad.txt")
+
+
+def test_insert_rows_empty_and_get_missing_meta(tmp_path: Path) -> None:
+    """Empty row inserts should no-op and table metadata should return None for unknown ids."""
+    with _connect_database(tmp_path / "db.sqlite3") as conn:
+        _initialize_schema(conn)
+        _insert_text_rows(conn, "arbitrary", [])
+        assert _get_package_table(conn, 12345) is None
+
+
+def test_integer_parsing_helpers_cover_default_and_bounds() -> None:
+    """Integer parsing helpers should enforce required/default and bound logic."""
+    assert _parse_optional_int({}, "offset", default=7, minimum=0) == 7
+
+    with pytest.raises(ValueError, match="required query parameter"):
+        _parse_required_int({}, "table_id", minimum=1)
+    with pytest.raises(ValueError, match="must be an integer"):
+        _coerce_int("x", key="limit")
+    with pytest.raises(ValueError, match=">= 1"):
+        _coerce_int("0", key="table_id", minimum=1)
+    with pytest.raises(ValueError, match="<= 5"):
+        _coerce_int("6", key="limit", maximum=5)
+
+
+def test_port_discovery_and_resolution_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Port helpers should cover available, unavailable, and no-free-port branches."""
+
+    class FakeSocketOK:
+        """Socket test double that allows bind calls."""
+
+        def __enter__(self) -> "FakeSocketOK":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            return None
+
+        def setsockopt(self, *args: Any) -> None:
+            return None
+
+        def bind(self, *args: Any) -> None:
+            return None
+
+    class FakeSocketFail(FakeSocketOK):
+        """Socket test double that fails bind calls."""
+
+        def bind(self, *args: Any) -> None:
+            raise OSError("in use")
+
+    monkeypatch.setattr(server_module.socket, "socket", lambda *args: FakeSocketOK())
+    assert _port_is_available("127.0.0.1", 8123) is True
+
+    monkeypatch.setattr(server_module.socket, "socket", lambda *args: FakeSocketFail())
+    assert _port_is_available("127.0.0.1", 8123) is False
+
+    availability = {8000: False, 8001: True}
+    monkeypatch.setattr(
+        server_module,
+        "_port_is_available",
+        lambda _host, port: availability.get(port, False),
+    )
+    assert find_available_port(host="127.0.0.1", start=8000, end=8001) == 8001
+    assert resolve_server_port("127.0.0.1", 8001) == 8001
+
+    with pytest.raises(OSError, match="already in use"):
+        resolve_server_port("127.0.0.1", 8000)
+
+    with pytest.raises(OSError, match="No free ports"):
+        find_available_port(host="127.0.0.1", start=8100, end=8101)
+
+
+def test_server_start_run_and_main_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Server factory/runner/main entrypoints should cover success and error paths."""
+
+    class DummyHTTPServer:
+        """HTTPServer test double that records constructor args."""
+
+        def __init__(self, address: tuple[str, int], handler_class: type[Any]) -> None:
+            self.address = address
+            self.handler_class = handler_class
+
+    monkeypatch.setattr(server_module, "HTTPServer", DummyHTTPServer)
+    monkeypatch.setattr(server_module, "resolve_server_port", lambda host, port: 8123)
+
+    settings = ServerSettings(
+        host="127.0.0.1",
+        port=None,
+        db_path=tmp_path / "db.sqlite3",
+        verbose=False,
+    )
+    http_server, resolved_port = start_http_server(settings)
+    assert isinstance(http_server, DummyHTTPServer)
+    assert resolved_port == 8123
+
+    class DummyRuntimeServer:
+        """Runtime server double with deterministic shutdown behavior."""
+
+        def __init__(self, *, raise_interrupt: bool) -> None:
+            self.raise_interrupt = raise_interrupt
+            self.closed = False
+
+        def serve_forever(self) -> None:
+            if self.raise_interrupt:
+                raise KeyboardInterrupt()
+
+        def server_close(self) -> None:
+            self.closed = True
+
+    runtime = DummyRuntimeServer(raise_interrupt=True)
+    monkeypatch.setattr(server_module, "start_http_server", lambda _settings: (runtime, 8124))
+    assert run_server(ServerSettings(verbose=True)) == 0
+    assert runtime.closed is True
+    assert "Serving Pipeworks Name Generator UI" in capsys.readouterr().out
+
+    parser = create_argument_parser()
+    args = parser.parse_args(["--host", "0.0.0.0", "--port", "8999", "--quiet"])
+    assert args.host == "0.0.0.0"
+    assert args.port == 8999
+    assert args.quiet is True
+
+    parsed = parse_arguments(["--config", "server.ini"])
+    assert str(parsed.config).endswith("server.ini")
+
+    ini = tmp_path / "server.ini"
+    ini.write_text("[server]\nhost=127.0.0.1\nport=8011\nverbose=true\n", encoding="utf-8")
+    namespace = type(
+        "Args",
+        (),
+        {"config": str(ini), "host": "0.0.0.0", "port": 8012, "quiet": True},
+    )()
+    built = build_settings_from_args(namespace)
+    assert built.host == "0.0.0.0"
+    assert built.port == 8012
+    assert built.verbose is False
+
+    monkeypatch.setattr(server_module, "parse_arguments", lambda _argv=None: namespace)
+    monkeypatch.setattr(server_module, "build_settings_from_args", lambda _args: settings)
+    monkeypatch.setattr(server_module, "run_server", lambda _settings: 0)
+    assert main(["--config", str(ini)]) == 0
+
+    def boom_parse(_argv: Any = None) -> Any:
+        raise RuntimeError("parse failed")
+
+    monkeypatch.setattr(server_module, "parse_arguments", boom_parse)
+    assert main([]) == 1
+    assert "Error: parse failed" in capsys.readouterr().out

@@ -67,6 +67,18 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
     assert settings.verbose is False
 
 
+def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path) -> None:
+    """INI files without ``[server]`` should fall back to defaults."""
+    ini_path = tmp_path / "no-server-section.ini"
+    ini_path.write_text("[other]\nkey = value\n", encoding="utf-8")
+    settings = load_server_settings(ini_path)
+
+    assert settings.host == DEFAULT_HOST
+    assert settings.port is None
+    assert settings.db_path == DEFAULT_DB_PATH
+    assert settings.verbose is True
+
+
 def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None:
     """CLI-style overrides should replace only the values that are provided."""
     base = ServerSettings()
