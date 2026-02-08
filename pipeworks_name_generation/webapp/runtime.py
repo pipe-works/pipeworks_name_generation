@@ -85,8 +85,17 @@ def create_bound_handler_class(
     verbose: bool,
     db_path: Path,
     schema_ready: bool = False,
+    extra_attrs: dict[str, Any] | None = None,
 ) -> type[HandlerT]:
-    """Create handler class bound to runtime verbosity and DB path."""
+    """Create handler class bound to runtime verbosity and DB path.
+
+    Args:
+        handler_base: Base handler class to clone.
+        verbose: Whether the handler should log requests.
+        db_path: SQLite database path to bind on the class.
+        schema_ready: When ``True``, skip per-request schema checks.
+        extra_attrs: Optional attribute overrides for specialized handler modes.
+    """
     bound_handler = cast(type[HandlerT], type("BoundHandler", (handler_base,), {}))
 
     setattr(bound_handler, "verbose", verbose)
@@ -97,6 +106,9 @@ def create_bound_handler_class(
         "schema_initialized_paths",
         {str(db_path.expanduser().resolve())} if schema_ready else set(),
     )
+    if extra_attrs:
+        for name, value in extra_attrs.items():
+            setattr(bound_handler, name, value)
     return bound_handler
 
 
@@ -146,7 +158,8 @@ def run_server(
     server, port = start_server(settings)
 
     if settings.verbose:
-        printer(f"Serving Pipeworks Name Generator UI at http://{settings.host}:{port}")
+        label = "UI" if settings.serve_ui else "API"
+        printer(f"Serving Pipeworks Name Generator {label} at http://{settings.host}:{port}")
         printer(f"SQLite DB path: {settings.db_path}")
 
     try:

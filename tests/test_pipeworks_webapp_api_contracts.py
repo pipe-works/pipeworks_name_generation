@@ -11,8 +11,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pipeworks_name_generation.renderer import render_names
 from pipeworks_name_generation.webapp import endpoint_adapters as endpoint_adapters_module
-from pipeworks_name_generation.webapp.generation import get_cached_generation_package_options
+from pipeworks_name_generation.webapp.generation import (
+    _coerce_render_style,
+    get_cached_generation_package_options,
+)
 from pipeworks_name_generation.webapp.handler import WebAppHandler
 from pipeworks_name_generation.webapp.http import _parse_optional_int, _parse_required_int
 from pipeworks_name_generation.webapp.routes import database as database_routes
@@ -208,10 +212,12 @@ def test_generate_contract_json(tmp_path: Path) -> None:
         coerce_optional_seed=endpoint_adapters_module._coerce_optional_seed,
         coerce_bool=endpoint_adapters_module._coerce_bool,
         coerce_output_format=endpoint_adapters_module._coerce_output_format,
+        coerce_render_style=_coerce_render_style,
         connect_database=endpoint_adapters_module._connect_database,
         initialize_schema=handler._ensure_schema,
         collect_generation_source_values=endpoint_adapters_module._collect_generation_source_values,
         sample_generation_values=endpoint_adapters_module._sample_generation_values,
+        render_values=render_names,
     )
 
     payload = handler.json_body()
@@ -247,10 +253,12 @@ def test_generate_contract_txt_format(tmp_path: Path) -> None:
         coerce_optional_seed=endpoint_adapters_module._coerce_optional_seed,
         coerce_bool=endpoint_adapters_module._coerce_bool,
         coerce_output_format=endpoint_adapters_module._coerce_output_format,
+        coerce_render_style=_coerce_render_style,
         connect_database=endpoint_adapters_module._connect_database,
         initialize_schema=handler._ensure_schema,
         collect_generation_source_values=endpoint_adapters_module._collect_generation_source_values,
         sample_generation_values=endpoint_adapters_module._sample_generation_values,
+        render_values=render_names,
     )
 
     payload = handler.json_body()

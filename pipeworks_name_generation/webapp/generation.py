@@ -13,6 +13,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Sequence
 
+from pipeworks_name_generation.renderer import normalize_render_style
 from pipeworks_name_generation.webapp.constants import (
     GENERATION_CLASS_KEYS,
     GENERATION_CLASS_PATTERNS,
@@ -68,6 +69,16 @@ def _coerce_output_format(raw_format: Any) -> str:
     if normalized not in {"json", "txt"}:
         raise ValueError("Field 'output_format' must be one of: json, txt.")
     return normalized
+
+
+def _coerce_render_style(raw_style: Any) -> str:
+    """Validate optional render style selection for generated names."""
+    try:
+        return normalize_render_style(raw_style)
+    except ValueError as exc:
+        raise ValueError(
+            "Field 'render_style' must be one of: raw, lower, upper, title, sentence."
+        ) from exc
 
 
 def _read_all_values_from_table(conn: sqlite3.Connection, table_name: str) -> list[str]:
@@ -491,6 +502,7 @@ __all__ = [
     "_coerce_optional_seed",
     "_coerce_bool",
     "_coerce_output_format",
+    "_coerce_render_style",
     "_read_all_values_from_table",
     "_collect_generation_source_values",
     "_sample_generation_values",

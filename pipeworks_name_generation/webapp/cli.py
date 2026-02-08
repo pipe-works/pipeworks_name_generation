@@ -32,6 +32,11 @@ def create_argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable verbose startup/request logs.",
     )
+    parser.add_argument(
+        "--api-only",
+        action="store_true",
+        help="Serve API routes only (no UI or static assets).",
+    )
     return parser
 
 
@@ -46,12 +51,14 @@ def build_settings_from_args(args: argparse.Namespace) -> ServerSettings:
     config_path = args.config if isinstance(args.config, Path) else Path(args.config)
     loaded = load_server_settings(config_path)
     verbose_override = False if args.quiet else None
+    serve_ui_override = False if args.api_only else None
     return apply_runtime_overrides(
         loaded,
         host=args.host,
         port=args.port,
         db_path=None,
         verbose=verbose_override,
+        serve_ui=serve_ui_override,
     )
 
 

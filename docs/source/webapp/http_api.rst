@@ -21,6 +21,9 @@ Routes currently exposed by the webapp:
   Returns ``max_items`` and ``max_unique_combinations``.
 - ``POST /api/generate``
   Generates names from imported SQLite tables.
+  Optional ``render_style`` values: ``raw``, ``lower``, ``upper``, ``title``,
+  ``sentence``. When ``render_style`` is not ``raw``, responses include
+  ``raw_names`` alongside the rendered ``names``.
 - ``GET /api/database/packages``
   Lists imported packages.
 - ``GET /api/database/package-tables?package_id=...``
@@ -29,6 +32,12 @@ Routes currently exposed by the webapp:
   Returns paginated table rows.
 - ``POST /api/import``
   Imports a metadata JSON + ZIP package pair.
+
+API-only mode:
+
+- Start with ``python -m pipeworks_name_generation.webapp.api --config server.ini``
+  or ``python -m pipeworks_name_generation.webapp.server --config server.ini --api-only``.
+- UI/static routes (``/``, ``/static/*``, ``/favicon.ico``) are disabled in API-only mode.
 
 Error shape:
 

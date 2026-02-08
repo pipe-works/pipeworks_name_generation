@@ -49,6 +49,7 @@ def test_create_bound_handler_class_sets_runtime_attributes(tmp_path: Path) -> N
         verbose=False,
         db_path=db_path,
         schema_ready=True,
+        extra_attrs={"get_routes": {"/api/health": "get_health"}},
     )
     bound_runtime = cast(Any, bound)
 
@@ -56,6 +57,7 @@ def test_create_bound_handler_class_sets_runtime_attributes(tmp_path: Path) -> N
     assert bound_runtime.db_path == db_path
     assert bound_runtime.schema_ready is True
     assert str(db_path.resolve()) in bound_runtime.schema_initialized_paths
+    assert bound_runtime.get_routes == {"/api/health": "get_health"}
 
 
 def test_start_http_server_calls_storage_initializer(tmp_path: Path) -> None:
@@ -103,3 +105,19 @@ def test_run_server_handles_interrupt_and_closes_server() -> None:
     assert result == 0
     assert runtime.closed is True
     assert any("Serving Pipeworks Name Generator UI" in line for line in messages)
+
+
+def test_run_server_prints_api_label_when_ui_disabled() -> None:
+    """Runtime loop should announce API-only mode when UI is disabled."""
+    runtime = _DummyRuntimeServer(raise_interrupt=True)
+    messages: list[str] = []
+
+    result = run_server(
+        ServerSettings(verbose=True, serve_ui=False),
+        start_server=lambda _settings: (runtime, 8124),
+        printer=messages.append,
+    )
+
+    assert result == 0
+    assert runtime.closed is True
+    assert any("Serving Pipeworks Name Generator API" in line for line in messages)

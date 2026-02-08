@@ -5,7 +5,19 @@ Local run:
 
 .. code-block:: bash
 
-   python -m pipeworks_name_generation.webapp --config server.ini
+   python -m pipeworks_name_generation.webapp.server --config server.ini
+
+API-only run (no UI/static assets):
+
+.. code-block:: bash
+
+   python -m pipeworks_name_generation.webapp.api --config server.ini
+
+API-only run via flag:
+
+.. code-block:: bash
+
+   python -m pipeworks_name_generation.webapp.server --config server.ini --api-only
 
 Useful checks:
 

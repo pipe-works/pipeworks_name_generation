@@ -200,6 +200,9 @@
       const seedInput = document.getElementById('api-builder-param-seed');
       const formatSelect = document.getElementById('api-builder-param-format');
       const uniqueCheckbox = document.getElementById('api-builder-param-unique');
+      const renderInputs = Array.from(
+        document.querySelectorAll('.api-builder-render-option-input')
+      );
       const summary = document.getElementById('api-builder-param-summary');
 
       const rawCount = Number(countInput.value || '0');
@@ -217,15 +220,20 @@
       }
       const outputFormat = formatSelect.value || 'json';
       const uniqueOnly = Boolean(uniqueCheckbox.checked);
+      const selectedRender = renderInputs.find((input) => input.checked);
+      const renderStyle = selectedRender ? selectedRender.dataset.renderStyle || 'raw' : 'raw';
 
       const seedText = seed === null ? 'random' : String(seed);
-      summary.textContent = `Count ${generationCount}, seed ${seedText}, format ${outputFormat}, unique ${uniqueOnly}`;
+      summary.textContent =
+        `Count ${generationCount}, seed ${seedText}, format ${outputFormat}, ` +
+        `unique ${uniqueOnly}, render ${renderStyle}`;
 
       return {
         generation_count: generationCount,
         seed: seed,
         output_format: outputFormat,
         unique_only: uniqueOnly,
+        render_style: renderStyle,
       };
     }
 
@@ -272,7 +280,7 @@
       const previewLines = [
         '# Pipeworks API Builder Output',
         '# Selection stats query commands',
-        `# Defaults: count=${requestParams.generation_count}, seed=${requestParams.seed === null ? 'random' : requestParams.seed}, format=${requestParams.output_format}, unique_only=${requestParams.unique_only}`,
+        `# Defaults: count=${requestParams.generation_count}, seed=${requestParams.seed === null ? 'random' : requestParams.seed}, format=${requestParams.output_format}, unique_only=${requestParams.unique_only}, render_style=${requestParams.render_style}`,
       ];
       for (const item of apiBuilderSelections) {
         const query = new URLSearchParams({
@@ -292,6 +300,7 @@
           generation_count: requestParams.generation_count,
           output_format: requestParams.output_format,
           unique_only: requestParams.unique_only,
+          render_style: requestParams.render_style,
         };
         if (requestParams.seed !== null) {
           generatePayload.seed = requestParams.seed;
@@ -312,6 +321,7 @@
             seed: requestParams.seed,
             output_format: requestParams.output_format,
             unique_only: requestParams.unique_only,
+            render_style: requestParams.render_style,
             max_items: item.max_items,
             max_unique_combinations: item.max_unique_combinations,
           })),
@@ -380,6 +390,7 @@
           generation_count: previewCount,
           unique_only: params.unique_only,
           output_format: params.output_format,
+          render_style: params.render_style,
         };
         if (params.seed !== null) {
           generatePayload.seed = params.seed;
@@ -759,6 +770,33 @@
       const element = document.getElementById(paramId);
       element.addEventListener('input', renderApiBuilder);
       element.addEventListener('change', renderApiBuilder);
+    }
+    const renderOptions = Array.from(
+      document.querySelectorAll('.api-builder-render-option-input')
+    );
+    for (const option of renderOptions) {
+      option.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+          return;
+        }
+        if (target.checked) {
+          for (const other of renderOptions) {
+            if (other !== target) {
+              other.checked = false;
+            }
+          }
+        }
+        if (!renderOptions.some((input) => input.checked)) {
+          const rawOption = document.querySelector(
+            '.api-builder-render-option-input[data-render-style="raw"]'
+          );
+          if (rawOption instanceof HTMLInputElement) {
+            rawOption.checked = true;
+          }
+        }
+        renderApiBuilder();
+      });
     }
 
     loadPackages();

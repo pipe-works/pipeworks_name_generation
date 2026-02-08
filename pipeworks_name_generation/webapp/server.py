@@ -23,6 +23,7 @@ from pipeworks_name_generation.webapp.db import (
     initialize_schema as _initialize_schema,
 )
 from pipeworks_name_generation.webapp.handler import WebAppHandler
+from pipeworks_name_generation.webapp.route_registry import select_route_maps
 
 
 def _port_is_available(host: str, port: int) -> bool:
@@ -62,18 +63,21 @@ def resolve_server_port(host: str, configured_port: int | None) -> int:
     )
 
 
-def create_handler_class(verbose: bool, db_path: Path) -> type[WebAppHandler]:
+def create_handler_class(verbose: bool, db_path: Path, *, serve_ui: bool) -> type[WebAppHandler]:
     """Create handler class bound to runtime verbosity and DB path.
 
     The runtime bootstrap initializes schema before creating the handler class,
     so ``schema_ready`` is set to ``True`` to skip per-request schema checks on
-    the hot path.
+    the hot path. Route maps are selected based on ``serve_ui`` so API-only
+    deployments skip UI/static endpoints entirely.
     """
+    get_routes, post_routes = select_route_maps(serve_ui)
     return webapp_runtime.create_bound_handler_class(
         WebAppHandler,
         verbose=verbose,
         db_path=db_path,
         schema_ready=True,
+        extra_attrs={"get_routes": get_routes, "post_routes": post_routes},
     )
 
 
@@ -85,10 +89,15 @@ def _initialize_database_storage(db_path: Path) -> None:
 
 def start_http_server(settings: ServerSettings) -> tuple[HTTPServer, int]:
     """Create a configured ``HTTPServer`` instance."""
+
+    def handler_factory(verbose: bool, db_path: Path) -> type[WebAppHandler]:
+        """Bind handler class with the selected UI/API routing mode."""
+        return create_handler_class(verbose, db_path, serve_ui=settings.serve_ui)
+
     return webapp_runtime.start_http_server(
         settings,
         resolve_port=resolve_server_port,
-        create_handler=create_handler_class,
+        create_handler=handler_factory,
         initialize_storage=_initialize_database_storage,
         http_server_cls=HTTPServer,
     )

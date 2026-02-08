@@ -242,6 +242,8 @@ $RECYCLE.BIN/
 .*.swo
 server.ini
 pipeworks_name_generation/data/*.sqlite3
+pipeworks_name_generation/data/*.sqlite3-wal
+pipeworks_name_generation/data/*.sqlite3-shm
 
 # --------------------------------------------------
 # Local working notes (never committed)

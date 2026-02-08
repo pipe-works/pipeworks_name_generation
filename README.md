@@ -11,15 +11,20 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/pipe-works/pipeworks_name_generation)
 
-`pipeworks_name_generation` is a standalone, GPL-3.0-or-later licensed toolkit for developers and world-builders who want to analyze phonetic patterns in text. It provides a comprehensive suite of corpus linguistics tools to extract, analyze, and explore syllabic structure from any text source.
+`pipeworks_name_generation` is a standalone, GPL-3.0-or-later licensed toolkit for developers and world-builders
+who want to analyze phonetic patterns in text. It provides a comprehensive suite of corpus linguistics tools to
+extract, analyze, and explore syllabic structure from any text source.
 
-The project also includes a lightweight, deterministic name generator as a **reference implementation**, demonstrating how to use the processed data to create pronounceable names suitable for games, simulations, and other generative systems.
+The project also includes a lightweight, deterministic name generator as a **reference implementation**,
+demonstrating how to use the processed data to create pronounceable names suitable for games, simulations, and
+other generative systems.
 
 ---
 
 ## What Is This?
 
-This project is fundamentally a **build tools ecosystem** for corpus linguistics. The core value lies in understanding and processing the linguistic ingredients that make names work, not in the act of assembling them.
+This project is fundamentally a **build tools ecosystem** for corpus linguistics. The core value lies in
+understanding and processing the linguistic ingredients that make names work, not in the act of assembling them.
 
 **What you get:**
 
@@ -51,7 +56,8 @@ cd pipeworks_name_generation
 pip install -e ".[build-tools]"
 ```
 
-This installs the full suite of command-line tools with all dependencies (pyphen, NLTK, scikit-learn, matplotlib, pandas, etc.).
+This installs the full suite of command-line tools with all dependencies (pyphen, NLTK, scikit-learn, matplotlib,
+pandas, etc.).
 
 ### For Runtime Name Generation Only
 
@@ -72,6 +78,38 @@ pip install "pipeworks-name-generation[build-tools] @ git+https://github.com/pip
 # Without build tools (zero dependencies)
 pip install "pipeworks-name-generation @ git+https://github.com/pipe-works/pipeworks_name_generation.git@main"
 ```
+
+---
+
+## Web App (Users)
+
+The project includes a lightweight web UI for importing packages, browsing SQLite-backed tables, and generating
+names from imported data.
+
+### Run the Web App
+
+```bash
+# Copy the example config and adjust as needed
+cp server.example.ini server.ini
+
+# Start the web app (port auto-selected in the 8000-8999 range unless configured)
+python -m pipeworks_name_generation.webapp.server --config server.ini
+
+# API-only mode (no UI/static assets)
+python -m pipeworks_name_generation.webapp.api --config server.ini
+
+# API-only mode via flag (same behavior as the dedicated entrypoint)
+python -m pipeworks_name_generation.webapp.server --config server.ini --api-only
+```
+
+Open the URL printed in the console (default host `127.0.0.1`).
+
+### What It Does
+
+- **Import**: Load a metadata JSON + ZIP pair, then persist `*.txt` selections into SQLite tables.
+- **Database View**: Browse imported packages and paginated table rows.
+- **Generation**: Select a name class + package + syllable mode, then generate names via the API builder.
+  Optional `render_style` values: `raw`, `lower`, `upper`, `title`, `sentence`.
 
 ---
 
@@ -132,7 +170,8 @@ python -m build_tools.name_selector \
 
 ## Reference Implementation: Name Generator
 
-The included `NameGenerator` demonstrates how to consume processed syllable data at runtime. It's designed to be simple, deterministic, and dependency-free.
+The included `NameGenerator` demonstrates how to consume processed syllable data at runtime. It's designed to be
+simple, deterministic, and dependency-free.
 
 ### Basic Usage
 
@@ -195,6 +234,32 @@ available at **[pipeworks-name-generation.readthedocs.io](https://pipeworks-name
   \- Complete API documentation for all modules.
 - **[Changelog](https://pipeworks-name-generation.readthedocs.io/en/latest/changelog.html)**
   \- Full release history and list of changes.
+
+---
+
+## Web App (Developers)
+
+### Architecture and API
+
+- Webapp architecture and endpoint docs live under `docs/source/webapp/`.
+- API reference includes request/response examples and endpoint shapes.
+
+### Local Dev Workflow
+
+```bash
+cp server.example.ini server.ini
+python -m pipeworks_name_generation.webapp.server --config server.ini
+
+# API-only mode (no UI/static assets)
+python -m pipeworks_name_generation.webapp.api --config server.ini
+```
+
+### Tests
+
+```bash
+pytest -q tests/test_pipeworks_webapp_api_contracts.py
+pytest -q tests/test_pipeworks_webapp_generation_cache.py
+```
 
 ---
 
