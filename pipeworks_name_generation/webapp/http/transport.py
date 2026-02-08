@@ -26,6 +26,21 @@ def send_text(
     handler.wfile.write(encoded)
 
 
+def send_bytes(
+    handler: Any,
+    payload: bytes,
+    *,
+    status: int = 200,
+    content_type: str = "application/octet-stream",
+) -> None:
+    """Write raw binary data through a ``BaseHTTPRequestHandler``-like object."""
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(payload)))
+    handler.end_headers()
+    handler.wfile.write(payload)
+
+
 def send_json(handler: Any, payload: dict[str, Any], *, status: int = 200) -> None:
     """Serialize and write a JSON object response."""
     send_text(handler, json.dumps(payload), status=status, content_type="application/json")
@@ -52,4 +67,4 @@ def read_json_body(handler: Any) -> dict[str, Any]:
     return payload
 
 
-__all__ = ["send_text", "send_json", "read_json_body"]
+__all__ = ["send_text", "send_bytes", "send_json", "read_json_body"]

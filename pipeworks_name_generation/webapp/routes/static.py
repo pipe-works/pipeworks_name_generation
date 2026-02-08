@@ -12,6 +12,13 @@ class _StaticHandler(Protocol):
         self, content: str, status: int = 200, content_type: str = "text/plain"
     ) -> None: ...
 
+    def _send_bytes(
+        self,
+        payload: bytes,
+        status: int = 200,
+        content_type: str = "application/octet-stream",
+    ) -> None: ...
+
     def _send_json(self, payload: dict[str, Any], status: int = 200) -> None: ...
 
     def send_response(self, code: int) -> None: ...
@@ -29,6 +36,11 @@ def get_text_asset(handler: _StaticHandler, *, content: str, content_type: str) 
     handler._send_text(content, content_type=content_type)
 
 
+def get_binary_asset(handler: _StaticHandler, *, payload: bytes, content_type: str) -> None:
+    """Serve one binary static asset (for example WOFF2 fonts)."""
+    handler._send_bytes(payload, content_type=content_type)
+
+
 def get_health(handler: _StaticHandler) -> None:
     """Return a lightweight liveness response."""
     handler._send_json({"ok": True})
@@ -40,4 +52,4 @@ def get_favicon(handler: _StaticHandler) -> None:
     handler.end_headers()
 
 
-__all__ = ["get_root", "get_text_asset", "get_health", "get_favicon"]
+__all__ = ["get_root", "get_text_asset", "get_binary_asset", "get_health", "get_favicon"]

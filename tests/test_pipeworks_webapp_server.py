@@ -73,6 +73,7 @@ from pipeworks_name_generation.webapp.http import (
     _parse_optional_int,
     _parse_required_int,
 )
+from pipeworks_name_generation.webapp.routes import help as help_routes
 from pipeworks_name_generation.webapp.server import (
     WebAppHandler,
     _port_is_available,
@@ -138,6 +139,7 @@ class _HandlerHarness:
         # Bind handler methods directly so route logic executes unchanged.
         self._ensure_schema = WebAppHandler._ensure_schema.__get__(self, WebAppHandler)
         self._send_text = WebAppHandler._send_text.__get__(self, WebAppHandler)
+        self._send_bytes = WebAppHandler._send_bytes.__get__(self, WebAppHandler)
         self._send_json = WebAppHandler._send_json.__get__(self, WebAppHandler)
         self._read_json_body = WebAppHandler._read_json_body.__get__(self, WebAppHandler)
         self.do_GET = WebAppHandler.do_GET.__get__(self, WebAppHandler)
@@ -454,11 +456,19 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-generate-preview-btn"' in root_html
     assert 'id="api-builder-inline-preview"' in root_html
     assert 'id="api-builder-combo-preview"' in root_html
+    assert 'id="api-builder-live-output"' in root_html
+    assert 'id="preview-font-family"' in root_html
+    assert 'id="preview-font-size"' in root_html
+    assert 'id="preview-font-weight"' in root_html
+    assert 'id="preview-font-italic"' in root_html
     assert 'id="api-builder-copy-btn"' in root_html
-    assert 'id="api-builder-copy-curl-btn"' in root_html
-    assert 'id="api-builder-copy-post-btn"' in root_html
+    assert 'id="api-builder-view-query-btn"' in root_html
+    assert 'id="api-builder-view-curl-btn"' in root_html
+    assert 'id="api-builder-view-post-btn"' in root_html
     assert 'id="api-builder-copy-status"' in root_html
+    assert "/static/api_builder_preview.js" in root_html
     assert 'id="theme-toggle"' in root_html
+    assert 'id="panel-help"' in root_html
     assert 'id="api-builder-preview"' in root_html
 
     app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
@@ -473,6 +483,23 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert app_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
     assert "function setActiveTab" in app_js.wfile.getvalue().decode("utf-8")
 
+    preview_js = _HandlerHarness(path="/static/api_builder_preview.js", db_path=db_path)
+    preview_js.do_GET()
+    assert preview_js.response_status == 200
+    assert (
+        preview_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
+    )
+    assert "window.PipeworksPreview" in preview_js.wfile.getvalue().decode("utf-8")
+
+    font_asset = _HandlerHarness(path="/static/fonts/CrimsonText-Regular.woff2", db_path=db_path)
+    font_asset.do_GET()
+    assert font_asset.response_status == 200
+    assert font_asset.response_headers.get("Content-Type") == "font/woff2"
+
+    missing_font = _HandlerHarness(path="/static/fonts/missing.woff2", db_path=db_path)
+    missing_font.do_GET()
+    assert missing_font.error_status == 404
+
     favicon = _HandlerHarness(path="/favicon.ico", db_path=db_path)
     favicon.do_GET()
     assert favicon.response_status == 204
@@ -485,6 +512,10 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
 def test_route_registry_contains_core_endpoints() -> None:
     """Route registry should expose expected GET/POST dispatch entries."""
     assert route_registry_module.GET_ROUTE_METHODS["/api/health"] == "get_health"
+    assert (
+        route_registry_module.GET_ROUTE_METHODS["/static/api_builder_preview.js"]
+        == "get_static_api_builder_preview_js"
+    )
     assert route_registry_module.GET_ROUTE_METHODS["/api/generation/package-options"] == (
         "get_generation_package_options"
     )
@@ -492,6 +523,75 @@ def test_route_registry_contains_core_endpoints() -> None:
     assert route_registry_module.POST_ROUTE_METHODS["/api/generate"] == "post_generate"
     assert "/api/health" in route_registry_module.API_GET_ROUTE_METHODS
     assert "/" not in route_registry_module.API_GET_ROUTE_METHODS
+
+
+def test_static_text_asset_missing_returns_404(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Static text asset adapters should return 404 when assets are missing."""
+    handler = _HandlerHarness(path="/static/app.css", db_path=tmp_path / "webapp.sqlite3")
+
+    def _raise_missing(_: str) -> tuple[str, str]:
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+
+    endpoint_adapters_module.get_static_app_css(handler, {})
+    assert handler.error_status == 404
+
+    handler = _HandlerHarness(path="/static/app.js", db_path=tmp_path / "webapp.sqlite3")
+    endpoint_adapters_module.get_static_app_js(handler, {})
+    assert handler.error_status == 404
+
+    handler = _HandlerHarness(
+        path="/static/api_builder_preview.js", db_path=tmp_path / "webapp.sqlite3"
+    )
+    endpoint_adapters_module.get_static_api_builder_preview_js(handler, {})
+    assert handler.error_status == 404
+
+
+def test_help_route_via_handler(tmp_path: Path) -> None:
+    """Help route should be reachable through handler dispatch."""
+    handler = _HandlerHarness(path="/api/help", db_path=tmp_path / "help.sqlite3")
+    handler.do_GET()
+    payload = handler.json_body()
+    assert handler.response_status == 200
+    assert "entries" in payload
+
+
+def test_help_route_error_path(tmp_path: Path) -> None:
+    """Help route should surface errors as a 500 JSON response."""
+    handler = _HandlerHarness(path="/api/help", db_path=tmp_path / "help.sqlite3")
+
+    def _boom() -> list[dict[str, str]]:
+        raise RuntimeError("nope")
+
+    help_routes.get_help(handler, list_entries=_boom)
+    assert handler.response_status == 500
+    assert "Failed to load help entries" in handler.json_body()["error"]
+
+
+def test_static_binary_asset_guards() -> None:
+    """Binary asset loader should reject unsafe or unsupported paths."""
+    from pipeworks_name_generation.webapp.frontend import (
+        get_static_binary_asset,
+        get_static_text_asset,
+    )
+
+    with pytest.raises(FileNotFoundError):
+        get_static_binary_asset("/etc/passwd")
+
+    with pytest.raises(FileNotFoundError):
+        get_static_binary_asset("../templates/index.html")
+
+    with pytest.raises(FileNotFoundError):
+        get_static_binary_asset("fonts/missing.woff2")
+
+    with pytest.raises(FileNotFoundError):
+        get_static_binary_asset("fonts/OFL-Crimson_Text.txt")
+
+    with pytest.raises(FileNotFoundError):
+        get_static_text_asset("unknown.js")
 
 
 def test_schema_initialized_once_per_handler_class(tmp_path: Path) -> None:

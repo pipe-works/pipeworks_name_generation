@@ -125,6 +125,8 @@ exclude = ["tests*", "docs*", "examples*", "data*", "scripts*", "*__pycache__*"]
     "templates/*.html",
     "static/*.css",
     "static/*.js",
+    "static/fonts/*.woff2",
+    "static/fonts/*.txt",
 ]
 
 [tool.mypy]

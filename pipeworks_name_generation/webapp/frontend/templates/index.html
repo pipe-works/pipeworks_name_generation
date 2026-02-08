@@ -14,27 +14,13 @@
         <button type="button" id="theme-toggle" class="theme-toggle">Light Theme</button>
       </div>
       <div class="tabs">
-        <button type="button" class="tab active" data-tab="import">Import</button>
-        <button type="button" class="tab" data-tab="generation">Generation</button>
+        <button type="button" class="tab active" data-tab="generation">Generation</button>
         <button type="button" class="tab" data-tab="database">Database View</button>
+        <button type="button" class="tab" data-tab="import">Import</button>
+        <button type="button" class="tab" data-tab="help">Help</button>
       </div>
 
-      <section class="panel active" id="panel-import">
-        <div class="grid">
-          <label for="metadata-path">Metadata JSON Path</label>
-          <input id="metadata-path" type="text" placeholder="/path/to/package_metadata.json" />
-        </div>
-        <div class="grid">
-          <label for="zip-path">Package ZIP Path</label>
-          <input id="zip-path" type="text" placeholder="/path/to/package.zip" />
-        </div>
-        <div class="row-buttons">
-          <button type="button" id="import-btn">Import Pair</button>
-        </div>
-        <p id="import-status" class="muted">Waiting for input.</p>
-      </section>
-
-      <section class="panel" id="panel-generation">
+      <section class="panel active" id="panel-generation">
         <article class="generation-card generation-placeholder generation-card-full-width">
           <h3>Generation Placeholder</h3>
           <p class="muted">Reserved for future blended generation controls.</p>
@@ -212,25 +198,115 @@
                 </p>
                 <div class="api-builder-inline-preview-grid">
                   <section class="api-builder-inline-preview-card">
-                    <h5>Generated Names Preview</h5>
-                    <p id="api-builder-inline-preview">No preview generated yet.</p>
+                    <div class="api-builder-preview-header">
+                      <h5>Generated Names Preview</h5>
+                      <button
+                        type="button"
+                        id="api-builder-inline-copy-btn"
+                        class="api-builder-preview-copy-btn"
+                        title="Copy generated names"
+                      >
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                    <div id="api-builder-inline-preview" class="api-builder-preview-list muted">
+                      No preview generated yet.
+                    </div>
                   </section>
                   <section class="api-builder-inline-preview-card">
-                    <h5>First + Last Combinations</h5>
-                    <p id="api-builder-combo-preview">No combination preview generated yet.</p>
+                    <div class="api-builder-preview-header">
+                      <h5>First + Last Combinations</h5>
+                      <button
+                        type="button"
+                        id="api-builder-combo-copy-btn"
+                        class="api-builder-preview-copy-btn"
+                        title="Copy combinations"
+                      >
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                    <div id="api-builder-combo-preview" class="api-builder-preview-list muted">
+                      No combination preview generated yet.
+                    </div>
                   </section>
                 </div>
+                <hr class="section-divider" />
+                <section class="api-builder-live-preview">
+                  <div class="api-builder-live-header">
+                    <h5>Live Preview</h5>
+                    <p class="muted">Click a name above to focus it here.</p>
+                  </div>
+                  <div class="api-builder-live-controls">
+                    <div class="api-builder-live-control">
+                      <label for="preview-font-family">Font</label>
+                      <select id="preview-font-family">
+                        <option value="Crimson Text" data-fallback="serif">Crimson Text</option>
+                        <option value="Libre Baskerville" data-fallback="serif">Libre Baskerville</option>
+                        <option value="IM Fell English" data-fallback="serif">IM Fell English</option>
+                        <option value="IM Fell English SC" data-fallback="serif">IM Fell English SC</option>
+                        <option value="Special Elite" data-fallback="serif">Special Elite</option>
+                        <option value="Courier Prime" data-fallback="monospace">Courier Prime</option>
+                      </select>
+                    </div>
+                    <div class="api-builder-live-control">
+                      <label for="preview-font-size">Size</label>
+                      <div class="api-builder-live-range">
+                        <input id="preview-font-size" type="range" min="12" max="42" value="22" />
+                        <span id="preview-font-size-value">22px</span>
+                      </div>
+                    </div>
+                    <div class="api-builder-live-control">
+                      <label for="preview-font-weight">Weight</label>
+                      <div class="api-builder-live-range">
+                        <input id="preview-font-weight" type="range" min="300" max="900" step="100" value="500" />
+                        <span id="preview-font-weight-value">500</span>
+                      </div>
+                    </div>
+                    <div class="api-builder-live-control api-builder-live-checkbox">
+                      <label>
+                        <input id="preview-font-italic" type="checkbox" />
+                        Italic
+                      </label>
+                    </div>
+                  </div>
+                  <div id="api-builder-live-output" class="api-builder-live-output muted">
+                    No selection focused yet.
+                  </div>
+                </section>
               </section>
             </section>
-            <section class="api-builder-pane">
+            <section class="api-builder-pane api-builder-params-pane">
               <h4>Builder Preview</h4>
-              <div class="row-buttons">
-                <button type="button" id="api-builder-copy-btn">Copy Query Text</button>
-                <button type="button" id="api-builder-copy-curl-btn">Copy cURL Set</button>
-                <button type="button" id="api-builder-copy-post-btn">Copy POST Set</button>
+              <div class="builder-preview-controls">
+                <div class="builder-preview-view-group">
+                  <span class="builder-preview-label">Preview view</span>
+                  <button type="button" id="api-builder-view-query-btn" class="builder-preview-view-btn">
+                    View Query Text
+                  </button>
+                  <button type="button" id="api-builder-view-curl-btn" class="builder-preview-view-btn">
+                    View cURL Set
+                  </button>
+                  <button type="button" id="api-builder-view-post-btn" class="builder-preview-view-btn">
+                    View POST Set
+                  </button>
+                </div>
+                <div class="builder-preview-status">
+                  <span class="builder-preview-label">Status</span>
+                  <p id="api-builder-copy-status">No query content yet.</p>
+                </div>
               </div>
-              <p id="api-builder-copy-status">No query content yet.</p>
-              <p id="api-builder-preview">No selections queued yet.</p>
+              <div class="builder-preview-output">
+                <div class="builder-preview-header">
+                  <span id="api-builder-preview-title">Query Text</span>
+                  <button type="button" id="api-builder-copy-btn" class="builder-preview-copy-btn">
+                    <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <p id="api-builder-preview">No selections queued yet.</p>
+              </div>
             </section>
           </div>
         </article>
@@ -272,9 +348,31 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" id="panel-import">
+        <div class="grid">
+          <label for="metadata-path">Metadata JSON Path</label>
+          <input id="metadata-path" type="text" placeholder="/path/to/package_metadata.json" />
+        </div>
+        <div class="grid">
+          <label for="zip-path">Package ZIP Path</label>
+          <input id="zip-path" type="text" placeholder="/path/to/package.zip" />
+        </div>
+        <div class="row-buttons">
+          <button type="button" id="import-btn">Import Pair</button>
+        </div>
+        <p id="import-status" class="muted">Waiting for input.</p>
+      </section>
+
+      <section class="panel" id="panel-help">
+        <h2>Help</h2>
+        <p class="muted" id="help-status">Loading help content...</p>
+        <div id="help-content" class="help-content"></div>
+      </section>
     </div>
   </div>
 
     <script src="/static/app.js"></script>
+    <script src="/static/api_builder_preview.js"></script>
 </body>
 </html>

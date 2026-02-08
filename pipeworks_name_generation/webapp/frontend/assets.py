@@ -16,6 +16,12 @@ _STATIC_DIR = _FRONTEND_ROOT / "static"
 _STATIC_CONTENT_TYPES: dict[str, str] = {
     "app.css": "text/css; charset=utf-8",
     "app.js": "application/javascript; charset=utf-8",
+    "api_builder_preview.js": "application/javascript; charset=utf-8",
+}
+
+_STATIC_BINARY_CONTENT_TYPES: dict[str, str] = {
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
 }
 
 
@@ -44,4 +50,24 @@ def get_static_text_asset(filename: str) -> tuple[str, str]:
     return _read_static_text(filename), content_type
 
 
-__all__ = ["get_index_html", "get_static_text_asset"]
+def get_static_binary_asset(relative_path: str) -> tuple[bytes, str]:
+    """Return ``(payload, content_type)`` for binary assets under ``static/``.
+
+    Only whitelisted binary extensions are served, and paths are constrained
+    to the static directory to avoid traversal.
+    """
+    raw_path = Path(relative_path)
+    if raw_path.is_absolute():
+        raise FileNotFoundError("Static asset path must be relative.")
+    resolved = (_STATIC_DIR / raw_path).resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError("Static asset not found.")
+    if not resolved.is_relative_to(_STATIC_DIR):
+        raise FileNotFoundError("Static asset path not permitted.")
+    content_type = _STATIC_BINARY_CONTENT_TYPES.get(resolved.suffix.lower())
+    if content_type is None:
+        raise FileNotFoundError("Static asset type not supported.")
+    return resolved.read_bytes(), content_type
+
+
+__all__ = ["get_index_html", "get_static_text_asset", "get_static_binary_asset"]
