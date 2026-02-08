@@ -339,14 +339,20 @@ def _count_distinct_values_across_tables(
     if not table_names:
         return 0
 
-    unique_values: set[str] = set()
-    for table_name in table_names:
-        quoted = _quote_identifier(table_name)
-        query = f"SELECT value FROM {quoted}"  # nosec B608
-        rows = conn.execute(query).fetchall()
-        for row in rows:
-            unique_values.add(str(row["value"]))
-    return len(unique_values)
+    if len(table_names) == 1:
+        quoted = _quote_identifier(table_names[0])
+        query = f"SELECT COUNT(DISTINCT value) AS count FROM {quoted}"  # nosec B608
+        row = conn.execute(query).fetchone()
+        return int(row["count"]) if row is not None else 0
+
+    select_fragments = [
+        f"SELECT value FROM {_quote_identifier(table_name)}"  # nosec B608
+        for table_name in table_names
+    ]
+    union_query = " UNION ALL ".join(select_fragments)
+    query = f"SELECT COUNT(DISTINCT value) AS count FROM ({union_query})"  # nosec B608
+    row = conn.execute(query).fetchone()
+    return int(row["count"]) if row is not None else 0
 
 
 def _get_generation_selection_stats(
