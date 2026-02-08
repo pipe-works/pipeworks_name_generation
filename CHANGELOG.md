@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.17](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.16...pipeworks-name-generation-v0.5.17) (2026-02-08)
+
+
+### Features
+
+* **webapp:** add optional renderer and api-only mode ([be08256](https://github.com/pipe-works/pipeworks_name_generation/commit/be082560e982462753b7d687db5cc15282e7735a))
+* **webapp:** cache generation package options ([ba9cfd0](https://github.com/pipe-works/pipeworks_name_generation/commit/ba9cfd090684e6e3e0426f10d9d8a17723891cac))
+* **webapp:** cache generation package options ([66c5b5d](https://github.com/pipe-works/pipeworks_name_generation/commit/66c5b5da5110d2148e6f6e106fc9cc2ecb468b6c))
+
+
+### Documentation
+
+* **readme:** add web app usage and dev notes ([a1f4399](https://github.com/pipe-works/pipeworks_name_generation/commit/a1f43997079126dc4834d7ebd17f87e4a57e0184))
+* **readme:** add web app usage and dev notes ([d7c0ab1](https://github.com/pipe-works/pipeworks_name_generation/commit/d7c0ab168f8510916e325260d7b322b23c45549a))
+* **readme:** fix webapp module invocation ([277d71d](https://github.com/pipe-works/pipeworks_name_generation/commit/277d71daea40eb45ffca91f80309a30a4871eb18))
+* **webapp:** expand API examples and cache notes ([4ae39ae](https://github.com/pipe-works/pipeworks_name_generation/commit/4ae39ae45a15f5c83064c241d536ecf1f9c0e546))
+* **webapp:** expand API examples and cache notes ([c02f246](https://github.com/pipe-works/pipeworks_name_generation/commit/c02f2463b98939d44d5a7c2f269c57bd9d17afd7))
+
+
+### Internal Changes
+
+* **webapp:** remove storage facade and harden db layer ([58ceec9](https://github.com/pipe-works/pipeworks_name_generation/commit/58ceec94c36dd4fd22a6f6346786e525561563aa))
+* **webapp:** remove storage facade and harden db layer ([b4fa282](https://github.com/pipe-works/pipeworks_name_generation/commit/b4fa282506eed0ffd9dfcb3d66e9a5ac2dacf8c7))
+* **webapp:** split monolithic server into modular architecture ([c3dd838](https://github.com/pipe-works/pipeworks_name_generation/commit/c3dd838913662d63118415c8df956ba308b39b6e))
+* **webapp:** split monolithic server into modular architecture ([fb9686b](https://github.com/pipe-works/pipeworks_name_generation/commit/fb9686bece29ee15099c1c414ae7585e63cbede4))
+
 ## [0.5.16](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.15...pipeworks-name-generation-v0.5.16) (2026-02-08)
 
 
