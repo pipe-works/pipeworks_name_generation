@@ -40,7 +40,13 @@
       title_epithet: 'Title Epithet',
     };
     const apiBuilderSelections = [];
+    const apiBuilderPreviewState = {
+      previewText: '',
+      curlText: '',
+      postText: '',
+    };
     let generationCardsCollapsed = true;
+    const themeStorageKey = 'pipeworks-theme';
 
     function setActiveTab(tabName) {
       for (const tab of tabs) {
@@ -53,6 +59,37 @@
 
     for (const tab of tabs) {
       tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+    }
+
+    function applyTheme(theme) {
+      const toggle = document.getElementById('theme-toggle');
+      document.body.dataset.theme = theme;
+      if (toggle) {
+        toggle.textContent = theme === 'light' ? 'Dark Theme' : 'Light Theme';
+      }
+      try {
+        window.localStorage.setItem(themeStorageKey, theme);
+      } catch (_error) {
+        // Ignore storage failures; the UI still works without persistence.
+      }
+    }
+
+    function initThemeToggle() {
+      const toggle = document.getElementById('theme-toggle');
+      let storedTheme = 'light';
+      try {
+        storedTheme = window.localStorage.getItem(themeStorageKey) || 'light';
+      } catch (_error) {
+        storedTheme = 'light';
+      }
+      applyTheme(storedTheme);
+      if (!toggle) {
+        return;
+      }
+      toggle.addEventListener('click', () => {
+        const current = document.body.dataset.theme || 'light';
+        applyTheme(current === 'light' ? 'dark' : 'light');
+      });
     }
 
     function setGenerationCardsCollapsed(isCollapsed) {
@@ -258,12 +295,17 @@
         copyStatus.className = 'muted';
         copyStatus.textContent = 'No query content yet.';
         preview.textContent = 'No selections queued yet.';
+        apiBuilderPreviewState.previewText = '';
+        apiBuilderPreviewState.curlText = '';
+        apiBuilderPreviewState.postText = '';
         return;
       }
       clearButton.disabled = false;
 
       // Use BigInt to avoid overflow when selections from multiple classes are multiplied.
       let combinedUnique = 1n;
+      const curlLines = ['# Pipeworks API Builder cURL Set'];
+      const postPayloads = [];
 
       for (const item of apiBuilderSelections) {
         const li = document.createElement('li');
@@ -293,6 +335,11 @@
         previewLines.push(
           `curl -s "${window.location.origin}/api/generation/selection-stats?${query.toString()}"`
         );
+        curlLines.push('');
+        curlLines.push(`# ${item.class_label} (${item.syllable_label})`);
+        curlLines.push(
+          `curl -s "${window.location.origin}/api/generation/selection-stats?${query.toString()}"`
+        );
         const generatePayload = {
           class_key: item.class_key,
           package_id: item.package_id,
@@ -305,8 +352,13 @@
         if (requestParams.seed !== null) {
           generatePayload.seed = requestParams.seed;
         }
+        postPayloads.push(generatePayload);
         previewLines.push('POST /api/generate payload:');
         previewLines.push(JSON.stringify(generatePayload));
+        curlLines.push(
+          `curl -s -X POST "${window.location.origin}/api/generate" ` +
+            `-H "Content-Type: application/json" -d '${JSON.stringify(generatePayload)}'`
+        );
       }
       previewLines.push('');
       previewLines.push(`# Combined unique combinations estimate: ${combinedDisplay}`);
@@ -331,7 +383,10 @@
       );
       copyStatus.className = 'muted';
       copyStatus.textContent = 'Preview ready. Use copy button for programmatic use.';
-      preview.textContent = previewLines.join('\n');
+      apiBuilderPreviewState.previewText = previewLines.join('\n');
+      apiBuilderPreviewState.curlText = curlLines.join('\n').trim();
+      apiBuilderPreviewState.postText = JSON.stringify(postPayloads, null, 2);
+      preview.textContent = apiBuilderPreviewState.previewText;
     }
 
     // Copy the full builder preview text (query snippets + payload examples)
@@ -350,6 +405,42 @@
         await navigator.clipboard.writeText(text);
         copyStatus.className = 'ok';
         copyStatus.textContent = 'Copied query text to clipboard.';
+      } catch (_error) {
+        copyStatus.className = 'err';
+        copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
+      }
+    }
+
+    async function copyApiBuilderCurlSet() {
+      const copyStatus = document.getElementById('api-builder-copy-status');
+      const text = apiBuilderPreviewState.curlText;
+      if (!text) {
+        copyStatus.className = 'err';
+        copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        copyStatus.className = 'ok';
+        copyStatus.textContent = 'Copied cURL set to clipboard.';
+      } catch (_error) {
+        copyStatus.className = 'err';
+        copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
+      }
+    }
+
+    async function copyApiBuilderPostSet() {
+      const copyStatus = document.getElementById('api-builder-copy-status');
+      const text = apiBuilderPreviewState.postText;
+      if (!text) {
+        copyStatus.className = 'err';
+        copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        copyStatus.className = 'ok';
+        copyStatus.textContent = 'Copied POST payload set to clipboard.';
       } catch (_error) {
         copyStatus.className = 'err';
         copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
@@ -756,6 +847,12 @@
     document.getElementById('api-builder-copy-btn').addEventListener('click', () => {
       void copyApiBuilderPreview();
     });
+    document.getElementById('api-builder-copy-curl-btn').addEventListener('click', () => {
+      void copyApiBuilderCurlSet();
+    });
+    document.getElementById('api-builder-copy-post-btn').addEventListener('click', () => {
+      void copyApiBuilderPostSet();
+    });
     document.getElementById('api-builder-clear-btn').addEventListener('click', clearApiBuilder);
     document.getElementById('api-builder-generate-preview-btn').addEventListener('click', () => {
       void generateApiBuilderInlinePreview();
@@ -799,6 +896,7 @@
       });
     }
 
+    initThemeToggle();
     loadPackages();
     loadGenerationPackageOptions();
     renderApiBuilder();

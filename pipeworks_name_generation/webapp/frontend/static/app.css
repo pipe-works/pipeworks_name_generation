@@ -1,5 +1,6 @@
     :root {
       --bg: #0b1020;
+      --bg-soft: #1e293b;
       --panel: #121a2d;
       --panel-2: #0f172a;
       --text: #e2e8f0;
@@ -9,11 +10,26 @@
       --accent-2: #0891b2;
       --ok: #34d399;
       --err: #f87171;
+      --input-bg: #0a1324;
+    }
+    body[data-theme="light"] {
+      --bg: #f4f6fb;
+      --bg-soft: #ffffff;
+      --panel: #ffffff;
+      --panel-2: #f1f5f9;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #cbd5e1;
+      --accent: #2563eb;
+      --accent-2: #1d4ed8;
+      --ok: #16a34a;
+      --err: #dc2626;
+      --input-bg: #ffffff;
     }
     body {
       margin: 0;
       font-family: "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top right, #1e293b, var(--bg));
+      background: radial-gradient(circle at top right, var(--bg-soft), var(--bg));
       color: var(--text);
     }
     .wrap {
@@ -28,9 +44,19 @@
       padding: 1rem;
       box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
     }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.9rem;
+    }
     h1 {
-      margin: 0 0 0.9rem 0;
+      margin: 0;
       font-size: 1.35rem;
+    }
+    .theme-toggle {
+      border-color: color-mix(in srgb, var(--accent) 55%, white 45%);
     }
     .tabs {
       display: flex;
@@ -70,7 +96,7 @@
       width: 100%;
       box-sizing: border-box;
       border: 1px solid var(--border);
-      background: #0a1324;
+      background: var(--input-bg);
       color: var(--text);
       border-radius: 8px;
       padding: 0.5rem 0.6rem;
@@ -195,7 +221,7 @@
     }
     .api-builder-left-column {
       display: grid;
-      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 0.7fr) minmax(0, 1.3fr);
       gap: 0.8rem;
       min-height: 280px;
     }
@@ -205,6 +231,12 @@
       padding: 0.65rem;
       background: color-mix(in srgb, var(--panel-2) 78%, black 22%);
       min-height: 132px;
+    }
+    .api-builder-selection-pane {
+      display: flex;
+      flex-direction: column;
+      min-height: 160px;
+      max-height: 230px;
     }
     .api-builder-pane h4 {
       margin: 0 0 0.45rem 0;
@@ -305,6 +337,9 @@
     #api-builder-queue {
       margin: 0;
       padding-left: 1.1rem;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding-right: 0.35rem;
     }
     #api-builder-combined {
       margin: 0.6rem 0 0 0;
