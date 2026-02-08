@@ -161,6 +161,7 @@ def run_server(
         label = "UI" if settings.serve_ui else "API"
         printer(f"Serving Pipeworks Name Generator {label} at http://{settings.host}:{port}")
         printer(f"SQLite DB path: {settings.db_path}")
+        printer(f"Favorites DB path: {settings.favorites_db_path}")
 
     try:
         server.serve_forever()

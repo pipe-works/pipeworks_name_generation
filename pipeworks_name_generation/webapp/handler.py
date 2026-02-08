@@ -19,6 +19,9 @@ from urllib.parse import parse_qs, urlsplit
 
 from pipeworks_name_generation.webapp import endpoint_adapters
 from pipeworks_name_generation.webapp.db import initialize_schema as _initialize_schema
+from pipeworks_name_generation.webapp.favorites import (
+    initialize_favorites_schema as _initialize_favorites_schema,
+)
 from pipeworks_name_generation.webapp.http import read_json_body, send_bytes, send_json, send_text
 from pipeworks_name_generation.webapp.route_registry import GET_ROUTE_METHODS, POST_ROUTE_METHODS
 
@@ -32,8 +35,11 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     verbose: bool = True
     db_path: Path = Path("pipeworks_name_generation/data/name_packages.sqlite3")
+    favorites_db_path: Path = Path("pipeworks_name_generation/data/user_favorites.sqlite3")
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
+    favorites_schema_ready: bool = False
+    favorites_schema_initialized_paths: set[str] = set()
     # Route maps are class attributes so API-only mode can swap them at startup.
     get_routes: dict[str, str] = GET_ROUTE_METHODS
     post_routes: dict[str, str] = POST_ROUTE_METHODS
@@ -53,6 +59,17 @@ class WebAppHandler(BaseHTTPRequestHandler):
         _initialize_schema(conn)
         handler_type.schema_initialized_paths.add(db_path_key)
         handler_type.schema_ready = True
+
+    def _ensure_favorites_schema(self, conn: Any) -> None:
+        """Initialize favorites schema once per handler class and DB path."""
+        handler_type = type(self)
+        db_path_key = str(Path(self.favorites_db_path).expanduser().resolve())
+        if db_path_key in handler_type.favorites_schema_initialized_paths:
+            handler_type.favorites_schema_ready = True
+            return
+        _initialize_favorites_schema(conn)
+        handler_type.favorites_schema_initialized_paths.add(db_path_key)
+        handler_type.favorites_schema_ready = True
 
     def log_message(self, format: str, *args: Any) -> None:
         """Emit request logs only when verbose mode is enabled."""

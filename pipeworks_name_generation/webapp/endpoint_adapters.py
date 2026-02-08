@@ -28,6 +28,24 @@ from pipeworks_name_generation.webapp.db import (
 from pipeworks_name_generation.webapp.db import (
     list_packages as _list_packages,
 )
+from pipeworks_name_generation.webapp.favorites import (
+    delete_favorite as _delete_favorite,
+)
+from pipeworks_name_generation.webapp.favorites import (
+    export_favorites as _export_favorites,
+)
+from pipeworks_name_generation.webapp.favorites import (
+    insert_favorites as _insert_favorites,
+)
+from pipeworks_name_generation.webapp.favorites import (
+    list_favorites as _list_favorites,
+)
+from pipeworks_name_generation.webapp.favorites import (
+    list_tags as _list_favorite_tags,
+)
+from pipeworks_name_generation.webapp.favorites import (
+    update_favorite as _update_favorite,
+)
 from pipeworks_name_generation.webapp.frontend import (
     get_index_html,
     get_static_binary_asset,
@@ -49,6 +67,7 @@ from pipeworks_name_generation.webapp.generation import (
 from pipeworks_name_generation.webapp.help_content import get_help_entries
 from pipeworks_name_generation.webapp.http import _parse_optional_int, _parse_required_int
 from pipeworks_name_generation.webapp.routes import database as database_routes
+from pipeworks_name_generation.webapp.routes import favorites as favorites_routes
 from pipeworks_name_generation.webapp.routes import generation as generation_routes
 from pipeworks_name_generation.webapp.routes import help as help_routes
 from pipeworks_name_generation.webapp.routes import imports as import_routes
@@ -87,6 +106,15 @@ def get_static_api_builder_preview_js(handler: Any, _query: dict[str, list[str]]
         handler.send_error(404, "Not Found")
 
 
+def get_static_favorites_js(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Serve the favorites tab support script."""
+    try:
+        content, content_type = get_static_text_asset("favorites.js")
+        static_routes.get_text_asset(handler, content=content, content_type=content_type)
+    except FileNotFoundError:
+        handler.send_error(404, "Not Found")
+
+
 def get_static_font(handler: Any, path: str) -> None:
     """Serve bundled font files from the static directory."""
     try:
@@ -105,6 +133,88 @@ def get_health(handler: Any, _query: dict[str, list[str]]) -> None:
 def get_help(handler: Any, _query: dict[str, list[str]]) -> None:
     """Return Help tab Q&A content."""
     help_routes.get_help(handler, list_entries=get_help_entries)
+
+
+def get_favorites(handler: Any, query: dict[str, list[str]]) -> None:
+    """Return favorites list and metadata."""
+    favorites_routes.get_favorites(
+        handler,
+        query,
+        parse_optional_int=_parse_optional_int,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        list_favorites=_list_favorites,
+    )
+
+
+def get_favorite_tags(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Return known favorites tags."""
+    favorites_routes.get_favorite_tags(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        list_tags=_list_favorite_tags,
+    )
+
+
+def get_favorites_export(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Return export JSON for favorites."""
+    favorites_routes.get_favorites_export(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        export_favorites=_export_favorites,
+    )
+
+
+def post_favorites(handler: Any) -> None:
+    """Persist favorites entries."""
+    favorites_routes.post_favorites(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        insert_favorites=_insert_favorites,
+    )
+
+
+def post_favorites_update(handler: Any) -> None:
+    """Update favorites note or tags."""
+    favorites_routes.post_favorites_update(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        update_favorite=_update_favorite,
+    )
+
+
+def post_favorites_delete(handler: Any) -> None:
+    """Delete a favorite."""
+    favorites_routes.post_favorites_delete(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        delete_favorite=_delete_favorite,
+    )
+
+
+def post_favorites_export(handler: Any) -> None:
+    """Write favorites export to a file path."""
+    favorites_routes.post_favorites_export(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        export_favorites=_export_favorites,
+    )
+
+
+def post_favorites_import(handler: Any) -> None:
+    """Import favorites from a file path."""
+    favorites_routes.post_favorites_import(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_favorites_schema,
+        insert_favorites=_insert_favorites,
+    )
 
 
 def get_generation_package_options(handler: Any, _query: dict[str, list[str]]) -> None:
@@ -221,17 +331,25 @@ __all__ = [
     "get_static_app_css",
     "get_static_app_js",
     "get_static_api_builder_preview_js",
+    "get_static_favorites_js",
     "get_static_font",
     "get_health",
     "get_help",
+    "get_favorites",
+    "get_favorite_tags",
+    "get_favorites_export",
     "get_generation_package_options",
     "get_generation_package_syllables",
     "get_generation_selection_stats",
     "get_database_packages",
     "get_database_package_tables",
     "get_database_table_rows",
-    "get_help",
     "get_favicon",
     "post_import",
+    "post_favorites",
+    "post_favorites_update",
+    "post_favorites_delete",
+    "post_favorites_export",
+    "post_favorites_import",
     "post_generate",
 ]

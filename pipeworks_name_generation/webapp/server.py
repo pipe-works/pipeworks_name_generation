@@ -22,6 +22,9 @@ from pipeworks_name_generation.webapp.db import (
 from pipeworks_name_generation.webapp.db import (
     initialize_schema as _initialize_schema,
 )
+from pipeworks_name_generation.webapp.favorites import (
+    initialize_favorites_schema as _initialize_favorites_schema,
+)
 from pipeworks_name_generation.webapp.handler import WebAppHandler
 from pipeworks_name_generation.webapp.route_registry import select_route_maps
 
@@ -63,7 +66,13 @@ def resolve_server_port(host: str, configured_port: int | None) -> int:
     )
 
 
-def create_handler_class(verbose: bool, db_path: Path, *, serve_ui: bool) -> type[WebAppHandler]:
+def create_handler_class(
+    verbose: bool,
+    db_path: Path,
+    *,
+    favorites_db_path: Path,
+    serve_ui: bool,
+) -> type[WebAppHandler]:
     """Create handler class bound to runtime verbosity and DB path.
 
     The runtime bootstrap initializes schema before creating the handler class,
@@ -72,12 +81,19 @@ def create_handler_class(verbose: bool, db_path: Path, *, serve_ui: bool) -> typ
     deployments skip UI/static endpoints entirely.
     """
     get_routes, post_routes = select_route_maps(serve_ui)
+    favorites_key = str(favorites_db_path.expanduser().resolve())
     return webapp_runtime.create_bound_handler_class(
         WebAppHandler,
         verbose=verbose,
         db_path=db_path,
         schema_ready=True,
-        extra_attrs={"get_routes": get_routes, "post_routes": post_routes},
+        extra_attrs={
+            "get_routes": get_routes,
+            "post_routes": post_routes,
+            "favorites_db_path": favorites_db_path,
+            "favorites_schema_ready": True,
+            "favorites_schema_initialized_paths": {favorites_key},
+        },
     )
 
 
@@ -87,18 +103,34 @@ def _initialize_database_storage(db_path: Path) -> None:
         _initialize_schema(conn)
 
 
+def _initialize_favorites_storage(favorites_db_path: Path) -> None:
+    """Ensure the favorites SQLite file and schema exist before serving requests."""
+    with _connect_database(favorites_db_path) as conn:
+        _initialize_favorites_schema(conn)
+
+
 def start_http_server(settings: ServerSettings) -> tuple[HTTPServer, int]:
     """Create a configured ``HTTPServer`` instance."""
 
     def handler_factory(verbose: bool, db_path: Path) -> type[WebAppHandler]:
         """Bind handler class with the selected UI/API routing mode."""
-        return create_handler_class(verbose, db_path, serve_ui=settings.serve_ui)
+        return create_handler_class(
+            verbose,
+            db_path,
+            favorites_db_path=settings.favorites_db_path,
+            serve_ui=settings.serve_ui,
+        )
+
+    def initialize_storage(_db_path: Path) -> None:
+        """Initialize both the packages and favorites SQLite databases."""
+        _initialize_database_storage(settings.db_path)
+        _initialize_favorites_storage(settings.favorites_db_path)
 
     return webapp_runtime.start_http_server(
         settings,
         resolve_port=resolve_server_port,
         create_handler=handler_factory,
-        initialize_storage=_initialize_database_storage,
+        initialize_storage=initialize_storage,
         http_server_cls=HTTPServer,
     )
 

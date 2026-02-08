@@ -13,6 +13,7 @@ from pathlib import Path
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_DB_PATH = Path("pipeworks_name_generation/data/name_packages.sqlite3")
+DEFAULT_FAVORITES_DB_PATH = Path("pipeworks_name_generation/data/user_favorites.sqlite3")
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class ServerSettings:
         host: Interface to bind (default localhost)
         port: Optional explicit port. ``None`` means auto-select.
         db_path: SQLite database file path
+        favorites_db_path: SQLite database file path for user favorites
         verbose: Print startup/runtime messages when True
         serve_ui: When ``True``, serve UI/static routes in addition to the API.
     """
@@ -30,6 +32,7 @@ class ServerSettings:
     host: str = DEFAULT_HOST
     port: int | None = None
     db_path: Path = DEFAULT_DB_PATH
+    favorites_db_path: Path = DEFAULT_FAVORITES_DB_PATH
     verbose: bool = True
     serve_ui: bool = True
 
@@ -68,9 +71,9 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
     """Load server settings from an INI file.
 
     The parser reads a ``[server]`` section with the following optional keys:
-    ``host``, ``port``, ``db_path``, ``verbose``, and ``serve_ui``. An optional
-    ``api_only`` flag can be used to force API-only mode and overrides
-    ``serve_ui`` when set.
+    ``host``, ``port``, ``db_path``, ``favorites_db_path``, ``verbose``, and
+    ``serve_ui``. An optional ``api_only`` flag can be used to force API-only
+    mode and overrides ``serve_ui`` when set.
 
     Args:
         config_path: Path to INI file. If missing/None, defaults are used.
@@ -98,6 +101,13 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
     db_path_raw = parser.get("server", "db_path", fallback=str(settings.db_path)).strip()
     db_path = Path(db_path_raw).expanduser() if db_path_raw else settings.db_path
 
+    favorites_raw = parser.get(
+        "server", "favorites_db_path", fallback=str(settings.favorites_db_path)
+    ).strip()
+    favorites_db_path = (
+        Path(favorites_raw).expanduser() if favorites_raw else settings.favorites_db_path
+    )
+
     verbose = parser.getboolean("server", "verbose", fallback=settings.verbose)
     serve_ui = parser.getboolean("server", "serve_ui", fallback=settings.serve_ui)
     api_only = parser.getboolean("server", "api_only", fallback=False)
@@ -109,6 +119,7 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
         host=host,
         port=port,
         db_path=db_path,
+        favorites_db_path=favorites_db_path,
         verbose=verbose,
         serve_ui=serve_ui,
     )
@@ -119,6 +130,7 @@ def apply_runtime_overrides(
     host: str | None,
     port: int | None,
     db_path: Path | None,
+    favorites_db_path: Path | None,
     verbose: bool | None,
     serve_ui: bool | None,
 ) -> ServerSettings:
@@ -129,6 +141,7 @@ def apply_runtime_overrides(
         host: Optional host override
         port: Optional port override
         db_path: Optional database path override
+        favorites_db_path: Optional favorites database path override
         verbose: Optional verbose override
         serve_ui: Optional UI routing override
 
@@ -143,6 +156,8 @@ def apply_runtime_overrides(
         result = replace(result, port=port)
     if db_path is not None:
         result = replace(result, db_path=db_path.expanduser())
+    if favorites_db_path is not None:
+        result = replace(result, favorites_db_path=favorites_db_path.expanduser())
     if verbose is not None:
         result = replace(result, verbose=verbose)
     if serve_ui is not None:

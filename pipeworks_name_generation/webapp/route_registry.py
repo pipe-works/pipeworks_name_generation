@@ -12,6 +12,7 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/static/app.css": "get_static_app_css",
     "/static/app.js": "get_static_app_js",
     "/static/api_builder_preview.js": "get_static_api_builder_preview_js",
+    "/static/favorites.js": "get_static_favorites_js",
     "/api/health": "get_health",
     "/api/generation/package-options": "get_generation_package_options",
     "/api/generation/package-syllables": "get_generation_package_syllables",
@@ -19,6 +20,9 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/api/database/packages": "get_database_packages",
     "/api/database/package-tables": "get_database_package_tables",
     "/api/database/table-rows": "get_database_table_rows",
+    "/api/favorites": "get_favorites",
+    "/api/favorites/tags": "get_favorite_tags",
+    "/api/favorites/export": "get_favorites_export",
     "/api/help": "get_help",
     "/favicon.ico": "get_favicon",
 }
@@ -31,6 +35,11 @@ API_GET_ROUTE_METHODS: dict[str, str] = {
 # Map HTTP POST path -> endpoint adapter function name.
 POST_ROUTE_METHODS: dict[str, str] = {
     "/api/import": "post_import",
+    "/api/favorites": "post_favorites",
+    "/api/favorites/update": "post_favorites_update",
+    "/api/favorites/delete": "post_favorites_delete",
+    "/api/favorites/export": "post_favorites_export",
+    "/api/favorites/import": "post_favorites_import",
     "/api/generate": "post_generate",
 }
 

@@ -28,6 +28,12 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", type=str, default=None, help="Override server host.")
     parser.add_argument("--port", type=int, default=None, help="Override server port.")
     parser.add_argument(
+        "--favorites-db",
+        type=Path,
+        default=None,
+        help="Override favorites SQLite database path.",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Disable verbose startup/request logs.",
@@ -57,6 +63,7 @@ def build_settings_from_args(args: argparse.Namespace) -> ServerSettings:
         host=args.host,
         port=args.port,
         db_path=None,
+        favorites_db_path=args.favorites_db,
         verbose=verbose_override,
         serve_ui=serve_ui_override,
     )

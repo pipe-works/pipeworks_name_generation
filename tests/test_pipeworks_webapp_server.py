@@ -117,16 +117,26 @@ class _HandlerHarness:
 
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
+    favorites_schema_ready: bool = False
+    favorites_schema_initialized_paths: set[str] = set()
     get_routes: dict[str, str] = route_registry_module.GET_ROUTE_METHODS
     post_routes: dict[str, str] = route_registry_module.POST_ROUTE_METHODS
 
-    def __init__(self, *, path: str, db_path: Path, body: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        path: str,
+        db_path: Path,
+        body: dict[str, Any] | None = None,
+        favorites_db_path: Path | None = None,
+    ) -> None:
         payload = b""
         if body is not None:
             payload = json.dumps(body).encode("utf-8")
 
         self.path = path
         self.db_path = db_path
+        self.favorites_db_path = favorites_db_path or (db_path.parent / "favorites.sqlite3")
         self.verbose = False
         self.headers = {"Content-Length": str(len(payload))}
         self.rfile = io.BytesIO(payload)
@@ -138,6 +148,9 @@ class _HandlerHarness:
 
         # Bind handler methods directly so route logic executes unchanged.
         self._ensure_schema = WebAppHandler._ensure_schema.__get__(self, WebAppHandler)
+        self._ensure_favorites_schema = WebAppHandler._ensure_favorites_schema.__get__(
+            self, WebAppHandler
+        )
         self._send_text = WebAppHandler._send_text.__get__(self, WebAppHandler)
         self._send_bytes = WebAppHandler._send_bytes.__get__(self, WebAppHandler)
         self._send_json = WebAppHandler._send_json.__get__(self, WebAppHandler)
@@ -335,7 +348,12 @@ def test_api_endpoints_import_and_browse_rows(tmp_path: Path) -> None:
 def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
     """Bound handler class should reflect runtime ``verbose`` and ``db_path``."""
     db_path = tmp_path / "bound.sqlite3"
-    bound = create_handler_class(verbose=False, db_path=db_path, serve_ui=True)
+    bound = create_handler_class(
+        verbose=False,
+        db_path=db_path,
+        favorites_db_path=tmp_path / "favorites.sqlite3",
+        serve_ui=True,
+    )
     assert bound.verbose is False
     assert bound.db_path == db_path
     assert bound.schema_ready is True
@@ -345,7 +363,12 @@ def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
 def test_create_handler_class_api_only_routes(tmp_path: Path) -> None:
     """API-only handler class should omit UI/static route mappings."""
     db_path = tmp_path / "api.sqlite3"
-    bound = create_handler_class(verbose=True, db_path=db_path, serve_ui=False)
+    bound = create_handler_class(
+        verbose=True,
+        db_path=db_path,
+        favorites_db_path=tmp_path / "favorites.sqlite3",
+        serve_ui=False,
+    )
 
     assert "/api/health" in bound.get_routes
     assert "/" not in bound.get_routes
@@ -467,8 +490,10 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-view-post-btn"' in root_html
     assert 'id="api-builder-copy-status"' in root_html
     assert "/static/api_builder_preview.js" in root_html
+    assert "/static/favorites.js" in root_html
     assert 'id="theme-toggle"' in root_html
     assert 'id="panel-help"' in root_html
+    assert 'id="panel-favorites"' in root_html
     assert 'id="api-builder-preview"' in root_html
 
     app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
@@ -490,6 +515,14 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
         preview_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
     )
     assert "window.PipeworksPreview" in preview_js.wfile.getvalue().decode("utf-8")
+
+    favorites_js = _HandlerHarness(path="/static/favorites.js", db_path=db_path)
+    favorites_js.do_GET()
+    assert favorites_js.response_status == 200
+    assert (
+        favorites_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
+    )
+    assert "favoritesState" in favorites_js.wfile.getvalue().decode("utf-8")
 
     font_asset = _HandlerHarness(path="/static/fonts/CrimsonText-Regular.woff2", db_path=db_path)
     font_asset.do_GET()
@@ -515,6 +548,9 @@ def test_route_registry_contains_core_endpoints() -> None:
     assert (
         route_registry_module.GET_ROUTE_METHODS["/static/api_builder_preview.js"]
         == "get_static_api_builder_preview_js"
+    )
+    assert (
+        route_registry_module.GET_ROUTE_METHODS["/static/favorites.js"] == "get_static_favorites_js"
     )
     assert route_registry_module.GET_ROUTE_METHODS["/api/generation/package-options"] == (
         "get_generation_package_options"
@@ -547,6 +583,10 @@ def test_static_text_asset_missing_returns_404(
         path="/static/api_builder_preview.js", db_path=tmp_path / "webapp.sqlite3"
     )
     endpoint_adapters_module.get_static_api_builder_preview_js(handler, {})
+    assert handler.error_status == 404
+
+    handler = _HandlerHarness(path="/static/favorites.js", db_path=tmp_path / "webapp.sqlite3")
+    endpoint_adapters_module.get_static_favorites_js(handler, {})
     assert handler.error_status == 404
 
 
