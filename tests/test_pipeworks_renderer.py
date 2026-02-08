@@ -32,6 +32,7 @@ def test_render_name_styles() -> None:
     assert render_name(name, "upper") == "GOBLIN-FLOWER"
     assert render_name(name, "sentence") == "Goblin-flower"
     assert render_name(name, "title") == "Goblin-Flower"
+    assert render_name("", "sentence") == ""
 
 
 def test_render_names_bulk() -> None:
@@ -42,3 +43,12 @@ def test_render_names_bulk() -> None:
     assert rendered == ["ALFA", "BRIAR"]
     assert names == ["alfa", "briar"]
     assert RENDER_STYLES
+
+
+def test_render_names_raw_returns_copy() -> None:
+    """Raw render should return a new list without modification."""
+    names = ["alfa", "briar"]
+    rendered = render_names(names, None)
+
+    assert rendered == names
+    assert rendered is not names
