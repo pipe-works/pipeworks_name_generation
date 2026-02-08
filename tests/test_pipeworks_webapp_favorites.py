@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+from pipeworks_name_generation.webapp import endpoint_adapters as endpoint_adapters_module
 from pipeworks_name_generation.webapp.db import connect_database
 from pipeworks_name_generation.webapp.favorites import (
     delete_favorite,
@@ -204,6 +206,24 @@ def test_favorites_routes_round_trip(tmp_path: Path) -> None:
     assert missing_handler.status == 404
 
 
+def test_post_favorites_applies_default_gender(tmp_path: Path) -> None:
+    """Post favorites should apply default gender when entry omits it."""
+    db_path = tmp_path / "favorites.sqlite3"
+    entry = _sample_entry("Dara")
+    entry.pop("gender", None)
+    handler = _FavoritesHandlerStub(
+        db_path, body={"entries": [entry], "gender": "female", "tags": []}
+    )
+    favorites_routes.post_favorites(
+        handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert handler.payload
+    assert handler.payload["favorites"][0]["gender"] == "female"
+
+
 def test_favorites_routes_validate_payloads(tmp_path: Path) -> None:
     """Favorites routes should reject invalid payloads."""
     db_path = tmp_path / "favorites.sqlite3"
@@ -245,3 +265,230 @@ def test_favorites_routes_validate_payloads(tmp_path: Path) -> None:
         insert_favorites=insert_favorites,
     )
     assert gender_handler.status == 400
+
+    tag_handler = _FavoritesHandlerStub(
+        db_path, body={"entries": [_sample_entry("Eve")], "tags": {"bad": "data"}}
+    )
+    favorites_routes.post_favorites(
+        tag_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert tag_handler.status == 400
+
+    type_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [_sample_entry("Eve")], "gender": ["list"]},
+    )
+    favorites_routes.post_favorites(
+        type_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert type_handler.status == 400
+
+    bad_entry_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": ["not-a-dict"]},
+    )
+    favorites_routes.post_favorites(
+        bad_entry_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert bad_entry_handler.status == 400
+
+    missing_name_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [{"source": "x"}]},
+    )
+    favorites_routes.post_favorites(
+        missing_name_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert missing_name_handler.status == 400
+
+    missing_source_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [{"name": "Alma"}]},
+    )
+    favorites_routes.post_favorites(
+        missing_source_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert missing_source_handler.status == 400
+
+    bad_meta_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [{"name": "Alma", "source": "x", "metadata": "bad"}]},
+    )
+    favorites_routes.post_favorites(
+        bad_meta_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert bad_meta_handler.status == 400
+
+    bad_id_handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [{"name": "Alma", "source": "x", "package_id": "bad"}]},
+    )
+    favorites_routes.post_favorites(
+        bad_id_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert bad_id_handler.status == 400
+
+
+def test_favorites_schema_migration_adds_gender(tmp_path: Path) -> None:
+    """Schema initializer should add missing gender column on legacy tables."""
+    db_path = tmp_path / "legacy.sqlite3"
+    conn = sqlite3.connect(db_path)
+    conn.executescript("""
+        CREATE TABLE favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            name_class TEXT,
+            package_id INTEGER,
+            package_name TEXT,
+            syllable_key TEXT,
+            render_style TEXT,
+            output_format TEXT,
+            seed INTEGER,
+            source TEXT NOT NULL,
+            note_md TEXT,
+            metadata_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE
+        );
+        CREATE TABLE favorite_tags (
+            favorite_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            FOREIGN KEY(favorite_id) REFERENCES favorites(id) ON DELETE CASCADE,
+            FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(favorite_id, tag_id)
+        );
+        """)
+    conn.commit()
+    conn.close()
+
+    with connect_database(db_path) as conn:
+        initialize_favorites_schema(conn)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(favorites)").fetchall()}
+        assert "gender" in columns
+
+
+def test_favorites_repository_filters_and_metadata(tmp_path: Path) -> None:
+    """Repository helpers should filter and handle malformed metadata."""
+    db_path = tmp_path / "favorites.sqlite3"
+    with connect_database(db_path) as conn:
+        initialize_favorites_schema(conn)
+        insert_favorites(
+            conn,
+            [
+                {**_sample_entry("Alma"), "tags": ["alpha"]},
+                {**_sample_entry("Bryn"), "tags": ["beta"]},
+            ],
+        )
+        conn.execute(
+            """
+            INSERT INTO favorites (
+                name, name_class, package_id, package_name, syllable_key,
+                render_style, output_format, seed, gender, source, note_md,
+                metadata_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Corin",
+                "first_name",
+                12,
+                "Goblin Flower",
+                "2syl",
+                "title",
+                "json",
+                101,
+                "female",
+                "preview",
+                None,
+                "not-json",
+                "2024-01-01T00:00:00+00:00",
+            ),
+        )
+        conn.commit()
+
+        filtered, total = list_favorites(conn, limit=10, offset=0, tag="alpha")
+        assert total >= 1
+        assert any(entry["name"] == "Alma" for entry in filtered)
+
+        searched, _ = list_favorites(conn, limit=10, offset=0, name_query="Bryn")
+        assert searched and searched[0]["name"] == "Bryn"
+
+        all_rows, _ = list_favorites(conn, limit=20, offset=0)
+        malformed = [entry for entry in all_rows if entry["name"] == "Corin"]
+        assert malformed
+        assert malformed[0]["metadata"] == {}
+
+
+def test_update_favorite_missing_returns_none(tmp_path: Path) -> None:
+    """Updating a missing favorite should return None."""
+    db_path = tmp_path / "favorites.sqlite3"
+    with connect_database(db_path) as conn:
+        initialize_favorites_schema(conn)
+        result = update_favorite(conn, favorite_id=9999, note_md=None, gender=None, tags=[])
+        assert result is None
+
+
+def test_endpoint_adapters_favorites_round_trip(tmp_path: Path) -> None:
+    """Endpoint adapters should delegate favorites requests."""
+    db_path = tmp_path / "favorites.sqlite3"
+    handler = _FavoritesHandlerStub(
+        db_path,
+        body={"entries": [_sample_entry("Dara")], "tags": ["seed"], "gender": "female"},
+    )
+    endpoint_adapters_module.post_favorites(handler)
+    assert handler.payload and handler.payload["count"] == 1
+    favorite_id = handler.payload["favorites"][0]["id"]
+
+    query_handler = _FavoritesHandlerStub(db_path)
+    endpoint_adapters_module.get_favorites(query_handler, {})
+    assert query_handler.payload and query_handler.payload["total"] >= 1
+
+    tags_handler = _FavoritesHandlerStub(db_path)
+    endpoint_adapters_module.get_favorite_tags(tags_handler, {})
+    assert tags_handler.payload and "seed" in tags_handler.payload["tags"]
+
+    update_handler = _FavoritesHandlerStub(
+        db_path, body={"favorite_id": favorite_id, "tags": ["seed"], "note_md": "x"}
+    )
+    endpoint_adapters_module.post_favorites_update(update_handler)
+    assert update_handler.payload and update_handler.payload["favorite"]["note_md"] == "x"
+
+    export_handler = _FavoritesHandlerStub(db_path)
+    endpoint_adapters_module.get_favorites_export(export_handler, {})
+    assert export_handler.payload and export_handler.payload["favorites"]
+
+    export_path = tmp_path / "favorites_export.json"
+    write_handler = _FavoritesHandlerStub(db_path, body={"output_path": str(export_path)})
+    endpoint_adapters_module.post_favorites_export(write_handler)
+    assert export_path.exists()
+
+    import_handler = _FavoritesHandlerStub(db_path, body={"import_path": str(export_path)})
+    endpoint_adapters_module.post_favorites_import(import_handler)
+    assert import_handler.payload and import_handler.payload["count"] >= 1
+
+    delete_handler = _FavoritesHandlerStub(db_path, body={"favorite_id": favorite_id})
+    endpoint_adapters_module.post_favorites_delete(delete_handler)
+    assert delete_handler.payload == {"deleted": True}

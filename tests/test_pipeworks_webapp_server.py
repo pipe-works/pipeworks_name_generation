@@ -375,6 +375,22 @@ def test_create_handler_class_api_only_routes(tmp_path: Path) -> None:
     assert bound.post_routes == route_registry_module.POST_ROUTE_METHODS
 
 
+def test_handler_favorites_schema_guard(tmp_path: Path) -> None:
+    """Handler should initialize favorites schema once per DB path."""
+    db_path = tmp_path / "db.sqlite3"
+    favorites_path = tmp_path / "favorites.sqlite3"
+    handler = _HandlerHarness(
+        path="/api/health",
+        db_path=db_path,
+        favorites_db_path=favorites_path,
+    )
+    with _connect_database(favorites_path) as conn:
+        handler._ensure_favorites_schema(conn)
+        assert handler.favorites_schema_ready is True
+        handler._ensure_favorites_schema(conn)
+        assert handler.favorites_schema_ready is True
+
+
 def test_generation_package_options_endpoint_without_imports(tmp_path: Path) -> None:
     """Generation options endpoint should return empty package lists before imports."""
     db_path = tmp_path / "db.sqlite3"
