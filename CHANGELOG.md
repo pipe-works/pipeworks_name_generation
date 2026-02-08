@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.18](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.17...pipeworks-name-generation-v0.5.18) (2026-02-08)
+
+
+### Features
+
+* add favorites database and UI ([549e672](https://github.com/pipe-works/pipeworks_name_generation/commit/549e672a34182de645498f32de1d30255a3b121d))
+* add favorites database and UI ([f2be011](https://github.com/pipe-works/pipeworks_name_generation/commit/f2be01163fbbd40ac5999a895c85188d9844b1bd))
+* improve api builder previews and fonts ([5e800a1](https://github.com/pipe-works/pipeworks_name_generation/commit/5e800a164984ac8214877615045bf992d86cd14f))
+* improve api builder previews and fonts ([9d23e56](https://github.com/pipe-works/pipeworks_name_generation/commit/9d23e56ad0e4d448a2fde2aa9355cbc8b3986b80))
+* **webapp:** add api builder curl/post tools ([9194fae](https://github.com/pipe-works/pipeworks_name_generation/commit/9194fae23e8fded3a6382196329cb54e82fc1b42))
+* **webapp:** add api builder curl/post tools ([faccf9e](https://github.com/pipe-works/pipeworks_name_generation/commit/faccf9e6695dadedfaaec199cc99f2f1da110ff0))
+* **webapp:** add light theme toggle ([f239d0a](https://github.com/pipe-works/pipeworks_name_generation/commit/f239d0a295c8ed85a62c0bf0efd9479341352359))
+
+
+### Fixes
+
+* add favorites_db to CLI test args ([998258b](https://github.com/pipe-works/pipeworks_name_generation/commit/998258b7236395eebf14cc22e8d0f1825c95ae70))
+
 ## [0.5.17](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.16...pipeworks-name-generation-v0.5.17) (2026-02-08)
 
 
