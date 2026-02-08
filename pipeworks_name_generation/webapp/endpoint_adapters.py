@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from pipeworks_name_generation.renderer import render_names
 from pipeworks_name_generation.webapp.constants import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from pipeworks_name_generation.webapp.db import (
     connect_database as _connect_database,
@@ -33,6 +34,7 @@ from pipeworks_name_generation.webapp.generation import (
     _coerce_generation_count,
     _coerce_optional_seed,
     _coerce_output_format,
+    _coerce_render_style,
     _collect_generation_source_values,
     _get_generation_selection_stats,
     _list_generation_syllable_options,
@@ -175,10 +177,12 @@ def post_generate(handler: Any) -> None:
         coerce_optional_seed=_coerce_optional_seed,
         coerce_bool=_coerce_bool,
         coerce_output_format=_coerce_output_format,
+        coerce_render_style=_coerce_render_style,
         connect_database=_connect_database,
         initialize_schema=handler._ensure_schema,
         collect_generation_source_values=_collect_generation_source_values,
         sample_generation_values=_sample_generation_values,
+        render_values=render_names,
     )
 
 

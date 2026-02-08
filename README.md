@@ -94,6 +94,12 @@ cp server.example.ini server.ini
 
 # Start the web app (port auto-selected in the 8000-8999 range unless configured)
 python -m pipeworks_name_generation.webapp.server --config server.ini
+
+# API-only mode (no UI/static assets)
+python -m pipeworks_name_generation.webapp.api --config server.ini
+
+# API-only mode via flag (same behavior as the dedicated entrypoint)
+python -m pipeworks_name_generation.webapp.server --config server.ini --api-only
 ```
 
 Open the URL printed in the console (default host `127.0.0.1`).
@@ -103,6 +109,7 @@ Open the URL printed in the console (default host `127.0.0.1`).
 - **Import**: Load a metadata JSON + ZIP pair, then persist `*.txt` selections into SQLite tables.
 - **Database View**: Browse imported packages and paginated table rows.
 - **Generation**: Select a name class + package + syllable mode, then generate names via the API builder.
+  Optional `render_style` values: `raw`, `lower`, `upper`, `title`, `sentence`.
 
 ---
 
@@ -241,7 +248,10 @@ available at **[pipeworks-name-generation.readthedocs.io](https://pipeworks-name
 
 ```bash
 cp server.example.ini server.ini
-python -m pipeworks_name_generation.webapp --config server.ini
+python -m pipeworks_name_generation.webapp.server --config server.ini
+
+# API-only mode (no UI/static assets)
+python -m pipeworks_name_generation.webapp.api --config server.ini
 ```
 
 ### Tests

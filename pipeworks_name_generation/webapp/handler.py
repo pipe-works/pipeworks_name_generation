@@ -34,6 +34,9 @@ class WebAppHandler(BaseHTTPRequestHandler):
     db_path: Path = Path("pipeworks_name_generation/data/name_packages.sqlite3")
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
+    # Route maps are class attributes so API-only mode can swap them at startup.
+    get_routes: dict[str, str] = GET_ROUTE_METHODS
+    post_routes: dict[str, str] = POST_ROUTE_METHODS
 
     def _ensure_schema(self, conn: Any) -> None:
         """Initialize schema once per handler class and DB path.
@@ -73,7 +76,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         route = parsed.path
         query = parse_qs(parsed.query)
-        method_name = GET_ROUTE_METHODS.get(route)
+        method_name = type(self).get_routes.get(route)
         if method_name is None:
             self.send_error(404, "Not Found")
             return
@@ -84,7 +87,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         """Handle all supported ``POST`` routes."""
         route = urlsplit(self.path).path
-        method_name = POST_ROUTE_METHODS.get(route)
+        method_name = type(self).post_routes.get(route)
         if method_name is None:
             self.send_error(404, "Not Found")
             return

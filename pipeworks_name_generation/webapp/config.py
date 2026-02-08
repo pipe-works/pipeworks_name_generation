@@ -24,12 +24,14 @@ class ServerSettings:
         port: Optional explicit port. ``None`` means auto-select.
         db_path: SQLite database file path
         verbose: Print startup/runtime messages when True
+        serve_ui: When ``True``, serve UI/static routes in addition to the API.
     """
 
     host: str = DEFAULT_HOST
     port: int | None = None
     db_path: Path = DEFAULT_DB_PATH
     verbose: bool = True
+    serve_ui: bool = True
 
 
 def _coerce_port(raw_port: str | None) -> int | None:
@@ -66,7 +68,9 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
     """Load server settings from an INI file.
 
     The parser reads a ``[server]`` section with the following optional keys:
-    ``host``, ``port``, ``db_path``, and ``verbose``.
+    ``host``, ``port``, ``db_path``, ``verbose``, and ``serve_ui``. An optional
+    ``api_only`` flag can be used to force API-only mode and overrides
+    ``serve_ui`` when set.
 
     Args:
         config_path: Path to INI file. If missing/None, defaults are used.
@@ -95,8 +99,19 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
     db_path = Path(db_path_raw).expanduser() if db_path_raw else settings.db_path
 
     verbose = parser.getboolean("server", "verbose", fallback=settings.verbose)
+    serve_ui = parser.getboolean("server", "serve_ui", fallback=settings.serve_ui)
+    api_only = parser.getboolean("server", "api_only", fallback=False)
 
-    return ServerSettings(host=host, port=port, db_path=db_path, verbose=verbose)
+    if api_only:
+        serve_ui = False
+
+    return ServerSettings(
+        host=host,
+        port=port,
+        db_path=db_path,
+        verbose=verbose,
+        serve_ui=serve_ui,
+    )
 
 
 def apply_runtime_overrides(
@@ -105,6 +120,7 @@ def apply_runtime_overrides(
     port: int | None,
     db_path: Path | None,
     verbose: bool | None,
+    serve_ui: bool | None,
 ) -> ServerSettings:
     """Apply command-line overrides over loaded settings.
 
@@ -114,6 +130,7 @@ def apply_runtime_overrides(
         port: Optional port override
         db_path: Optional database path override
         verbose: Optional verbose override
+        serve_ui: Optional UI routing override
 
     Returns:
         Updated settings with overrides applied
@@ -128,5 +145,7 @@ def apply_runtime_overrides(
         result = replace(result, db_path=db_path.expanduser())
     if verbose is not None:
         result = replace(result, verbose=verbose)
+    if serve_ui is not None:
+        result = replace(result, serve_ui=serve_ui)
 
     return result

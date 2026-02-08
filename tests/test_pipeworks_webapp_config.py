@@ -42,6 +42,7 @@ def test_load_server_settings_defaults_when_file_missing(tmp_path: Path) -> None
     assert settings.port is None
     assert settings.db_path == DEFAULT_DB_PATH
     assert settings.verbose is True
+    assert settings.serve_ui is True
 
 
 def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
@@ -55,6 +56,7 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
                 "port = 8111",
                 "db_path = ~/pipeworks/test.sqlite3",
                 "verbose = false",
+                "serve_ui = false",
             ]
         ),
         encoding="utf-8",
@@ -65,6 +67,25 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
     assert settings.port == 8111
     assert settings.db_path == Path("~/pipeworks/test.sqlite3").expanduser()
     assert settings.verbose is False
+    assert settings.serve_ui is False
+
+
+def test_load_server_settings_api_only_overrides_serve_ui(tmp_path: Path) -> None:
+    """``api_only`` should force UI serving to be disabled."""
+    ini_path = tmp_path / "server.ini"
+    ini_path.write_text(
+        "\n".join(
+            [
+                "[server]",
+                "serve_ui = true",
+                "api_only = true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = load_server_settings(ini_path)
+    assert settings.serve_ui is False
 
 
 def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path) -> None:
@@ -90,12 +111,14 @@ def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None
         port=8123,
         db_path=db_override,
         verbose=False,
+        serve_ui=False,
     )
 
     assert updated.host == "127.0.0.2"
     assert updated.port == 8123
     assert updated.db_path == db_override
     assert updated.verbose is False
+    assert updated.serve_ui is False
 
 
 def test_apply_runtime_overrides_keeps_defaults_when_none() -> None:
@@ -108,6 +131,7 @@ def test_apply_runtime_overrides_keeps_defaults_when_none() -> None:
         port=None,
         db_path=None,
         verbose=None,
+        serve_ui=None,
     )
 
     assert updated == base

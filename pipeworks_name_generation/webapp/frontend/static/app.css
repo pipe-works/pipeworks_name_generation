@@ -227,9 +227,31 @@
       gap: 0.45rem;
       margin-top: 0.45rem;
       margin-bottom: 0.45rem;
+      flex-wrap: wrap;
     }
     .api-builder-checkbox-row input[type="checkbox"] {
       width: auto;
+      margin: 0;
+    }
+    .api-builder-render-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-left: 0.35rem;
+    }
+    .api-builder-render-options {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .api-builder-render-option {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .api-builder-render-option input[type="checkbox"] {
       margin: 0;
     }
     #api-builder-param-summary {

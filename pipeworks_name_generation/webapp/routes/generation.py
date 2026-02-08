@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, Sequence
 
 
 class _GenerationHandler(Protocol):
@@ -138,10 +138,12 @@ def post_generate(
     coerce_optional_seed: Callable[[Any], int | None],
     coerce_bool: Callable[[Any], bool],
     coerce_output_format: Callable[[Any], str],
+    coerce_render_style: Callable[[Any], str],
     connect_database: Callable[..., Any],
     initialize_schema: Callable[..., None],
     collect_generation_source_values: Callable[..., list[str]],
     sample_generation_values: Callable[..., list[str]],
+    render_values: Callable[[Sequence[str], str], list[str]],
 ) -> None:
     """Generate names from SQLite tables for one selected class scope."""
     try:
@@ -177,6 +179,7 @@ def post_generate(
         seed = coerce_optional_seed(payload.get("seed"))
         unique_only = coerce_bool(payload.get("unique_only", False))
         output_format = coerce_output_format(payload.get("output_format", "json"))
+        render_style = coerce_render_style(payload.get("render_style"))
 
         with connect_database(handler.db_path) as conn:
             initialize_schema(conn)
@@ -192,6 +195,7 @@ def post_generate(
             seed=seed,
             unique_only=unique_only,
         )
+        rendered_names = render_values(names, render_style)
     except ValueError as exc:
         handler._send_json({"error": str(exc)}, status=400)
         return
@@ -208,12 +212,15 @@ def post_generate(
         "generation_count": generation_count,
         "unique_only": unique_only,
         "output_format": output_format,
-        "names": names,
+        "render_style": render_style,
+        "names": rendered_names,
     }
+    if render_style != "raw":
+        response["raw_names"] = names
     if seed is not None:
         response["seed"] = seed
     if output_format == "txt":
-        response["text"] = "\n".join(names)
+        response["text"] = "\n".join(rendered_names)
     handler._send_json(response)
 
 

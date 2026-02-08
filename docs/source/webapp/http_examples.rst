@@ -163,7 +163,8 @@ Request:
      "generation_count": 5,
      "seed": 42,
      "unique_only": true,
-     "output_format": "json"
+     "output_format": "json",
+     "render_style": "title"
    }
 
 Success response:
@@ -179,13 +180,21 @@ Success response:
      "generation_count": 5,
      "unique_only": true,
      "output_format": "json",
+     "render_style": "title",
      "seed": 42,
-     "names": [
+     "raw_names": [
        "alfa",
        "briar",
        "cinder",
        "dara",
        "elra"
+     ],
+     "names": [
+       "Alfa",
+       "Briar",
+       "Cinder",
+       "Dara",
+       "Elra"
      ]
    }
 

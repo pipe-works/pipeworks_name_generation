@@ -21,10 +21,28 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/favicon.ico": "get_favicon",
 }
 
+# API-only route map (no UI or static asset endpoints).
+API_GET_ROUTE_METHODS: dict[str, str] = {
+    route: handler for route, handler in GET_ROUTE_METHODS.items() if route.startswith("/api/")
+}
+
 # Map HTTP POST path -> endpoint adapter function name.
 POST_ROUTE_METHODS: dict[str, str] = {
     "/api/import": "post_import",
     "/api/generate": "post_generate",
 }
 
-__all__ = ["GET_ROUTE_METHODS", "POST_ROUTE_METHODS"]
+
+def select_route_maps(serve_ui: bool) -> tuple[dict[str, str], dict[str, str]]:
+    """Return the GET/POST route maps for the chosen server mode."""
+    if serve_ui:
+        return GET_ROUTE_METHODS, POST_ROUTE_METHODS
+    return API_GET_ROUTE_METHODS, POST_ROUTE_METHODS
+
+
+__all__ = [
+    "GET_ROUTE_METHODS",
+    "API_GET_ROUTE_METHODS",
+    "POST_ROUTE_METHODS",
+    "select_route_maps",
+]

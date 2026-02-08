@@ -58,6 +58,7 @@ from pipeworks_name_generation.webapp.generation import (
     _coerce_generation_count,
     _coerce_optional_seed,
     _coerce_output_format,
+    _coerce_render_style,
     _collect_generation_source_values,
     _extract_syllable_option_from_source_txt_name,
     _get_generation_selection_stats,
@@ -115,6 +116,8 @@ class _HandlerHarness:
 
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
+    get_routes: dict[str, str] = route_registry_module.GET_ROUTE_METHODS
+    post_routes: dict[str, str] = route_registry_module.POST_ROUTE_METHODS
 
     def __init__(self, *, path: str, db_path: Path, body: dict[str, Any] | None = None) -> None:
         payload = b""
@@ -330,11 +333,21 @@ def test_api_endpoints_import_and_browse_rows(tmp_path: Path) -> None:
 def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
     """Bound handler class should reflect runtime ``verbose`` and ``db_path``."""
     db_path = tmp_path / "bound.sqlite3"
-    bound = create_handler_class(verbose=False, db_path=db_path)
+    bound = create_handler_class(verbose=False, db_path=db_path, serve_ui=True)
     assert bound.verbose is False
     assert bound.db_path == db_path
     assert bound.schema_ready is True
     assert str(db_path.resolve()) in bound.schema_initialized_paths
+
+
+def test_create_handler_class_api_only_routes(tmp_path: Path) -> None:
+    """API-only handler class should omit UI/static route mappings."""
+    db_path = tmp_path / "api.sqlite3"
+    bound = create_handler_class(verbose=True, db_path=db_path, serve_ui=False)
+
+    assert "/api/health" in bound.get_routes
+    assert "/" not in bound.get_routes
+    assert bound.post_routes == route_registry_module.POST_ROUTE_METHODS
 
 
 def test_generation_package_options_endpoint_without_imports(tmp_path: Path) -> None:
@@ -432,6 +445,11 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-param-seed"' in root_html
     assert 'id="api-builder-param-format"' in root_html
     assert 'id="api-builder-param-unique"' in root_html
+    assert 'id="api-builder-render-raw"' in root_html
+    assert 'id="api-builder-render-lower"' in root_html
+    assert 'id="api-builder-render-upper"' in root_html
+    assert 'id="api-builder-render-title"' in root_html
+    assert 'id="api-builder-render-sentence"' in root_html
     assert 'id="api-builder-param-summary"' in root_html
     assert 'id="api-builder-generate-preview-btn"' in root_html
     assert 'id="api-builder-inline-preview"' in root_html
@@ -469,6 +487,8 @@ def test_route_registry_contains_core_endpoints() -> None:
     )
     assert route_registry_module.POST_ROUTE_METHODS["/api/import"] == "post_import"
     assert route_registry_module.POST_ROUTE_METHODS["/api/generate"] == "post_generate"
+    assert "/api/health" in route_registry_module.API_GET_ROUTE_METHODS
+    assert "/" not in route_registry_module.API_GET_ROUTE_METHODS
 
 
 def test_schema_initialized_once_per_handler_class(tmp_path: Path) -> None:
@@ -675,6 +695,46 @@ def test_post_generate_and_unknown_routes(tmp_path: Path) -> None:
     unknown = _HandlerHarness(path="/api/nope", db_path=db_path, body={})
     unknown.do_POST()
     assert unknown.error_status == 404
+
+
+def test_generate_route_applies_render_style(tmp_path: Path) -> None:
+    """Render styles should post-process names without changing sampling rules."""
+    db_path = tmp_path / "db.sqlite3"
+    metadata_path, zip_path = _build_sample_package_pair(tmp_path)
+
+    importer = _HandlerHarness(
+        path="/api/import",
+        db_path=db_path,
+        body={
+            "metadata_json_path": str(metadata_path),
+            "package_zip_path": str(zip_path),
+        },
+    )
+    importer.do_POST()
+    package_id = int(importer.json_body()["package_id"])
+
+    gen = _HandlerHarness(
+        path="/api/generate",
+        db_path=db_path,
+        body={
+            "class_key": "first_name",
+            "package_id": package_id,
+            "syllable_key": "2syl",
+            "generation_count": 2,
+            "unique_only": True,
+            "seed": 3,
+            "render_style": "upper",
+            "output_format": "txt",
+        },
+    )
+    gen.do_POST()
+    payload = gen.json_body()
+
+    assert gen.response_status == 200
+    assert payload["render_style"] == "upper"
+    assert payload["raw_names"]
+    assert payload["names"] == [name.upper() for name in payload["raw_names"]]
+    assert payload["text"] == "\n".join(payload["names"])
 
 
 def test_handle_import_validation_and_exception_paths(
@@ -1129,6 +1189,11 @@ def test_generation_payload_coercion_helpers_cover_bounds_and_invalids() -> None
     with pytest.raises(ValueError, match="output_format"):
         _coerce_output_format("xml")
 
+    assert _coerce_render_style(None) == "raw"
+    assert _coerce_render_style("UPPER") == "upper"
+    with pytest.raises(ValueError, match="render_style"):
+        _coerce_render_style("sparkle")
+
 
 def test_generation_source_collection_and_sampling_helper_paths(tmp_path: Path) -> None:
     """Generation helpers should cover no-candidate and sampling edge branches."""
@@ -1284,10 +1349,11 @@ def test_server_start_run_and_main_paths(
     assert "Serving Pipeworks Name Generator UI" in capsys.readouterr().out
 
     parser = create_argument_parser()
-    args = parser.parse_args(["--host", "0.0.0.0", "--port", "8999", "--quiet"])
+    args = parser.parse_args(["--host", "0.0.0.0", "--port", "8999", "--quiet", "--api-only"])
     assert args.host == "0.0.0.0"
     assert args.port == 8999
     assert args.quiet is True
+    assert args.api_only is True
 
     parsed = parse_arguments(["--config", "server.ini"])
     assert str(parsed.config).endswith("server.ini")
@@ -1297,12 +1363,19 @@ def test_server_start_run_and_main_paths(
     namespace = type(
         "Args",
         (),
-        {"config": str(ini), "host": "0.0.0.0", "port": 8012, "quiet": True},
+        {
+            "config": str(ini),
+            "host": "0.0.0.0",
+            "port": 8012,
+            "quiet": True,
+            "api_only": True,
+        },
     )()
     built = build_settings_from_args(namespace)
     assert built.host == "0.0.0.0"
     assert built.port == 8012
     assert built.verbose is False
+    assert built.serve_ui is False
 
     monkeypatch.setattr(server_module, "parse_arguments", lambda _argv=None: namespace)
     monkeypatch.setattr(server_module, "build_settings_from_args", lambda _args: settings)
