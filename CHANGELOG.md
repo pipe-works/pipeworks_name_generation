@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.16](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.15...pipeworks-name-generation-v0.5.16) (2026-02-08)
+
+
+### Features
+
+* **tui:** add packager metadata workflow ([27c86f6](https://github.com/pipe-works/pipeworks_name_generation/commit/27c86f673773a4b96d7fed20709ab1cc3953f79e))
+* **tui:** packager metadata workflow ([b2d2f75](https://github.com/pipe-works/pipeworks_name_generation/commit/b2d2f7512eed66c6a99ca26b2a527a95a00efd4e))
+* **webapp:** add collapsible generation cards and combined unique totals ([58cfa5a](https://github.com/pipe-works/pipeworks_name_generation/commit/58cfa5a791ba9f5a9fbe06b44dbf5c495c80ad8f))
+* **webapp:** add end-user package import UI and API ([1f90134](https://github.com/pipe-works/pipeworks_name_generation/commit/1f90134e518cff55b7c5f2416bc6d2a5e139b7b1))
+* **webapp:** expand API builder previews and parameter docs ([7326f39](https://github.com/pipe-works/pipeworks_name_generation/commit/7326f39932a6394ca925ee4aaa376d12ff9b59b7))
+* **webapp:** extend API Builder query composition and previews ([ff41f0b](https://github.com/pipe-works/pipeworks_name_generation/commit/ff41f0b503830c961a64c2572772d65862650870))
+* **webapp:** improve generation cards and API builder feedback ([6150778](https://github.com/pipe-works/pipeworks_name_generation/commit/6150778117a90aa98bfe17803b22d890fa723f97))
+* **webapp:** make generate endpoint sqlite-backed and add builder clear ([263bb53](https://github.com/pipe-works/pipeworks_name_generation/commit/263bb5305106ca7eeb1f467a974f20db467340a3))
+* **webapp:** rebuild minimal API UI with sqlite import flow ([b63c5c1](https://github.com/pipe-works/pipeworks_name_generation/commit/b63c5c1d90ab49d6beb5cbf3c0df886015d44550))
+* **webapp:** rebuild minimal API UI with sqlite import flow ([33b797a](https://github.com/pipe-works/pipeworks_name_generation/commit/33b797ac60d66fd9fcdebcaeca8e3aa446037cf5))
+* **webapp:** switch generate API to sqlite mode and add builder clear ([c86314e](https://github.com/pipe-works/pipeworks_name_generation/commit/c86314e3e49805f27b305d195c4393c5539de665))
+
 ## [0.5.15](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.14...pipeworks-name-generation-v0.5.15) (2026-02-07)
 
 
