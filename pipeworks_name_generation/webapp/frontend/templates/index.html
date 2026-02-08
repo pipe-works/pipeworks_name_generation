@@ -17,6 +17,7 @@
         <button type="button" class="tab active" data-tab="generation">Generation</button>
         <button type="button" class="tab" data-tab="database">Database View</button>
         <button type="button" class="tab" data-tab="import">Import</button>
+        <button type="button" class="tab" data-tab="favorites">Favorites</button>
         <button type="button" class="tab" data-tab="help">Help</button>
       </div>
 
@@ -200,15 +201,26 @@
                   <section class="api-builder-inline-preview-card">
                     <div class="api-builder-preview-header">
                       <h5>Generated Names Preview</h5>
-                      <button
-                        type="button"
-                        id="api-builder-inline-copy-btn"
-                        class="api-builder-preview-copy-btn"
-                        title="Copy generated names"
-                      >
-                        <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                        <span>Copy</span>
-                      </button>
+                      <div class="api-builder-preview-actions">
+                        <button
+                          type="button"
+                          id="api-builder-inline-fav-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Favorite all generated names"
+                        >
+                          <span class="favorite-icon" aria-hidden="true"></span>
+                          <span>Favorite All</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="api-builder-inline-copy-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Copy generated names"
+                        >
+                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                          <span>Copy</span>
+                        </button>
+                      </div>
                     </div>
                     <div id="api-builder-inline-preview" class="api-builder-preview-list muted">
                       No preview generated yet.
@@ -217,15 +229,26 @@
                   <section class="api-builder-inline-preview-card">
                     <div class="api-builder-preview-header">
                       <h5>First + Last Combinations</h5>
-                      <button
-                        type="button"
-                        id="api-builder-combo-copy-btn"
-                        class="api-builder-preview-copy-btn"
-                        title="Copy combinations"
-                      >
-                        <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                        <span>Copy</span>
-                      </button>
+                      <div class="api-builder-preview-actions">
+                        <button
+                          type="button"
+                          id="api-builder-combo-fav-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Favorite all combinations"
+                        >
+                          <span class="favorite-icon" aria-hidden="true"></span>
+                          <span>Favorite All</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="api-builder-combo-copy-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Copy combinations"
+                        >
+                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                          <span>Copy</span>
+                        </button>
+                      </div>
                     </div>
                     <div id="api-builder-combo-preview" class="api-builder-preview-list muted">
                       No combination preview generated yet.
@@ -235,8 +258,18 @@
                 <hr class="section-divider" />
                 <section class="api-builder-live-preview">
                   <div class="api-builder-live-header">
-                    <h5>Live Preview</h5>
-                    <p class="muted">Click a name above to focus it here.</p>
+                    <div>
+                      <h5>Live Preview</h5>
+                      <p class="muted">Click a name above to focus it here.</p>
+                    </div>
+                    <button
+                      type="button"
+                      id="api-builder-live-fav-btn"
+                      class="api-builder-preview-copy-btn"
+                    >
+                      <span class="favorite-icon" aria-hidden="true"></span>
+                      <span>Favorite</span>
+                    </button>
                   </div>
                   <div class="api-builder-live-controls">
                     <div class="api-builder-live-control">
@@ -364,6 +397,69 @@
         <p id="import-status" class="muted">Waiting for input.</p>
       </section>
 
+      <section class="panel" id="panel-favorites">
+        <div class="favorites-toolbar">
+          <div class="row-buttons">
+            <button type="button" id="favorites-refresh-btn">Refresh Favorites</button>
+            <button type="button" id="favorites-export-btn">Export JSON</button>
+          </div>
+          <div class="grid favorites-path-grid">
+            <label for="favorites-export-path">Backup Path</label>
+            <input id="favorites-export-path" type="text" placeholder="/path/to/favorites_backup.json" />
+          </div>
+          <div class="row-buttons">
+            <button type="button" id="favorites-backup-btn">Write Backup</button>
+          </div>
+        </div>
+
+        <div class="favorites-import-row">
+          <div class="grid favorites-path-grid">
+            <label for="favorites-import-path">Import JSON Path</label>
+            <input id="favorites-import-path" type="text" placeholder="/path/to/favorites_export.json" />
+          </div>
+          <div class="row-buttons">
+            <button type="button" id="favorites-import-btn">Import Favorites</button>
+          </div>
+        </div>
+
+        <div class="favorites-filters">
+          <div class="grid">
+            <label for="favorites-search">Search</label>
+            <input id="favorites-search" type="text" placeholder="Search names or notes" />
+          </div>
+          <div class="grid">
+            <label for="favorites-tag-filter">Tag</label>
+            <select id="favorites-tag-filter"></select>
+          </div>
+        </div>
+
+        <p id="favorites-status" class="muted">Load favorites to begin browsing.</p>
+
+        <div class="favorites-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Class</th>
+                <th>Gender</th>
+                <th>Package</th>
+                <th>Tags</th>
+                <th>Note</th>
+                <th>Added</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="favorites-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="row-buttons favorites-pagination">
+          <button type="button" id="favorites-prev-btn">Previous</button>
+          <button type="button" id="favorites-next-btn">Next</button>
+          <span id="favorites-page-status" class="muted">Rows 0-0</span>
+        </div>
+      </section>
+
       <section class="panel" id="panel-help">
         <h2>Help</h2>
         <p class="muted" id="help-status">Loading help content...</p>
@@ -372,7 +468,43 @@
     </div>
   </div>
 
+  <div id="favorites-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="favorites-modal-title">
+      <div class="modal-header">
+        <h3 id="favorites-modal-title">Save Favorites</h3>
+        <button type="button" id="favorites-modal-close" class="icon-btn" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <p id="favorites-modal-summary" class="muted">No selections queued.</p>
+      <div id="favorites-modal-names" class="favorites-modal-names"></div>
+      <div class="grid">
+        <label for="favorites-modal-gender">Gender (optional)</label>
+        <select id="favorites-modal-gender">
+          <option value="">Unspecified</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+      <div class="grid">
+        <label for="favorites-modal-tags">Tags (comma-separated)</label>
+        <input id="favorites-modal-tags" type="text" placeholder="goblin, latin, flora" />
+      </div>
+      <div class="grid">
+        <label for="favorites-modal-note">Note (Markdown)</label>
+        <textarea id="favorites-modal-note" rows="4" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="row-buttons modal-actions">
+        <button type="button" id="favorites-modal-cancel">Cancel</button>
+        <button type="button" id="favorites-modal-save">Save Favorites</button>
+      </div>
+      <input id="favorites-modal-id" type="hidden" />
+    </div>
+  </div>
+
     <script src="/static/app.js"></script>
     <script src="/static/api_builder_preview.js"></script>
+    <script src="/static/favorites.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ import pytest
 
 from pipeworks_name_generation.webapp.config import (
     DEFAULT_DB_PATH,
+    DEFAULT_FAVORITES_DB_PATH,
     DEFAULT_HOST,
     ServerSettings,
     _coerce_port,
@@ -41,6 +42,7 @@ def test_load_server_settings_defaults_when_file_missing(tmp_path: Path) -> None
     assert settings.host == DEFAULT_HOST
     assert settings.port is None
     assert settings.db_path == DEFAULT_DB_PATH
+    assert settings.favorites_db_path == DEFAULT_FAVORITES_DB_PATH
     assert settings.verbose is True
     assert settings.serve_ui is True
 
@@ -55,6 +57,7 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
                 "host = 0.0.0.0",
                 "port = 8111",
                 "db_path = ~/pipeworks/test.sqlite3",
+                "favorites_db_path = ~/pipeworks/favorites.sqlite3",
                 "verbose = false",
                 "serve_ui = false",
             ]
@@ -66,6 +69,7 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
     assert settings.host == "0.0.0.0"
     assert settings.port == 8111
     assert settings.db_path == Path("~/pipeworks/test.sqlite3").expanduser()
+    assert settings.favorites_db_path == Path("~/pipeworks/favorites.sqlite3").expanduser()
     assert settings.verbose is False
     assert settings.serve_ui is False
 
@@ -97,6 +101,7 @@ def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path)
     assert settings.host == DEFAULT_HOST
     assert settings.port is None
     assert settings.db_path == DEFAULT_DB_PATH
+    assert settings.favorites_db_path == DEFAULT_FAVORITES_DB_PATH
     assert settings.verbose is True
 
 
@@ -104,12 +109,14 @@ def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None
     """CLI-style overrides should replace only the values that are provided."""
     base = ServerSettings()
     db_override = tmp_path / "db.sqlite3"
+    favorites_override = tmp_path / "favorites.sqlite3"
 
     updated = apply_runtime_overrides(
         base,
         host="127.0.0.2",
         port=8123,
         db_path=db_override,
+        favorites_db_path=favorites_override,
         verbose=False,
         serve_ui=False,
     )
@@ -117,19 +124,27 @@ def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None
     assert updated.host == "127.0.0.2"
     assert updated.port == 8123
     assert updated.db_path == db_override
+    assert updated.favorites_db_path == favorites_override
     assert updated.verbose is False
     assert updated.serve_ui is False
 
 
 def test_apply_runtime_overrides_keeps_defaults_when_none() -> None:
     """``None`` overrides should preserve existing values."""
-    base = ServerSettings(host="127.0.0.1", port=8010, db_path=Path("x.sqlite3"), verbose=True)
+    base = ServerSettings(
+        host="127.0.0.1",
+        port=8010,
+        db_path=Path("x.sqlite3"),
+        favorites_db_path=Path("favorites.sqlite3"),
+        verbose=True,
+    )
 
     updated = apply_runtime_overrides(
         base,
         host=None,
         port=None,
         db_path=None,
+        favorites_db_path=None,
         verbose=None,
         serve_ui=None,
     )

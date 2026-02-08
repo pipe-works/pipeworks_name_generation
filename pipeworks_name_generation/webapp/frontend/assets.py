@@ -17,6 +17,7 @@ _STATIC_CONTENT_TYPES: dict[str, str] = {
     "app.css": "text/css; charset=utf-8",
     "app.js": "application/javascript; charset=utf-8",
     "api_builder_preview.js": "application/javascript; charset=utf-8",
+    "favorites.js": "application/javascript; charset=utf-8",
 }
 
 _STATIC_BINARY_CONTENT_TYPES: dict[str, str] = {

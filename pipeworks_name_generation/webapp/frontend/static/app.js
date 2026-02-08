@@ -12,6 +12,7 @@
       import: document.getElementById('panel-import'),
       generation: document.getElementById('panel-generation'),
       database: document.getElementById('panel-database'),
+      favorites: document.getElementById('panel-favorites'),
       help: document.getElementById('panel-help'),
     };
 
@@ -543,9 +544,35 @@
         }
         namesByClass[item.class_key].push(...generatedNames);
 
+        const selectionMeta = {
+          name_class: item.class_key,
+          package_id: item.package_id,
+          package_name: item.package_label,
+          syllable_key: item.syllable_key,
+          syllable_label: item.syllable_label,
+          render_style: params.render_style,
+          output_format: params.output_format,
+          seed: params.seed,
+          source: 'generated_preview',
+          selection: {
+            class_key: item.class_key,
+            class_label: item.class_label,
+            package_id: item.package_id,
+            package_label: item.package_label,
+            syllable_key: item.syllable_key,
+            syllable_label: item.syllable_label,
+            max_items: item.max_items,
+            max_unique_combinations: item.max_unique_combinations,
+          },
+          generation_count: params.generation_count,
+          preview_count: previewCount,
+        };
         outputGroups.push({
           label: `${item.class_label} [${item.syllable_label}]`,
-          names: generatedNames,
+          entries: generatedNames.map((name) => ({
+            name,
+            meta: selectionMeta,
+          })),
         });
       }
 
@@ -555,7 +582,7 @@
         const outputLines = [];
         for (const group of outputGroups) {
           outputLines.push(`${group.label}`);
-          outputLines.push(group.names.join(', '));
+          outputLines.push(group.entries.map((entry) => entry.name).join(', '));
           outputLines.push('');
         }
         if (requestedCount > previewCount) {
@@ -586,16 +613,52 @@
       }
 
       const combinations = [];
+      const firstSources = apiBuilderSelections
+        .filter((item) => item.class_key === 'first_name')
+        .map((item) => ({
+          class_key: item.class_key,
+          class_label: item.class_label,
+          package_id: item.package_id,
+          package_label: item.package_label,
+          syllable_key: item.syllable_key,
+          syllable_label: item.syllable_label,
+        }));
+      const lastSources = apiBuilderSelections
+        .filter((item) => item.class_key === 'last_name')
+        .map((item) => ({
+          class_key: item.class_key,
+          class_label: item.class_label,
+          package_id: item.package_id,
+          package_label: item.package_label,
+          syllable_key: item.syllable_key,
+          syllable_label: item.syllable_label,
+        }));
       for (const firstName of firstNames) {
         for (const lastName of lastNames) {
-          combinations.push(`${firstName} ${lastName}`);
+          combinations.push({
+            name: `${firstName} ${lastName}`,
+            meta: {
+              name_class: 'combo_name',
+              render_style: params.render_style,
+              output_format: params.output_format,
+              seed: params.seed,
+              source: 'combo_preview',
+              name_parts: [firstName, lastName],
+              component_sources: {
+                first_name: firstSources,
+                last_name: lastSources,
+              },
+              generation_count: params.generation_count,
+              preview_count: previewCount,
+            },
+          });
         }
       }
       const summary = `Total combinations: ${firstNames.length * lastNames.length} (${firstNames.length} x ${lastNames.length})`;
       if (previewApi) {
         previewApi.renderCombinations(combinations, summary);
       } else {
-        const combinationLines = [summary, '', ...combinations];
+        const combinationLines = [summary, '', ...combinations.map((entry) => entry.name)];
         comboPreview.className = 'api-builder-preview-list ok';
         comboPreview.textContent = combinationLines.join('\n');
       }

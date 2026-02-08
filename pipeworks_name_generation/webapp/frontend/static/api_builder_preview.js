@@ -1,7 +1,8 @@
 (function () {
   const previewState = {
-    inlineNames: [],
-    comboNames: [],
+    inlineEntries: [],
+    comboEntries: [],
+    liveEntry: null,
   };
   // Live preview helpers are split into their own file so the main app logic
   // can remain focused on data fetching and API composition.
@@ -22,7 +23,7 @@
   }
 
   // Render a single group of names with a label and clickable chips.
-  function buildGroup(container, label, names) {
+  function buildGroup(container, label, entries) {
     const group = document.createElement('div');
     group.className = 'api-builder-preview-group';
 
@@ -34,19 +35,19 @@
     const row = document.createElement('div');
     row.className = 'api-builder-preview-chip-row';
 
-    if (!names.length) {
+    if (!entries.length) {
       const empty = document.createElement('span');
       empty.className = 'muted';
       empty.textContent = 'No names returned.';
       row.appendChild(empty);
     } else {
-      for (const name of names) {
+      for (const entry of entries) {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'api-builder-preview-chip';
-        chip.textContent = name;
+        chip.textContent = entry.name;
         chip.addEventListener('click', () => {
-          setLivePreview(name);
+          setLivePreview(entry);
         });
         row.appendChild(chip);
       }
@@ -64,14 +65,14 @@
     clearElement(container);
     if (!groups.length) {
       setText(container, 'No preview generated yet.', 'api-builder-preview-list muted');
-      previewState.inlineNames = [];
+      previewState.inlineEntries = [];
       return;
     }
     container.className = 'api-builder-preview-list';
-    previewState.inlineNames = [];
+    previewState.inlineEntries = [];
     for (const group of groups) {
-      buildGroup(container, group.label, group.names);
-      previewState.inlineNames.push(...group.names);
+      buildGroup(container, group.label, group.entries);
+      previewState.inlineEntries.push(...group.entries);
     }
   }
 
@@ -87,11 +88,11 @@
         'Need at least one First Name and one Last Name selection to build combinations.',
         'api-builder-preview-list muted'
       );
-      previewState.comboNames = [];
+      previewState.comboEntries = [];
       return;
     }
     container.className = 'api-builder-preview-list';
-    previewState.comboNames = combos.slice();
+    previewState.comboEntries = combos.slice();
     const group = document.createElement('div');
     group.className = 'api-builder-preview-group';
 
@@ -106,7 +107,7 @@
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'api-builder-preview-chip';
-      chip.textContent = combo;
+      chip.textContent = combo.name;
       chip.addEventListener('click', () => {
         setLivePreview(combo);
       });
@@ -117,13 +118,14 @@
   }
 
   // Update the live preview output when a chip is clicked.
-  function setLivePreview(text) {
+  function setLivePreview(entry) {
     const output = document.getElementById('api-builder-live-output');
     if (!output) {
       return;
     }
     output.classList.remove('muted');
-    output.textContent = text;
+    output.textContent = entry.name;
+    previewState.liveEntry = entry;
   }
 
   // Restore the live preview placeholder text.
@@ -134,6 +136,7 @@
     }
     output.classList.add('muted');
     output.textContent = 'No selection focused yet.';
+    previewState.liveEntry = null;
   }
 
   // Apply font controls to the live preview output so users can
@@ -181,8 +184,8 @@
     italicInput.addEventListener('change', applyPreviewStyles);
   }
 
-  async function copyNames(button, names, emptyMessage) {
-    if (!names.length) {
+  async function copyNames(button, entries, emptyMessage) {
+    if (!entries.length) {
       button.textContent = emptyMessage;
       button.classList.add('err');
       window.setTimeout(() => {
@@ -192,7 +195,7 @@
       return;
     }
     try {
-      await navigator.clipboard.writeText(names.join('\n'));
+      await navigator.clipboard.writeText(entries.map((entry) => entry.name).join('\n'));
       button.textContent = 'Copied';
       button.classList.add('ok');
     } catch (_error) {
@@ -210,12 +213,12 @@
     const comboCopy = document.getElementById('api-builder-combo-copy-btn');
     if (inlineCopy) {
       inlineCopy.addEventListener('click', () => {
-        copyNames(inlineCopy, previewState.inlineNames, 'No names');
+        copyNames(inlineCopy, previewState.inlineEntries, 'No names');
       });
     }
     if (comboCopy) {
       comboCopy.addEventListener('click', () => {
-        copyNames(comboCopy, previewState.comboNames, 'No combos');
+        copyNames(comboCopy, previewState.comboEntries, 'No combos');
       });
     }
   }
@@ -233,13 +236,24 @@
     setInlineMessage(message, tone) {
       const container = document.getElementById('api-builder-inline-preview');
       setText(container, message, `api-builder-preview-list ${tone || 'muted'}`);
+      previewState.inlineEntries = [];
     },
     setComboMessage(message, tone) {
       const container = document.getElementById('api-builder-combo-preview');
       setText(container, message, `api-builder-preview-list ${tone || 'muted'}`);
+      previewState.comboEntries = [];
     },
     resetLivePreview,
     setLivePreview,
+    getInlineEntries() {
+      return previewState.inlineEntries.slice();
+    },
+    getComboEntries() {
+      return previewState.comboEntries.slice();
+    },
+    getLiveEntry() {
+      return previewState.liveEntry;
+    },
   };
 
   if (document.readyState === 'loading') {
