@@ -9,6 +9,24 @@ from __future__ import annotations
 from typing import Any
 
 from pipeworks_name_generation.webapp.constants import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
+from pipeworks_name_generation.webapp.db import (
+    connect_database as _connect_database,
+)
+from pipeworks_name_generation.webapp.db import (
+    fetch_text_rows as _fetch_text_rows,
+)
+from pipeworks_name_generation.webapp.db import (
+    get_package_table as _get_package_table,
+)
+from pipeworks_name_generation.webapp.db import (
+    import_package_pair as _import_package_pair,
+)
+from pipeworks_name_generation.webapp.db import (
+    list_package_tables as _list_package_tables,
+)
+from pipeworks_name_generation.webapp.db import (
+    list_packages as _list_packages,
+)
 from pipeworks_name_generation.webapp.frontend import get_index_html, get_static_text_asset
 from pipeworks_name_generation.webapp.generation import (
     _coerce_bool,
@@ -26,14 +44,6 @@ from pipeworks_name_generation.webapp.routes import database as database_routes
 from pipeworks_name_generation.webapp.routes import generation as generation_routes
 from pipeworks_name_generation.webapp.routes import imports as import_routes
 from pipeworks_name_generation.webapp.routes import static as static_routes
-from pipeworks_name_generation.webapp.storage import (
-    _connect_database,
-    _fetch_text_rows,
-    _get_package_table,
-    _import_package_pair,
-    _list_package_tables,
-    _list_packages,
-)
 
 
 def get_root(handler: Any, _query: dict[str, list[str]]) -> None:

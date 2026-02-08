@@ -30,6 +30,15 @@ def initialize_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY(package_id) REFERENCES imported_packages(id) ON DELETE CASCADE,
             UNIQUE(package_id, source_txt_name)
         );
+
+        CREATE INDEX IF NOT EXISTS idx_package_tables_package_id
+        ON package_tables(package_id);
+
+        CREATE INDEX IF NOT EXISTS idx_package_tables_package_id_source_txt
+        ON package_tables(package_id, source_txt_name);
+
+        CREATE INDEX IF NOT EXISTS idx_imported_packages_imported_at
+        ON imported_packages(imported_at);
         """)
     conn.commit()
 

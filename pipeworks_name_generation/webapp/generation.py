@@ -19,7 +19,7 @@ from pipeworks_name_generation.webapp.constants import (
     GENERATION_NAME_CLASSES,
     GENERATION_SYLLABLE_LABELS,
 )
-from pipeworks_name_generation.webapp.storage import _quote_identifier
+from pipeworks_name_generation.webapp.db import quote_identifier as _quote_identifier
 
 
 def _coerce_generation_count(raw_count: Any) -> int:

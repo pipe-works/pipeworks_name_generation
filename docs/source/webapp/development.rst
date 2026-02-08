@@ -27,5 +27,5 @@ Packaging note:
   installed wheels.
 - Server startup performs one-time SQLite schema initialization before request
   handling begins.
-- Database logic is implemented under ``pipeworks_name_generation/webapp/db``;
-  ``webapp/storage.py`` exists as a compatibility facade for older imports.
+- Database logic is implemented under ``pipeworks_name_generation/webapp/db``
+  and imported directly by route adapters and runtime wiring.

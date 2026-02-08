@@ -16,8 +16,13 @@ from typing import Sequence
 from pipeworks_name_generation.webapp import cli as webapp_cli
 from pipeworks_name_generation.webapp import runtime as webapp_runtime
 from pipeworks_name_generation.webapp.config import ServerSettings
+from pipeworks_name_generation.webapp.db import (
+    connect_database as _connect_database,
+)
+from pipeworks_name_generation.webapp.db import (
+    initialize_schema as _initialize_schema,
+)
 from pipeworks_name_generation.webapp.handler import WebAppHandler
-from pipeworks_name_generation.webapp.storage import _connect_database, _initialize_schema
 
 
 def _port_is_available(host: str, port: int) -> bool:

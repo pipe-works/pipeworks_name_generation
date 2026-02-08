@@ -18,9 +18,9 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from pipeworks_name_generation.webapp import endpoint_adapters
+from pipeworks_name_generation.webapp.db import initialize_schema as _initialize_schema
 from pipeworks_name_generation.webapp.http import read_json_body, send_json, send_text
 from pipeworks_name_generation.webapp.route_registry import GET_ROUTE_METHODS, POST_ROUTE_METHODS
-from pipeworks_name_generation.webapp.storage import _initialize_schema
 
 
 class WebAppHandler(BaseHTTPRequestHandler):

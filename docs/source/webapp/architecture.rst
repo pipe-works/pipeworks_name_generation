@@ -14,8 +14,6 @@ Current module layout:
   Central route-to-handler method mapping for GET/POST dispatch.
 - ``pipeworks_name_generation/webapp/routes/*``
   Route-level behavior grouped by domain (static, import, generation, database).
-- ``pipeworks_name_generation/webapp/storage.py``
-  Compatibility facade that preserves legacy helper imports.
 - ``pipeworks_name_generation/webapp/db/*``
   Concrete SQLite connection, schema, metadata repository, table-store, and
   importer helpers.
