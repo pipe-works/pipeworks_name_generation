@@ -93,7 +93,7 @@ names from imported data.
 cp server.example.ini server.ini
 
 # Start the web app (port auto-selected in the 8000-8999 range unless configured)
-python -m pipeworks_name_generation.webapp --config server.ini
+python -m pipeworks_name_generation.webapp.server --config server.ini
 ```
 
 Open the URL printed in the console (default host `127.0.0.1`).
