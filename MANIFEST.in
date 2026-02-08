@@ -5,6 +5,7 @@ include pyproject.toml
 
 # Include data files needed by the package
 recursive-include pipeworks_name_generation *.py
+recursive-include pipeworks_name_generation/webapp/frontend/static/fonts *.woff2 *.txt
 recursive-include build_tools *.py
 
 # Exclude unnecessary files

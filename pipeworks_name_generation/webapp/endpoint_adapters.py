@@ -28,7 +28,11 @@ from pipeworks_name_generation.webapp.db import (
 from pipeworks_name_generation.webapp.db import (
     list_packages as _list_packages,
 )
-from pipeworks_name_generation.webapp.frontend import get_index_html, get_static_text_asset
+from pipeworks_name_generation.webapp.frontend import (
+    get_index_html,
+    get_static_binary_asset,
+    get_static_text_asset,
+)
 from pipeworks_name_generation.webapp.generation import (
     _coerce_bool,
     _coerce_generation_count,
@@ -42,9 +46,11 @@ from pipeworks_name_generation.webapp.generation import (
     clear_generation_package_options_cache,
     get_cached_generation_package_options,
 )
+from pipeworks_name_generation.webapp.help_content import get_help_entries
 from pipeworks_name_generation.webapp.http import _parse_optional_int, _parse_required_int
 from pipeworks_name_generation.webapp.routes import database as database_routes
 from pipeworks_name_generation.webapp.routes import generation as generation_routes
+from pipeworks_name_generation.webapp.routes import help as help_routes
 from pipeworks_name_generation.webapp.routes import imports as import_routes
 from pipeworks_name_generation.webapp.routes import static as static_routes
 
@@ -72,9 +78,33 @@ def get_static_app_js(handler: Any, _query: dict[str, list[str]]) -> None:
         handler.send_error(404, "Not Found")
 
 
+def get_static_api_builder_preview_js(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Serve the API builder preview support script."""
+    try:
+        content, content_type = get_static_text_asset("api_builder_preview.js")
+        static_routes.get_text_asset(handler, content=content, content_type=content_type)
+    except FileNotFoundError:
+        handler.send_error(404, "Not Found")
+
+
+def get_static_font(handler: Any, path: str) -> None:
+    """Serve bundled font files from the static directory."""
+    try:
+        relative_path = path.removeprefix("/static/").lstrip("/")
+        payload, content_type = get_static_binary_asset(relative_path)
+        static_routes.get_binary_asset(handler, payload=payload, content_type=content_type)
+    except FileNotFoundError:
+        handler.send_error(404, "Not Found")
+
+
 def get_health(handler: Any, _query: dict[str, list[str]]) -> None:
     """Return a lightweight liveness response."""
     static_routes.get_health(handler)
+
+
+def get_help(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Return Help tab Q&A content."""
+    help_routes.get_help(handler, list_entries=get_help_entries)
 
 
 def get_generation_package_options(handler: Any, _query: dict[str, list[str]]) -> None:
@@ -190,13 +220,17 @@ __all__ = [
     "get_root",
     "get_static_app_css",
     "get_static_app_js",
+    "get_static_api_builder_preview_js",
+    "get_static_font",
     "get_health",
+    "get_help",
     "get_generation_package_options",
     "get_generation_package_syllables",
     "get_generation_selection_stats",
     "get_database_packages",
     "get_database_package_tables",
     "get_database_table_rows",
+    "get_help",
     "get_favicon",
     "post_import",
     "post_generate",

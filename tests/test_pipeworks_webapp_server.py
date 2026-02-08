@@ -138,6 +138,7 @@ class _HandlerHarness:
         # Bind handler methods directly so route logic executes unchanged.
         self._ensure_schema = WebAppHandler._ensure_schema.__get__(self, WebAppHandler)
         self._send_text = WebAppHandler._send_text.__get__(self, WebAppHandler)
+        self._send_bytes = WebAppHandler._send_bytes.__get__(self, WebAppHandler)
         self._send_json = WebAppHandler._send_json.__get__(self, WebAppHandler)
         self._read_json_body = WebAppHandler._read_json_body.__get__(self, WebAppHandler)
         self.do_GET = WebAppHandler.do_GET.__get__(self, WebAppHandler)
@@ -454,11 +455,19 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-generate-preview-btn"' in root_html
     assert 'id="api-builder-inline-preview"' in root_html
     assert 'id="api-builder-combo-preview"' in root_html
+    assert 'id="api-builder-live-output"' in root_html
+    assert 'id="preview-font-family"' in root_html
+    assert 'id="preview-font-size"' in root_html
+    assert 'id="preview-font-weight"' in root_html
+    assert 'id="preview-font-italic"' in root_html
     assert 'id="api-builder-copy-btn"' in root_html
-    assert 'id="api-builder-copy-curl-btn"' in root_html
-    assert 'id="api-builder-copy-post-btn"' in root_html
+    assert 'id="api-builder-view-query-btn"' in root_html
+    assert 'id="api-builder-view-curl-btn"' in root_html
+    assert 'id="api-builder-view-post-btn"' in root_html
     assert 'id="api-builder-copy-status"' in root_html
+    assert "/static/api_builder_preview.js" in root_html
     assert 'id="theme-toggle"' in root_html
+    assert 'id="panel-help"' in root_html
     assert 'id="api-builder-preview"' in root_html
 
     app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
@@ -473,6 +482,19 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert app_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
     assert "function setActiveTab" in app_js.wfile.getvalue().decode("utf-8")
 
+    preview_js = _HandlerHarness(path="/static/api_builder_preview.js", db_path=db_path)
+    preview_js.do_GET()
+    assert preview_js.response_status == 200
+    assert (
+        preview_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
+    )
+    assert "window.PipeworksPreview" in preview_js.wfile.getvalue().decode("utf-8")
+
+    font_asset = _HandlerHarness(path="/static/fonts/CrimsonText-Regular.woff2", db_path=db_path)
+    font_asset.do_GET()
+    assert font_asset.response_status == 200
+    assert font_asset.response_headers.get("Content-Type") == "font/woff2"
+
     favicon = _HandlerHarness(path="/favicon.ico", db_path=db_path)
     favicon.do_GET()
     assert favicon.response_status == 204
@@ -485,6 +507,10 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
 def test_route_registry_contains_core_endpoints() -> None:
     """Route registry should expose expected GET/POST dispatch entries."""
     assert route_registry_module.GET_ROUTE_METHODS["/api/health"] == "get_health"
+    assert (
+        route_registry_module.GET_ROUTE_METHODS["/static/api_builder_preview.js"]
+        == "get_static_api_builder_preview_js"
+    )
     assert route_registry_module.GET_ROUTE_METHODS["/api/generation/package-options"] == (
         "get_generation_package_options"
     )

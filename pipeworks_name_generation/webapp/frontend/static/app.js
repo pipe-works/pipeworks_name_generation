@@ -12,6 +12,7 @@
       import: document.getElementById('panel-import'),
       generation: document.getElementById('panel-generation'),
       database: document.getElementById('panel-database'),
+      help: document.getElementById('panel-help'),
     };
 
     const dbState = {
@@ -44,6 +45,7 @@
       previewText: '',
       curlText: '',
       postText: '',
+      activeView: 'query',
     };
     let generationCardsCollapsed = true;
     const themeStorageKey = 'pipeworks-theme';
@@ -276,9 +278,39 @@
 
     // Render API Builder queue, combined unique estimate, and copyable query
     // snippets from current selections + parameter defaults.
+    function renderApiBuilderPreview() {
+      const preview = document.getElementById('api-builder-preview');
+      const title = document.getElementById('api-builder-preview-title');
+      const viewButtons = {
+        query: document.getElementById('api-builder-view-query-btn'),
+        curl: document.getElementById('api-builder-view-curl-btn'),
+        post: document.getElementById('api-builder-view-post-btn'),
+      };
+
+      for (const [key, button] of Object.entries(viewButtons)) {
+        if (!button) {
+          continue;
+        }
+        button.classList.toggle('active', key === apiBuilderPreviewState.activeView);
+      }
+
+      const view = apiBuilderPreviewState.activeView;
+      if (view === 'curl') {
+        title.textContent = 'cURL Set';
+        preview.textContent = apiBuilderPreviewState.curlText || 'No selections queued yet.';
+        return;
+      }
+      if (view === 'post') {
+        title.textContent = 'POST Set';
+        preview.textContent = apiBuilderPreviewState.postText || 'No selections queued yet.';
+        return;
+      }
+      title.textContent = 'Query Text';
+      preview.textContent = apiBuilderPreviewState.previewText || 'No selections queued yet.';
+    }
+
     function renderApiBuilder() {
       const queue = document.getElementById('api-builder-queue');
-      const preview = document.getElementById('api-builder-preview');
       const combined = document.getElementById('api-builder-combined');
       const copyStatus = document.getElementById('api-builder-copy-status');
       const clearButton = document.getElementById('api-builder-clear-btn');
@@ -293,11 +325,11 @@
         queue.appendChild(li);
         combined.textContent = 'Combined unique combinations: 0';
         copyStatus.className = 'muted';
-        copyStatus.textContent = 'No query content yet.';
-        preview.textContent = 'No selections queued yet.';
+        copyStatus.textContent = 'No preview content yet.';
         apiBuilderPreviewState.previewText = '';
         apiBuilderPreviewState.curlText = '';
         apiBuilderPreviewState.postText = '';
+        renderApiBuilderPreview();
         return;
       }
       clearButton.disabled = false;
@@ -386,66 +418,38 @@
       apiBuilderPreviewState.previewText = previewLines.join('\n');
       apiBuilderPreviewState.curlText = curlLines.join('\n').trim();
       apiBuilderPreviewState.postText = JSON.stringify(postPayloads, null, 2);
-      preview.textContent = apiBuilderPreviewState.previewText;
+      renderApiBuilderPreview();
     }
 
     // Copy the full builder preview text (query snippets + payload examples)
     // into the clipboard so it can be pasted into scripts or terminals.
     async function copyApiBuilderPreview() {
-      const preview = document.getElementById('api-builder-preview');
       const copyStatus = document.getElementById('api-builder-copy-status');
-      const text = String(preview.textContent || '').trim();
-      if (!text || text === 'No selections queued yet.') {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(text);
-        copyStatus.className = 'ok';
-        copyStatus.textContent = 'Copied query text to clipboard.';
-      } catch (_error) {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
-      }
-    }
-
-    async function copyApiBuilderCurlSet() {
-      const copyStatus = document.getElementById('api-builder-copy-status');
-      const text = apiBuilderPreviewState.curlText;
+      const view = apiBuilderPreviewState.activeView;
+      const text =
+        view === 'curl'
+          ? apiBuilderPreviewState.curlText
+          : view === 'post'
+            ? apiBuilderPreviewState.postText
+            : apiBuilderPreviewState.previewText;
       if (!text) {
         copyStatus.className = 'err';
         copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
         return;
       }
+
       try {
         await navigator.clipboard.writeText(text);
         copyStatus.className = 'ok';
-        copyStatus.textContent = 'Copied cURL set to clipboard.';
+        const label = view === 'curl' ? 'cURL set' : view === 'post' ? 'POST set' : 'query text';
+        copyStatus.textContent = `Copied ${label} to clipboard.`;
       } catch (_error) {
         copyStatus.className = 'err';
         copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
       }
     }
 
-    async function copyApiBuilderPostSet() {
-      const copyStatus = document.getElementById('api-builder-copy-status');
-      const text = apiBuilderPreviewState.postText;
-      if (!text) {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(text);
-        copyStatus.className = 'ok';
-        copyStatus.textContent = 'Copied POST payload set to clipboard.';
-      } catch (_error) {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
-      }
-    }
+    // Copy button uses the currently selected preview view.
 
     // Generate a quick inline sample preview using the current queued
     // selections. This calls the SQLite-backed /api/generate endpoint and also
@@ -453,25 +457,49 @@
     async function generateApiBuilderInlinePreview() {
       const inlinePreview = document.getElementById('api-builder-inline-preview');
       const comboPreview = document.getElementById('api-builder-combo-preview');
+      // Optional preview module renders interactive chips and live preview.
+      const previewApi = window.PipeworksPreview || null;
       const params = readApiBuilderParams();
       if (!apiBuilderSelections.length) {
-        inlinePreview.className = 'err';
-        inlinePreview.textContent = 'Queue at least one selection before generating preview.';
-        comboPreview.className = 'muted';
-        comboPreview.textContent =
-          'Need at least one First Name and one Last Name selection to build combinations.';
+        if (previewApi) {
+          previewApi.setInlineMessage(
+            'Queue at least one selection before generating preview.',
+            'err'
+          );
+          previewApi.setComboMessage(
+            'Need at least one First Name and one Last Name selection to build combinations.',
+            'muted'
+          );
+        } else {
+          inlinePreview.className = 'api-builder-preview-list err';
+          inlinePreview.textContent = 'Queue at least one selection before generating preview.';
+          comboPreview.className = 'api-builder-preview-list muted';
+          comboPreview.textContent =
+            'Need at least one First Name and one Last Name selection to build combinations.';
+        }
         return;
       }
 
       // Keep preview output bounded for UI readability.
       const requestedCount = params.generation_count;
       const previewCount = Math.min(20, requestedCount);
-      inlinePreview.className = 'muted';
-      inlinePreview.textContent = `Generating preview (${previewCount} per selection)...`;
-      comboPreview.className = 'muted';
-      comboPreview.textContent = 'Building First + Last combinations from preview data...';
+      if (previewApi) {
+        previewApi.setInlineMessage(
+          `Generating preview (${previewCount} per selection)...`,
+          'muted'
+        );
+        previewApi.setComboMessage(
+          'Building First + Last combinations from preview data...',
+          'muted'
+        );
+      } else {
+        inlinePreview.className = 'api-builder-preview-list muted';
+        inlinePreview.textContent = `Generating preview (${previewCount} per selection)...`;
+        comboPreview.className = 'api-builder-preview-list muted';
+        comboPreview.textContent = 'Building First + Last combinations from preview data...';
+      }
 
-      const outputLines = [];
+      const outputGroups = [];
       const namesByClass = {};
       for (const item of apiBuilderSelections) {
         const generatePayload = {
@@ -494,10 +522,18 @@
         });
         const data = await response.json();
         if (!response.ok) {
-          inlinePreview.className = 'err';
-          inlinePreview.textContent = data.error || 'Failed to generate preview.';
-          comboPreview.className = 'err';
-          comboPreview.textContent = 'Combination preview skipped because generation failed.';
+          if (previewApi) {
+            previewApi.setInlineMessage(data.error || 'Failed to generate preview.', 'err');
+            previewApi.setComboMessage(
+              'Combination preview skipped because generation failed.',
+              'err'
+            );
+          } else {
+            inlinePreview.className = 'api-builder-preview-list err';
+            inlinePreview.textContent = data.error || 'Failed to generate preview.';
+            comboPreview.className = 'api-builder-preview-list err';
+            comboPreview.textContent = 'Combination preview skipped because generation failed.';
+          }
           return;
         }
 
@@ -507,42 +543,62 @@
         }
         namesByClass[item.class_key].push(...generatedNames);
 
-        outputLines.push(`${item.class_label} [${item.syllable_label}]`);
-        outputLines.push(generatedNames.join(', '));
-        outputLines.push('');
+        outputGroups.push({
+          label: `${item.class_label} [${item.syllable_label}]`,
+          names: generatedNames,
+        });
       }
 
-      if (requestedCount > previewCount) {
-        outputLines.push(
-          `Note: requested ${requestedCount}, UI preview capped at ${previewCount} for readability.`
-        );
+      if (previewApi) {
+        previewApi.renderInline(outputGroups);
+      } else {
+        const outputLines = [];
+        for (const group of outputGroups) {
+          outputLines.push(`${group.label}`);
+          outputLines.push(group.names.join(', '));
+          outputLines.push('');
+        }
+        if (requestedCount > previewCount) {
+          outputLines.push(
+            `Note: requested ${requestedCount}, UI preview capped at ${previewCount} for readability.`
+          );
+        }
+        inlinePreview.className = 'api-builder-preview-list ok';
+        inlinePreview.textContent = outputLines.join('\n').trim() || 'No preview data returned.';
       }
-
-      inlinePreview.className = 'ok';
-      inlinePreview.textContent = outputLines.join('\n').trim() || 'No preview data returned.';
 
       // Build a de-duplicated First x Last preview matrix from the generated
       // sample output. This provides a quick human check for blend scale.
       const firstNames = Array.from(new Set((namesByClass.first_name || []).filter(Boolean)));
       const lastNames = Array.from(new Set((namesByClass.last_name || []).filter(Boolean)));
       if (!firstNames.length || !lastNames.length) {
-        comboPreview.className = 'muted';
-        comboPreview.textContent =
-          'Need at least one First Name and one Last Name selection to build combinations.';
+        if (previewApi) {
+          previewApi.setComboMessage(
+            'Need at least one First Name and one Last Name selection to build combinations.',
+            'muted'
+          );
+        } else {
+          comboPreview.className = 'api-builder-preview-list muted';
+          comboPreview.textContent =
+            'Need at least one First Name and one Last Name selection to build combinations.';
+        }
         return;
       }
 
-      const combinationLines = [
-        `Total combinations: ${firstNames.length * lastNames.length} (${firstNames.length} x ${lastNames.length})`,
-        '',
-      ];
+      const combinations = [];
       for (const firstName of firstNames) {
         for (const lastName of lastNames) {
-          combinationLines.push(`${firstName} ${lastName}`);
+          combinations.push(`${firstName} ${lastName}`);
         }
       }
-      comboPreview.className = 'ok';
-      comboPreview.textContent = combinationLines.join('\n');
+      const summary = `Total combinations: ${firstNames.length * lastNames.length} (${firstNames.length} x ${lastNames.length})`;
+      if (previewApi) {
+        previewApi.renderCombinations(combinations, summary);
+      } else {
+        const combinationLines = [summary, '', ...combinations];
+        comboPreview.className = 'api-builder-preview-list ok';
+        comboPreview.textContent = combinationLines.join('\n');
+      }
     }
 
     // Clear API Builder queued selections and reset inline previews so users
@@ -551,10 +607,17 @@
       apiBuilderSelections.length = 0;
       const inlinePreview = document.getElementById('api-builder-inline-preview');
       const comboPreview = document.getElementById('api-builder-combo-preview');
-      inlinePreview.className = 'muted';
-      inlinePreview.textContent = 'No preview generated yet.';
-      comboPreview.className = 'muted';
-      comboPreview.textContent = 'No combination preview generated yet.';
+      const previewApi = window.PipeworksPreview || null;
+      if (previewApi) {
+        previewApi.setInlineMessage('No preview generated yet.', 'muted');
+        previewApi.setComboMessage('No combination preview generated yet.', 'muted');
+        previewApi.resetLivePreview();
+      } else {
+        inlinePreview.className = 'api-builder-preview-list muted';
+        inlinePreview.textContent = 'No preview generated yet.';
+        comboPreview.className = 'api-builder-preview-list muted';
+        comboPreview.textContent = 'No combination preview generated yet.';
+      }
       renderApiBuilder();
     }
 
@@ -655,6 +718,47 @@
 
       status.className = 'ok';
       status.textContent = `Loaded package options for ${nonEmptyClassCount} name class(es).`;
+    }
+
+    async function loadHelpContent() {
+      const status = document.getElementById('help-status');
+      const container = document.getElementById('help-content');
+      status.className = 'muted';
+      status.textContent = 'Loading help content...';
+      container.innerHTML = '';
+
+      const response = await fetch('/api/help');
+      const data = await response.json();
+      if (!response.ok) {
+        status.className = 'err';
+        status.textContent = data.error || 'Failed to load help content.';
+        return;
+      }
+
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      if (!entries.length) {
+        status.className = 'muted';
+        status.textContent = 'No help entries available yet.';
+        return;
+      }
+
+      status.className = 'ok';
+      status.textContent = 'Help content loaded.';
+
+      for (const entry of entries) {
+        const card = document.createElement('div');
+        card.className = 'help-entry';
+
+        const question = document.createElement('h3');
+        question.textContent = entry.question || 'Untitled';
+        card.appendChild(question);
+
+        const answer = document.createElement('p');
+        answer.textContent = entry.answer || '';
+        card.appendChild(answer);
+
+        container.appendChild(card);
+      }
     }
 
     async function loadPackages() {
@@ -847,11 +951,17 @@
     document.getElementById('api-builder-copy-btn').addEventListener('click', () => {
       void copyApiBuilderPreview();
     });
-    document.getElementById('api-builder-copy-curl-btn').addEventListener('click', () => {
-      void copyApiBuilderCurlSet();
+    document.getElementById('api-builder-view-query-btn').addEventListener('click', () => {
+      apiBuilderPreviewState.activeView = 'query';
+      renderApiBuilderPreview();
     });
-    document.getElementById('api-builder-copy-post-btn').addEventListener('click', () => {
-      void copyApiBuilderPostSet();
+    document.getElementById('api-builder-view-curl-btn').addEventListener('click', () => {
+      apiBuilderPreviewState.activeView = 'curl';
+      renderApiBuilderPreview();
+    });
+    document.getElementById('api-builder-view-post-btn').addEventListener('click', () => {
+      apiBuilderPreviewState.activeView = 'post';
+      renderApiBuilderPreview();
     });
     document.getElementById('api-builder-clear-btn').addEventListener('click', clearApiBuilder);
     document.getElementById('api-builder-generate-preview-btn').addEventListener('click', () => {
@@ -899,5 +1009,6 @@
     initThemeToggle();
     loadPackages();
     loadGenerationPackageOptions();
+    loadHelpContent();
     renderApiBuilder();
     setGenerationCardsCollapsed(true);

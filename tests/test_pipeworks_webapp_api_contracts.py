@@ -328,3 +328,21 @@ def test_database_table_rows_contract(tmp_path: Path) -> None:
     assert payload["total_rows"] >= 1
     assert "rows" in payload
     assert isinstance(payload["rows"], list)
+
+
+def test_help_contract(tmp_path: Path) -> None:
+    """Help endpoint should return a list of question/answer entries."""
+    handler = _HandlerHarness(path="/api/help", db_path=tmp_path / "help.sqlite3")
+
+    from pipeworks_name_generation.webapp import help_content
+    from pipeworks_name_generation.webapp.routes import help as help_routes
+
+    help_routes.get_help(handler, list_entries=help_content.get_help_entries)
+    payload = handler.json_body()
+
+    assert "entries" in payload
+    assert isinstance(payload["entries"], list)
+    if payload["entries"]:
+        entry = payload["entries"][0]
+        assert "question" in entry
+        assert "answer" in entry

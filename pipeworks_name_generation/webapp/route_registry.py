@@ -11,6 +11,7 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/": "get_root",
     "/static/app.css": "get_static_app_css",
     "/static/app.js": "get_static_app_js",
+    "/static/api_builder_preview.js": "get_static_api_builder_preview_js",
     "/api/health": "get_health",
     "/api/generation/package-options": "get_generation_package_options",
     "/api/generation/package-syllables": "get_generation_package_syllables",
@@ -18,6 +19,7 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/api/database/packages": "get_database_packages",
     "/api/database/package-tables": "get_database_package_tables",
     "/api/database/table-rows": "get_database_table_rows",
+    "/api/help": "get_help",
     "/favicon.ico": "get_favicon",
 }
 

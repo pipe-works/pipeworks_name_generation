@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from pipeworks_name_generation.webapp import endpoint_adapters
 from pipeworks_name_generation.webapp.db import initialize_schema as _initialize_schema
-from pipeworks_name_generation.webapp.http import read_json_body, send_json, send_text
+from pipeworks_name_generation.webapp.http import read_json_body, send_bytes, send_json, send_text
 from pipeworks_name_generation.webapp.route_registry import GET_ROUTE_METHODS, POST_ROUTE_METHODS
 
 
@@ -63,6 +63,15 @@ class WebAppHandler(BaseHTTPRequestHandler):
         """Send a UTF-8 text response."""
         send_text(self, content, status=status, content_type=content_type)
 
+    def _send_bytes(
+        self,
+        payload: bytes,
+        status: int = 200,
+        content_type: str = "application/octet-stream",
+    ) -> None:
+        """Send a binary response."""
+        send_bytes(self, payload, status=status, content_type=content_type)
+
     def _send_json(self, payload: dict[str, Any], status: int = 200) -> None:
         """Send a JSON response."""
         send_json(self, payload, status=status)
@@ -78,6 +87,10 @@ class WebAppHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
         method_name = type(self).get_routes.get(route)
         if method_name is None:
+            if route.startswith("/static/fonts/"):
+                # Serve bundled font files without listing each one in the route registry.
+                endpoint_adapters.get_static_font(self, route)
+                return
             self.send_error(404, "Not Found")
             return
 
