@@ -119,6 +119,14 @@ where = ["."]
 include = ["pipeworks_name_generation*", "build_tools*"]
 exclude = ["tests*", "docs*", "examples*", "data*", "scripts*", "*__pycache__*"]
 
+[tool.setuptools.package-data]
+# Include webapp frontend assets required at runtime when installed from a wheel.
+"pipeworks_name_generation.webapp.frontend" = [
+    "templates/*.html",
+    "static/*.css",
+    "static/*.js",
+]
+
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true

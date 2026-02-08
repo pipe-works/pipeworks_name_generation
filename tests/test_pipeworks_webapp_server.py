@@ -4,44 +4,41 @@ from __future__ import annotations
 
 import io
 import json
+import sqlite3
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import pipeworks_name_generation.webapp.db.importer as importer_module
+import pipeworks_name_generation.webapp.endpoint_adapters as endpoint_adapters_module
+import pipeworks_name_generation.webapp.handler as handler_module
+import pipeworks_name_generation.webapp.route_registry as route_registry_module
 import pipeworks_name_generation.webapp.server as server_module
 from pipeworks_name_generation.webapp.config import ServerSettings
-from pipeworks_name_generation.webapp.server import (
-    WebAppHandler,
+from pipeworks_name_generation.webapp.generation import (
     _coerce_bool,
     _coerce_generation_count,
-    _coerce_int,
     _coerce_optional_seed,
     _coerce_output_format,
     _collect_generation_source_values,
-    _connect_database,
     _extract_syllable_option_from_source_txt_name,
-    _fetch_text_rows,
     _get_generation_selection_stats,
-    _get_package_table,
-    _import_package_pair,
-    _initialize_schema,
-    _insert_text_rows,
     _list_generation_package_options,
     _list_generation_syllable_options,
-    _list_package_tables,
-    _list_packages,
-    _load_metadata_json,
     _map_source_txt_name_to_generation_class,
+    _sample_generation_values,
+    _syllable_option_sort_key,
+)
+from pipeworks_name_generation.webapp.http import (
+    _coerce_int,
     _parse_optional_int,
     _parse_required_int,
+)
+from pipeworks_name_generation.webapp.server import (
+    WebAppHandler,
     _port_is_available,
-    _quote_identifier,
-    _read_txt_rows,
-    _sample_generation_values,
-    _slugify_identifier,
-    _syllable_option_sort_key,
     build_settings_from_args,
     create_argument_parser,
     create_handler_class,
@@ -51,6 +48,20 @@ from pipeworks_name_generation.webapp.server import (
     resolve_server_port,
     run_server,
     start_http_server,
+)
+from pipeworks_name_generation.webapp.storage import (
+    _connect_database,
+    _fetch_text_rows,
+    _get_package_table,
+    _import_package_pair,
+    _initialize_schema,
+    _insert_text_rows,
+    _list_package_tables,
+    _list_packages,
+    _load_metadata_json,
+    _quote_identifier,
+    _read_txt_rows,
+    _slugify_identifier,
 )
 
 
@@ -80,6 +91,9 @@ def _build_sample_package_pair(tmp_path: Path) -> tuple[Path, Path]:
 class _HandlerHarness:
     """Small in-process harness for route testing without opening sockets."""
 
+    schema_ready: bool = False
+    schema_initialized_paths: set[str] = set()
+
     def __init__(self, *, path: str, db_path: Path, body: dict[str, Any] | None = None) -> None:
         payload = b""
         if body is not None:
@@ -97,11 +111,10 @@ class _HandlerHarness:
         self.error_message: str | None = None
 
         # Bind handler methods directly so route logic executes unchanged.
+        self._ensure_schema = WebAppHandler._ensure_schema.__get__(self, WebAppHandler)
         self._send_text = WebAppHandler._send_text.__get__(self, WebAppHandler)
         self._send_json = WebAppHandler._send_json.__get__(self, WebAppHandler)
         self._read_json_body = WebAppHandler._read_json_body.__get__(self, WebAppHandler)
-        self._handle_import = WebAppHandler._handle_import.__get__(self, WebAppHandler)
-        self._handle_generation = WebAppHandler._handle_generation.__get__(self, WebAppHandler)
         self.do_GET = WebAppHandler.do_GET.__get__(self, WebAppHandler)
         self.do_POST = WebAppHandler.do_POST.__get__(self, WebAppHandler)
 
@@ -298,6 +311,8 @@ def test_create_handler_class_binds_runtime_values(tmp_path: Path) -> None:
     bound = create_handler_class(verbose=False, db_path=db_path)
     assert bound.verbose is False
     assert bound.db_path == db_path
+    assert bound.schema_ready is True
+    assert str(db_path.resolve()) in bound.schema_initialized_paths
 
 
 def test_generation_package_options_endpoint_without_imports(tmp_path: Path) -> None:
@@ -329,7 +344,9 @@ def test_log_message_respects_verbose_flag(monkeypatch: pytest.MonkeyPatch) -> N
     def fake_super_log_message(self: Any, fmt: str, *args: Any) -> None:
         calls.append((fmt, args))
 
-    monkeypatch.setattr(server_module.BaseHTTPRequestHandler, "log_message", fake_super_log_message)
+    monkeypatch.setattr(
+        handler_module.BaseHTTPRequestHandler, "log_message", fake_super_log_message
+    )
 
     handler = WebAppHandler.__new__(WebAppHandler)
     handler.verbose = False
@@ -377,6 +394,8 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     root_html = root.wfile.getvalue().decode("utf-8")
     assert "Generation Placeholder" in root_html
     assert "API Builder" in root_html
+    assert "/static/app.css" in root_html
+    assert "/static/app.js" in root_html
     assert 'id="generation-package-first_name"' in root_html
     assert 'id="generation-syllables-first_name"' in root_html
     assert 'id="generation-send-first_name"' in root_html
@@ -399,6 +418,18 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-copy-status"' in root_html
     assert 'id="api-builder-preview"' in root_html
 
+    app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
+    app_css.do_GET()
+    assert app_css.response_status == 200
+    assert app_css.response_headers.get("Content-Type") == "text/css; charset=utf-8"
+    assert "body {" in app_css.wfile.getvalue().decode("utf-8")
+
+    app_js = _HandlerHarness(path="/static/app.js", db_path=db_path)
+    app_js.do_GET()
+    assert app_js.response_status == 200
+    assert app_js.response_headers.get("Content-Type") == "application/javascript; charset=utf-8"
+    assert "function setActiveTab" in app_js.wfile.getvalue().decode("utf-8")
+
     favicon = _HandlerHarness(path="/favicon.ico", db_path=db_path)
     favicon.do_GET()
     assert favicon.response_status == 204
@@ -406,6 +437,38 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     unknown = _HandlerHarness(path="/does-not-exist", db_path=db_path)
     unknown.do_GET()
     assert unknown.error_status == 404
+
+
+def test_route_registry_contains_core_endpoints() -> None:
+    """Route registry should expose expected GET/POST dispatch entries."""
+    assert route_registry_module.GET_ROUTE_METHODS["/api/health"] == "get_health"
+    assert route_registry_module.GET_ROUTE_METHODS["/api/generation/package-options"] == (
+        "get_generation_package_options"
+    )
+    assert route_registry_module.POST_ROUTE_METHODS["/api/import"] == "post_import"
+    assert route_registry_module.POST_ROUTE_METHODS["/api/generate"] == "post_generate"
+
+
+def test_schema_initialized_once_per_handler_class(tmp_path: Path) -> None:
+    """Schema fallback init should run once then reuse class-level readiness flag."""
+    db_path = tmp_path / "db.sqlite3"
+    _HandlerHarness.schema_ready = False
+    _HandlerHarness.schema_initialized_paths = set()
+
+    first = _HandlerHarness(path="/api/database/packages", db_path=db_path)
+    first.do_GET()
+    assert first.response_status == 200
+    assert _HandlerHarness.schema_ready is True
+    assert len(_HandlerHarness.schema_initialized_paths) == 1
+
+    second = _HandlerHarness(path="/api/database/packages", db_path=db_path)
+    second.do_GET()
+    assert second.response_status == 200
+    assert len(_HandlerHarness.schema_initialized_paths) == 1
+
+    # Reset for other tests that exercise initialization behavior explicitly.
+    _HandlerHarness.schema_ready = False
+    _HandlerHarness.schema_initialized_paths = set()
 
 
 def test_get_database_routes_validation_and_error_paths(
@@ -470,7 +533,7 @@ def test_get_database_routes_validation_and_error_paths(
     def boom(_db_path: Path) -> Any:
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(server_module, "_connect_database", boom)
+    monkeypatch.setattr(endpoint_adapters_module, "_connect_database", boom)
 
     packages = _HandlerHarness(path="/api/database/packages", db_path=db_path)
     packages.do_GET()
@@ -625,7 +688,7 @@ def test_handle_import_validation_and_exception_paths(
     def fail_import(*args: Any, **kwargs: Any) -> Any:
         raise RuntimeError("unexpected crash")
 
-    monkeypatch.setattr(server_module, "_import_package_pair", fail_import)
+    monkeypatch.setattr(endpoint_adapters_module, "_import_package_pair", fail_import)
     crashing = _HandlerHarness(
         path="/api/import",
         db_path=db_path,
@@ -723,7 +786,7 @@ def test_generate_route_handles_value_and_runtime_errors(
     def fail_collect(*args: Any, **kwargs: Any) -> Any:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(server_module, "_collect_generation_source_values", fail_collect)
+    monkeypatch.setattr(endpoint_adapters_module, "_collect_generation_source_values", fail_collect)
     runtime_fail = _HandlerHarness(
         path="/api/generate",
         db_path=db_path,
@@ -766,7 +829,7 @@ def test_import_package_pair_other_error_paths(
         def fail_rows(*args: Any, **kwargs: Any) -> Any:
             raise RuntimeError("read fail")
 
-        monkeypatch.setattr(server_module, "_read_txt_rows", fail_rows)
+        monkeypatch.setattr(importer_module, "read_txt_rows", fail_rows)
         with pytest.raises(RuntimeError, match="read fail"):
             _import_package_pair(conn, metadata_path=metadata_path, zip_path=zip_path)
 
@@ -1169,6 +1232,14 @@ def test_server_start_run_and_main_paths(
     http_server, resolved_port = start_http_server(settings)
     assert isinstance(http_server, DummyHTTPServer)
     assert resolved_port == 8123
+    with sqlite3.connect(settings.db_path) as conn:
+        table_names = {str(row[0]) for row in conn.execute("""
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                """).fetchall()}
+    assert "imported_packages" in table_names
+    assert "package_tables" in table_names
 
     class DummyRuntimeServer:
         """Runtime server double with deterministic shutdown behavior."""

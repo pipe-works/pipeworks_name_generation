@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeworks Name Generator</title>
+    <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Pipeworks Name Generator</h1>
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="import">Import</button>
+        <button type="button" class="tab" data-tab="generation">Generation</button>
+        <button type="button" class="tab" data-tab="database">Database View</button>
+      </div>
+
+      <section class="panel active" id="panel-import">
+        <div class="grid">
+          <label for="metadata-path">Metadata JSON Path</label>
+          <input id="metadata-path" type="text" placeholder="/path/to/package_metadata.json" />
+        </div>
+        <div class="grid">
+          <label for="zip-path">Package ZIP Path</label>
+          <input id="zip-path" type="text" placeholder="/path/to/package.zip" />
+        </div>
+        <div class="row-buttons">
+          <button type="button" id="import-btn">Import Pair</button>
+        </div>
+        <p id="import-status" class="muted">Waiting for input.</p>
+      </section>
+
+      <section class="panel" id="panel-generation">
+        <article class="generation-card generation-placeholder generation-card-full-width">
+          <h3>Generation Placeholder</h3>
+          <p class="muted">Reserved for future blended generation controls.</p>
+        </article>
+
+        <section class="generation-class-wrapper generation-card-full-width">
+          <div class="row-buttons">
+            <button type="button" id="generation-toggle-btn">Show Name Class Cards</button>
+            <span id="generation-toggle-status" class="muted">Cards collapsed to save vertical space.</span>
+          </div>
+          <div id="generation-class-card-section" class="generation-class-grid generation-class-grid-collapsed">
+            <article class="generation-card generation-class-card" data-class-key="first_name">
+              <h3>First Name</h3>
+              <select id="generation-package-first_name" class="generation-package-select"></select>
+              <select id="generation-syllables-first_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-first_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-first_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="last_name">
+              <h3>Last Name</h3>
+              <select id="generation-package-last_name" class="generation-package-select"></select>
+              <select id="generation-syllables-last_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-last_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-last_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="place_name">
+              <h3>Place Name</h3>
+              <select id="generation-package-place_name" class="generation-package-select"></select>
+              <select id="generation-syllables-place_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-place_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-place_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="location_name">
+              <h3>Location Name</h3>
+              <select id="generation-package-location_name" class="generation-package-select"></select>
+              <select id="generation-syllables-location_name" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-location_name" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-location_name" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="object_item">
+              <h3>Object Item</h3>
+              <select id="generation-package-object_item" class="generation-package-select"></select>
+              <select id="generation-syllables-object_item" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-object_item" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-object_item" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="organisation">
+              <h3>Organisation</h3>
+              <select id="generation-package-organisation" class="generation-package-select"></select>
+              <select id="generation-syllables-organisation" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-organisation" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-organisation" class="muted">Loading package options...</p>
+            </article>
+
+            <article class="generation-card generation-class-card" data-class-key="title_epithet">
+              <h3>Title Epithet</h3>
+              <select id="generation-package-title_epithet" class="generation-package-select"></select>
+              <select id="generation-syllables-title_epithet" class="generation-syllable-select"></select>
+              <button type="button" id="generation-send-title_epithet" class="generation-send-btn">
+                Send to API Builder
+              </button>
+              <p id="generation-note-title_epithet" class="muted">Loading package options...</p>
+            </article>
+          </div>
+        </section>
+
+        <article class="generation-card generation-placeholder generation-card-full-width">
+          <h3>API Builder</h3>
+          <div class="api-builder-layout">
+            <section class="api-builder-left-column">
+              <section class="api-builder-pane">
+                <h4>Selected Inputs</h4>
+                <ul id="api-builder-queue"></ul>
+                <div class="row-buttons">
+                  <button type="button" id="api-builder-clear-btn">Clear Builder</button>
+                </div>
+                <p id="api-builder-combined">Combined unique combinations: 0</p>
+              </section>
+              <section class="api-builder-pane">
+                <h4>Request Parameters</h4>
+                <div class="api-builder-param-grid">
+                  <label for="api-builder-param-count">Number of Generations</label>
+                  <input
+                    id="api-builder-param-count"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    value="100"
+                  />
+                </div>
+                <div class="api-builder-param-grid">
+                  <label for="api-builder-param-seed">Seed (optional)</label>
+                  <input id="api-builder-param-seed" type="number" placeholder="blank = random" />
+                </div>
+                <div class="api-builder-param-grid">
+                  <label for="api-builder-param-format">Output Format</label>
+                  <select id="api-builder-param-format">
+                    <option value="json">json</option>
+                    <option value="txt">txt</option>
+                  </select>
+                </div>
+                <div class="api-builder-checkbox-row">
+                  <input id="api-builder-param-unique" type="checkbox" />
+                  <label for="api-builder-param-unique">Unique only</label>
+                </div>
+                <button type="button" id="api-builder-generate-preview-btn">Generate Preview</button>
+                <p id="api-builder-param-summary">
+                  Set request defaults used by the query/payload preview.
+                </p>
+                <div class="api-builder-inline-preview-grid">
+                  <section class="api-builder-inline-preview-card">
+                    <h5>Generated Names Preview</h5>
+                    <p id="api-builder-inline-preview">No preview generated yet.</p>
+                  </section>
+                  <section class="api-builder-inline-preview-card">
+                    <h5>First + Last Combinations</h5>
+                    <p id="api-builder-combo-preview">No combination preview generated yet.</p>
+                  </section>
+                </div>
+              </section>
+            </section>
+            <section class="api-builder-pane">
+              <h4>Builder Preview</h4>
+              <button type="button" id="api-builder-copy-btn">Copy Query Text</button>
+              <p id="api-builder-copy-status">No query content yet.</p>
+              <p id="api-builder-preview">No selections queued yet.</p>
+            </section>
+          </div>
+        </article>
+        <p id="generation-status" class="muted">Loading package options...</p>
+      </section>
+
+      <section class="panel" id="panel-database">
+        <div class="split">
+          <div class="db-sidebar">
+            <div class="row-buttons">
+              <button type="button" id="db-refresh-packages">Refresh Packages</button>
+            </div>
+            <div class="grid">
+              <label for="db-package-select">Package</label>
+              <select id="db-package-select"></select>
+            </div>
+            <div class="grid">
+              <label for="db-table-select">Table</label>
+              <select id="db-table-select"></select>
+            </div>
+            <p class="muted" id="db-status">Load packages to begin browsing.</p>
+            <ul id="db-table-list"></ul>
+          </div>
+          <div class="db-main">
+            <div class="row-buttons">
+              <button type="button" id="db-prev-btn">Previous</button>
+              <button type="button" id="db-next-btn">Next</button>
+              <span id="db-page-status" class="muted">Rows 0-0</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody id="db-row-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

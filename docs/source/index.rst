@@ -18,6 +18,12 @@ A lightweight, deterministic name generator that produces pronounceable names wi
    build_tools/index
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Webapp
+
+   webapp/index
+
+.. toctree::
    :maxdepth: 3
    :caption: API Reference
 
