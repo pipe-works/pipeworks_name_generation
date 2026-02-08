@@ -349,6 +349,126 @@ def test_favorites_routes_validate_payloads(tmp_path: Path) -> None:
     )
     assert bad_id_handler.status == 400
 
+    entries_type_handler = _FavoritesHandlerStub(db_path, body={"entries": "bad"})
+    favorites_routes.post_favorites(
+        entries_type_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert entries_type_handler.status == 400
+
+
+def test_favorites_routes_error_paths(tmp_path: Path) -> None:
+    """Favorites routes should surface error responses for exceptions."""
+    db_path = tmp_path / "favorites.sqlite3"
+    handler = _FavoritesHandlerStub(db_path)
+
+    def _raise_parse(*_args, **_kwargs):
+        raise favorites_routes.FavoritesError("bad query")
+
+    favorites_routes.get_favorites(
+        handler,
+        {},
+        parse_optional_int=_raise_parse,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        list_favorites=list_favorites,
+    )
+    assert handler.status == 400
+
+    def _raise_list(_conn):
+        raise RuntimeError("boom")
+
+    tags_handler = _FavoritesHandlerStub(db_path)
+    favorites_routes.get_favorite_tags(
+        tags_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        list_tags=_raise_list,
+    )
+    assert tags_handler.status == 500
+
+    export_handler = _FavoritesHandlerStub(db_path)
+    favorites_routes.get_favorites_export(
+        export_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        export_favorites=_raise_list,
+    )
+    assert export_handler.status == 500
+
+    update_handler = _FavoritesHandlerStub(
+        db_path, body={"favorite_id": 999, "tags": [], "note_md": None}
+    )
+
+    def _return_none(*_args, **_kwargs):
+        return None
+
+    favorites_routes.post_favorites_update(
+        update_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        update_favorite=_return_none,
+    )
+    assert update_handler.status == 404
+
+    delete_handler = _FavoritesHandlerStub(db_path, body={"favorite_id": 1})
+    favorites_routes.post_favorites_delete(
+        delete_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        delete_favorite=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    assert delete_handler.status == 500
+
+
+def test_favorites_import_export_validation_paths(tmp_path: Path) -> None:
+    """Import/export routes should validate file inputs."""
+    db_path = tmp_path / "favorites.sqlite3"
+
+    missing_export = _FavoritesHandlerStub(db_path, body={"output_path": ""})
+    favorites_routes.post_favorites_export(
+        missing_export,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        export_favorites=export_favorites,
+    )
+    assert missing_export.status == 400
+
+    missing_import = _FavoritesHandlerStub(
+        db_path, body={"import_path": str(tmp_path / "none.json")}
+    )
+    favorites_routes.post_favorites_import(
+        missing_import,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert missing_import.status == 400
+
+    bad_json = tmp_path / "bad.json"
+    bad_json.write_text("{not-json}", encoding="utf-8")
+    bad_json_handler = _FavoritesHandlerStub(db_path, body={"import_path": str(bad_json)})
+    favorites_routes.post_favorites_import(
+        bad_json_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert bad_json_handler.status == 400
+
+    empty_json = tmp_path / "empty.json"
+    empty_json.write_text(json.dumps({}), encoding="utf-8")
+    empty_handler = _FavoritesHandlerStub(db_path, body={"import_path": str(empty_json)})
+    favorites_routes.post_favorites_import(
+        empty_handler,
+        connect_database=connect_database,
+        initialize_schema=initialize_favorites_schema,
+        insert_favorites=insert_favorites,
+    )
+    assert empty_handler.status == 400
+
 
 def test_favorites_schema_migration_adds_gender(tmp_path: Path) -> None:
     """Schema initializer should add missing gender column on legacy tables."""
