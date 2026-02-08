@@ -195,7 +195,7 @@
     }
     .api-builder-left-column {
       display: grid;
-      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 0.7fr) minmax(0, 1.3fr);
       gap: 0.8rem;
       min-height: 280px;
     }
@@ -205,6 +205,12 @@
       padding: 0.65rem;
       background: color-mix(in srgb, var(--panel-2) 78%, black 22%);
       min-height: 132px;
+    }
+    .api-builder-selection-pane {
+      display: flex;
+      flex-direction: column;
+      min-height: 160px;
+      max-height: 230px;
     }
     .api-builder-pane h4 {
       margin: 0 0 0.45rem 0;
@@ -305,6 +311,9 @@
     #api-builder-queue {
       margin: 0;
       padding-left: 1.1rem;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding-right: 0.35rem;
     }
     #api-builder-combined {
       margin: 0.6rem 0 0 0;

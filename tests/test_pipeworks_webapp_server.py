@@ -455,6 +455,8 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-inline-preview"' in root_html
     assert 'id="api-builder-combo-preview"' in root_html
     assert 'id="api-builder-copy-btn"' in root_html
+    assert 'id="api-builder-copy-curl-btn"' in root_html
+    assert 'id="api-builder-copy-post-btn"' in root_html
     assert 'id="api-builder-copy-status"' in root_html
     assert 'id="api-builder-preview"' in root_html
 

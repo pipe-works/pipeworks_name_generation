@@ -119,7 +119,7 @@
           <h3>API Builder</h3>
           <div class="api-builder-layout">
             <section class="api-builder-left-column">
-              <section class="api-builder-pane">
+              <section class="api-builder-pane api-builder-selection-pane">
                 <h4>Selected Inputs</h4>
                 <ul id="api-builder-queue"></ul>
                 <div class="row-buttons">
@@ -221,7 +221,11 @@
             </section>
             <section class="api-builder-pane">
               <h4>Builder Preview</h4>
-              <button type="button" id="api-builder-copy-btn">Copy Query Text</button>
+              <div class="row-buttons">
+                <button type="button" id="api-builder-copy-btn">Copy Query Text</button>
+                <button type="button" id="api-builder-copy-curl-btn">Copy cURL Set</button>
+                <button type="button" id="api-builder-copy-post-btn">Copy POST Set</button>
+              </div>
               <p id="api-builder-copy-status">No query content yet.</p>
               <p id="api-builder-preview">No selections queued yet.</p>
             </section>
