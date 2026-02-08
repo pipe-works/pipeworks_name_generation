@@ -46,6 +46,7 @@
       postText: '',
     };
     let generationCardsCollapsed = true;
+    const themeStorageKey = 'pipeworks-theme';
 
     function setActiveTab(tabName) {
       for (const tab of tabs) {
@@ -58,6 +59,37 @@
 
     for (const tab of tabs) {
       tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+    }
+
+    function applyTheme(theme) {
+      const toggle = document.getElementById('theme-toggle');
+      document.body.dataset.theme = theme;
+      if (toggle) {
+        toggle.textContent = theme === 'light' ? 'Dark Theme' : 'Light Theme';
+      }
+      try {
+        window.localStorage.setItem(themeStorageKey, theme);
+      } catch (_error) {
+        // Ignore storage failures; the UI still works without persistence.
+      }
+    }
+
+    function initThemeToggle() {
+      const toggle = document.getElementById('theme-toggle');
+      let storedTheme = 'light';
+      try {
+        storedTheme = window.localStorage.getItem(themeStorageKey) || 'light';
+      } catch (_error) {
+        storedTheme = 'light';
+      }
+      applyTheme(storedTheme);
+      if (!toggle) {
+        return;
+      }
+      toggle.addEventListener('click', () => {
+        const current = document.body.dataset.theme || 'light';
+        applyTheme(current === 'light' ? 'dark' : 'light');
+      });
     }
 
     function setGenerationCardsCollapsed(isCollapsed) {
@@ -864,6 +896,7 @@
       });
     }
 
+    initThemeToggle();
     loadPackages();
     loadGenerationPackageOptions();
     renderApiBuilder();
