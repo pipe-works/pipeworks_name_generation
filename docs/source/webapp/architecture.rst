@@ -19,6 +19,8 @@ Current module layout:
   importer helpers.
 - ``pipeworks_name_generation/webapp/generation.py``
   Generation-domain mapping, selection stats, and deterministic sampling.
+  Includes a lightweight in-process cache for generation package options,
+  keyed by database path and invalidated on successful imports.
 - ``pipeworks_name_generation/webapp/http/*``
   Request parsing and response transport utilities.
 - ``pipeworks_name_generation/webapp/runtime.py``

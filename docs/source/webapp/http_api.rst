@@ -14,7 +14,7 @@ Routes currently exposed by the webapp:
 - ``GET /api/health``
   Liveness check.
 - ``GET /api/generation/package-options``
-  Returns generation package options grouped by name class.
+  Returns generation package options grouped by name class (cached per DB; refreshed on import).
 - ``GET /api/generation/package-syllables?class_key=...&package_id=...``
   Returns available syllable options for a class+package.
 - ``GET /api/generation/selection-stats?class_key=...&package_id=...&syllable_key=...``

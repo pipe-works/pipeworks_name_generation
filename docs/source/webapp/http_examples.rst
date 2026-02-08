@@ -68,6 +68,84 @@ Success response:
      ]
    }
 
+List imported packages
+----------------------
+
+Request:
+
+.. code-block:: text
+
+   GET /api/database/packages
+
+Success response:
+
+.. code-block:: json
+
+   {
+     "packages": [
+       {
+         "id": 12,
+         "package_name": "Goblin Flower Latin",
+         "imported_at": "2026-02-08T00:00:00+00:00"
+       }
+     ],
+     "db_path": "/path/to/name_packages.sqlite3"
+   }
+
+List tables for a package
+-------------------------
+
+Request:
+
+.. code-block:: text
+
+   GET /api/database/package-tables?package_id=12
+
+Success response:
+
+.. code-block:: json
+
+   {
+     "tables": [
+       {
+         "id": 1,
+         "source_txt_name": "nltk_first_name_2syl.txt",
+         "table_name": "pkg_12_goblin_flower_latin_nltk_first_name_2syl_1",
+         "row_count": 9065
+       }
+     ]
+   }
+
+Fetch table rows
+----------------
+
+Request:
+
+.. code-block:: text
+
+   GET /api/database/table-rows?table_id=1&offset=0&limit=2
+
+Success response:
+
+.. code-block:: json
+
+   {
+     "table": {
+       "id": 1,
+       "package_id": 12,
+       "source_txt_name": "nltk_first_name_2syl.txt",
+       "table_name": "pkg_12_goblin_flower_latin_nltk_first_name_2syl_1",
+       "row_count": 9065
+     },
+     "rows": [
+       {"line_number": 1, "value": "alfa"},
+       {"line_number": 2, "value": "briar"}
+     ],
+     "offset": 0,
+     "limit": 2,
+     "total_rows": 9065
+   }
+
 Generate names
 --------------
 
