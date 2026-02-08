@@ -1510,6 +1510,7 @@ def test_server_start_run_and_main_paths(
             "config": str(ini),
             "host": "0.0.0.0",
             "port": 8012,
+            "favorites_db": None,
             "quiet": True,
             "api_only": True,
         },

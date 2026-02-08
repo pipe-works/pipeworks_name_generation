@@ -22,6 +22,7 @@ def test_api_build_settings_forces_api_only(tmp_path: Path) -> None:
             "config": str(ini_path),
             "host": None,
             "port": None,
+            "favorites_db": None,
             "quiet": False,
             "api_only": False,
         },
