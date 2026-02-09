@@ -36,6 +36,11 @@
 - Keep changes scoped and document any behavior changes.
 - Release Please: use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
   and/or squash PRs with a conventional title so release-please can open a release PR.
+- CI must run on PRs targeting `main` or `develop`:
+  - Workflow: `.github/workflows/ci.yml` (reusable workflow in `pipe-works/.github`).
+  - Triggers: `pull_request` to `main`/`develop`, `push` to `main`/`develop`/`release-please--*`,
+    plus `workflow_dispatch`/`workflow_call`.
+  - If a PR shows "no checks", verify the base branch is `main`/`develop` and that Actions are enabled.
 
 ## Useful Paths
 
