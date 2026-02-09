@@ -211,6 +211,8 @@
   function initCopyButtons() {
     const inlineCopy = document.getElementById('api-builder-inline-copy-btn');
     const comboCopy = document.getElementById('api-builder-combo-copy-btn');
+    const inlineExport = document.getElementById('api-builder-inline-export-btn');
+    const comboExport = document.getElementById('api-builder-combo-export-btn');
     if (inlineCopy) {
       inlineCopy.addEventListener('click', () => {
         copyNames(inlineCopy, previewState.inlineEntries, 'No names');
@@ -221,6 +223,75 @@
         copyNames(comboCopy, previewState.comboEntries, 'No combos');
       });
     }
+    if (inlineExport) {
+      inlineExport.addEventListener('click', () => {
+        if (
+          window.PipeworksApiBuilder &&
+          typeof window.PipeworksApiBuilder.exportNames === 'function'
+        ) {
+          // Prefer full-count exports when the API Builder helper is available.
+          window.PipeworksApiBuilder.exportNames('inline');
+          return;
+        }
+        // Fallback: export only the names currently rendered in the preview.
+        downloadNames(inlineExport, previewState.inlineEntries, 'No names');
+      });
+    }
+    if (comboExport) {
+      comboExport.addEventListener('click', () => {
+        if (
+          window.PipeworksApiBuilder &&
+          typeof window.PipeworksApiBuilder.exportNames === 'function'
+        ) {
+          // Prefer full-count exports when the API Builder helper is available.
+          window.PipeworksApiBuilder.exportNames('combo');
+          return;
+        }
+        // Fallback: export only the combinations currently rendered in the preview.
+        downloadNames(comboExport, previewState.comboEntries, 'No combos');
+      });
+    }
+  }
+
+  function formatTimestamp(now) {
+    const pad = (value) => String(value).padStart(2, '0');
+    return [
+      now.getFullYear(),
+      pad(now.getMonth() + 1),
+      pad(now.getDate()),
+      '_',
+      pad(now.getHours()),
+      pad(now.getMinutes()),
+      pad(now.getSeconds()),
+    ].join('');
+  }
+
+  function downloadNames(button, entries, emptyMessage) {
+    if (!entries.length) {
+      button.textContent = emptyMessage;
+      button.classList.add('err');
+      window.setTimeout(() => {
+        button.classList.remove('err');
+        button.textContent = 'Export TXT';
+      }, 1200);
+      return;
+    }
+    const content = entries.map((entry) => entry.name).join('\n') + '\n';
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pipeworks_names_${formatTimestamp(new Date())}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    button.textContent = 'Exported';
+    button.classList.add('ok');
+    window.setTimeout(() => {
+      button.classList.remove('ok');
+      button.textContent = 'Export TXT';
+    }, 1400);
   }
 
   // Expose a minimal interface for the main app script to use.

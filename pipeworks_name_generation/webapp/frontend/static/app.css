@@ -116,14 +116,17 @@
       --panel: #111827;
       --panel-2: #1f2937;
       --text: #e5e7eb;
-      --muted: #9ca3af;
+      --muted: #c1cad6;
       --border: #374151;
       --accent: #38bdf8;
-      --accent-2: #0ea5e9;
+      --accent-2: #0369a1;
       --ok: #22c55e;
       --err: #ef4444;
       --input-bg: #0b1220;
       --button-text: #ffffff;
+      --code-bg: #0b1220;
+      --code-text: #e5e7eb;
+      --code-inline-text: #7dd3fc;
     }
     body[data-theme="light"] {
       --bg: #f8fafc;
@@ -135,10 +138,13 @@
       --border: #cbd5e1;
       --accent: #1d4ed8;
       --accent-2: #1e40af;
-      --ok: #16a34a;
+      --ok: #15803d;
       --err: #dc2626;
       --input-bg: #ffffff;
       --button-text: #ffffff;
+      --code-bg: #e2e8f0;
+      --code-text: #0f172a;
+      --code-inline-text: #1e40af;
     }
     body {
       margin: 0;
@@ -265,7 +271,7 @@
       margin-bottom: 0.35rem;
     }
     code {
-      color: #67e8f9;
+      color: var(--code-inline-text);
       overflow-wrap: anywhere;
       word-break: break-word;
     }
@@ -336,7 +342,7 @@
     }
     .api-builder-left-column {
       display: grid;
-      grid-template-rows: minmax(0, 0.6fr) minmax(0, 1.4fr);
+      grid-template-rows: 240px auto;
       gap: 0.8rem;
       min-height: 340px;
     }
@@ -346,12 +352,15 @@
       padding: 0.65rem;
       background: var(--panel-2);
       min-height: 132px;
+      box-sizing: border-box;
     }
     .api-builder-selection-pane {
       display: flex;
       flex-direction: column;
-      min-height: 160px;
-      max-height: 230px;
+      height: 100%;
+      min-height: 240px;
+      max-height: 240px;
+      overflow: hidden;
     }
     .api-builder-params-pane {
       min-height: 360px;
@@ -408,6 +417,16 @@
       margin: 0.5rem 0 0 0;
       font-size: 0.82rem;
       color: var(--muted);
+    }
+    .api-builder-preview-note {
+      margin: 0.35rem 0 0 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .api-builder-preview-cap-row {
+      margin-top: 0.25rem;
+      margin-bottom: 0.2rem;
     }
     #api-builder-generate-preview-btn {
       margin-top: 0.5rem;
@@ -570,6 +589,7 @@
       flex: 1 1 auto;
       overflow: auto;
       padding-right: 0.35rem;
+      min-height: 0;
     }
     #api-builder-combined {
       margin: 0.6rem 0 0 0;
@@ -669,6 +689,38 @@
     .db-sidebar select {
       min-width: 0;
     }
+    .db-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .db-sidebar {
+      display: grid;
+      gap: 0.9rem;
+    }
+    .db-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem;
+      background: var(--panel-2);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .db-card h3 {
+      margin: 0 0 0.6rem 0;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .db-card .grid {
+      grid-template-columns: 110px 1fr;
+    }
+    .db-tools {
+      display: grid;
+      gap: 0.6rem;
+      margin: 0.75rem 0 1rem;
+    }
     .help-content {
       display: grid;
       gap: 0.75rem;
@@ -689,15 +741,53 @@
       color: var(--muted);
       line-height: 1.4;
     }
-    .favorites-toolbar,
-    .favorites-import-row,
-    .favorites-filters {
-      display: grid;
-      gap: 0.6rem;
-      margin-bottom: 0.8rem;
+    .help-entry pre {
+      margin: 0.6rem 0 0;
+      padding: 0.6rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--code-text);
+      font-size: 0.78rem;
+      overflow-x: auto;
+    }
+    .help-entry code {
+      font-family: "JetBrains Mono", "Fira Mono", "SFMono-Regular", Menlo, monospace;
+      white-space: pre;
+      color: inherit;
     }
     .favorites-path-grid {
-      grid-template-columns: 140px 1fr;
+      grid-template-columns: 130px 1fr;
+    }
+    .favorites-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .favorites-sidebar {
+      display: grid;
+      gap: 0.9rem;
+    }
+    .favorites-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem;
+      background: var(--panel-2);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .favorites-card h3 {
+      margin: 0 0 0.6rem 0;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .favorites-card .grid {
+      grid-template-columns: 110px 1fr;
+    }
+    .favorites-card .favorites-path-grid {
+      grid-template-columns: 130px 1fr;
     }
     .favorites-table-wrap {
       border: 1px solid var(--border);
@@ -728,6 +818,16 @@
     }
     .favorites-table-wrap td:last-child {
       white-space: nowrap;
+      display: flex;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .favorites-table-wrap th:last-child {
+      width: 120px;
+    }
+    .favorites-table-wrap td:last-child button {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.72rem;
     }
     .favorites-pagination {
       justify-content: flex-start;
@@ -835,6 +935,8 @@
     @media (max-width: 980px) {
       .split { grid-template-columns: 1fr; }
       .generation-class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .favorites-layout { grid-template-columns: 1fr; }
+      .db-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 800px) {
       .grid { grid-template-columns: 1fr; }
@@ -843,6 +945,12 @@
       .generation-class-grid { grid-template-columns: 1fr; }
       .api-builder-layout { grid-template-columns: 1fr; }
       .api-builder-left-column { grid-template-rows: auto auto; min-height: 0; }
+      .api-builder-selection-pane {
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        overflow: visible;
+      }
       .api-builder-param-grid { grid-template-columns: 1fr; }
       .api-builder-inline-preview-grid { grid-template-columns: 1fr; }
       .builder-preview-controls { grid-template-columns: 1fr; }

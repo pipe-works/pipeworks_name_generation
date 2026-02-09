@@ -43,3 +43,34 @@
 - Name classes: `data/name_classes.yml`
 - Build tool docs: `docs/source/build_tools/`
 - Tests: `tests/`
+
+## Code Map (High-Level)
+
+- Runtime generator: `pipeworks_name_generation/generator.py` (minimal, hardcoded syllables, deterministic `random.Random(seed)`).
+- Runtime rendering helpers: `pipeworks_name_generation/renderer.py` (render styles: raw/lower/upper/title/sentence).
+- Web app (HTTP server + API): `pipeworks_name_generation/webapp/`:
+  - Server entrypoint: `server.py` (UI + API).
+  - API-only entrypoint: `api.py` (forces API-only routes).
+  - DB layer: `db/` (SQLite schema + repositories + table store).
+  - Favorites: `favorites/` (SQLite-backed favorites store).
+  - Frontend assets: `frontend/` (HTML/CSS/JS).
+- Build tools (primary focus): `build_tools/`:
+  - Extraction: `pyphen_syllable_extractor/` (multi-language, typographic), `nltk_syllable_extractor/` (English phonetic).
+  - Normalization: `pyphen_syllable_normaliser/`, `nltk_syllable_normaliser/` (in-place run-dir pipelines).
+  - Annotation: `syllable_feature_annotator/` (12 feature detectors).
+  - Analysis: `syllable_analysis/` (sampling, feature signatures, t-SNE, plotting).
+  - Selection policy layer: `name_combiner/` (structural candidates) + `name_selector/` (policy evaluation).
+  - Syllable walk explorer: `syllable_walk/` + `syllable_walk_tui/` + `syllable_walk_web/`.
+  - Corpus ledger: `corpus_db/` (provenance DB; default `data/raw/syllable_extractor.db`).
+
+## Build Pipeline (Common Flow)
+
+- Extract syllables: `pyphen_syllable_extractor` or `nltk_syllable_extractor`.
+- Normalize: `pyphen_syllable_normaliser` or `nltk_syllable_normaliser` (creates `*_syllables_*.{txt,json}`).
+- Annotate features: `syllable_feature_annotator` (creates annotated JSON).
+- Generate candidates: `name_combiner` (candidates JSON).
+- Select names: `name_selector` (policy-based selections using `data/name_classes.yml`).
+
+## Internal Docs
+
+- Detailed guides live in `claude/` (architecture, build tools, development guide, CI/CD).

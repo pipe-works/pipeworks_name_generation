@@ -14,6 +14,8 @@ from pathlib import Path
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_DB_PATH = Path("pipeworks_name_generation/data/name_packages.sqlite3")
 DEFAULT_FAVORITES_DB_PATH = Path("pipeworks_name_generation/data/user_favorites.sqlite3")
+DEFAULT_DB_EXPORT_PATH: Path | None = None
+DEFAULT_DB_BACKUP_PATH: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,8 @@ class ServerSettings:
     port: int | None = None
     db_path: Path = DEFAULT_DB_PATH
     favorites_db_path: Path = DEFAULT_FAVORITES_DB_PATH
+    db_export_path: Path | None = DEFAULT_DB_EXPORT_PATH
+    db_backup_path: Path | None = DEFAULT_DB_BACKUP_PATH
     verbose: bool = True
     serve_ui: bool = True
 
@@ -65,6 +69,16 @@ def _coerce_port(raw_port: str | None) -> int | None:
         raise ValueError("Port must be between 1024 and 65535")
 
     return port
+
+
+def _coerce_optional_path(raw_path: str | None) -> Path | None:
+    """Normalize an optional filesystem path from config values."""
+    if raw_path is None:
+        return None
+    cleaned = raw_path.strip()
+    if not cleaned:
+        return None
+    return Path(cleaned).expanduser()
 
 
 def load_server_settings(config_path: Path | None) -> ServerSettings:
@@ -108,6 +122,15 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
         Path(favorites_raw).expanduser() if favorites_raw else settings.favorites_db_path
     )
 
+    db_export_path = (
+        _coerce_optional_path(parser.get("server", "db_export_path", fallback=None))
+        or settings.db_export_path
+    )
+    db_backup_path = (
+        _coerce_optional_path(parser.get("server", "db_backup_path", fallback=None))
+        or settings.db_backup_path
+    )
+
     verbose = parser.getboolean("server", "verbose", fallback=settings.verbose)
     serve_ui = parser.getboolean("server", "serve_ui", fallback=settings.serve_ui)
     api_only = parser.getboolean("server", "api_only", fallback=False)
@@ -120,6 +143,8 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
         port=port,
         db_path=db_path,
         favorites_db_path=favorites_db_path,
+        db_export_path=db_export_path,
+        db_backup_path=db_backup_path,
         verbose=verbose,
         serve_ui=serve_ui,
     )
@@ -131,6 +156,8 @@ def apply_runtime_overrides(
     port: int | None,
     db_path: Path | None,
     favorites_db_path: Path | None,
+    db_export_path: Path | None,
+    db_backup_path: Path | None,
     verbose: bool | None,
     serve_ui: bool | None,
 ) -> ServerSettings:
@@ -158,6 +185,10 @@ def apply_runtime_overrides(
         result = replace(result, db_path=db_path.expanduser())
     if favorites_db_path is not None:
         result = replace(result, favorites_db_path=favorites_db_path.expanduser())
+    if db_export_path is not None:
+        result = replace(result, db_export_path=db_export_path.expanduser())
+    if db_backup_path is not None:
+        result = replace(result, db_backup_path=db_backup_path.expanduser())
     if verbose is not None:
         result = replace(result, verbose=verbose)
     if serve_ui is not None:

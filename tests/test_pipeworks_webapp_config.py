@@ -43,6 +43,8 @@ def test_load_server_settings_defaults_when_file_missing(tmp_path: Path) -> None
     assert settings.port is None
     assert settings.db_path == DEFAULT_DB_PATH
     assert settings.favorites_db_path == DEFAULT_FAVORITES_DB_PATH
+    assert settings.db_export_path is None
+    assert settings.db_backup_path is None
     assert settings.verbose is True
     assert settings.serve_ui is True
 
@@ -58,6 +60,8 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
                 "port = 8111",
                 "db_path = ~/pipeworks/test.sqlite3",
                 "favorites_db_path = ~/pipeworks/favorites.sqlite3",
+                "db_export_path = ~/pipeworks/export.sqlite3",
+                "db_backup_path = ~/pipeworks/backup.sqlite3",
                 "verbose = false",
                 "serve_ui = false",
             ]
@@ -70,6 +74,8 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
     assert settings.port == 8111
     assert settings.db_path == Path("~/pipeworks/test.sqlite3").expanduser()
     assert settings.favorites_db_path == Path("~/pipeworks/favorites.sqlite3").expanduser()
+    assert settings.db_export_path == Path("~/pipeworks/export.sqlite3").expanduser()
+    assert settings.db_backup_path == Path("~/pipeworks/backup.sqlite3").expanduser()
     assert settings.verbose is False
     assert settings.serve_ui is False
 
@@ -102,6 +108,8 @@ def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path)
     assert settings.port is None
     assert settings.db_path == DEFAULT_DB_PATH
     assert settings.favorites_db_path == DEFAULT_FAVORITES_DB_PATH
+    assert settings.db_export_path is None
+    assert settings.db_backup_path is None
     assert settings.verbose is True
 
 
@@ -117,6 +125,8 @@ def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None
         port=8123,
         db_path=db_override,
         favorites_db_path=favorites_override,
+        db_export_path=tmp_path / "export.sqlite3",
+        db_backup_path=tmp_path / "backup.sqlite3",
         verbose=False,
         serve_ui=False,
     )
@@ -125,6 +135,8 @@ def test_apply_runtime_overrides_updates_selected_fields(tmp_path: Path) -> None
     assert updated.port == 8123
     assert updated.db_path == db_override
     assert updated.favorites_db_path == favorites_override
+    assert updated.db_export_path == tmp_path / "export.sqlite3"
+    assert updated.db_backup_path == tmp_path / "backup.sqlite3"
     assert updated.verbose is False
     assert updated.serve_ui is False
 
@@ -145,6 +157,8 @@ def test_apply_runtime_overrides_keeps_defaults_when_none() -> None:
         port=None,
         db_path=None,
         favorites_db_path=None,
+        db_export_path=None,
+        db_backup_path=None,
         verbose=None,
         serve_ui=None,
     )

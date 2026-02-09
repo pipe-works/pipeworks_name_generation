@@ -572,6 +572,15 @@ def test_route_registry_contains_core_endpoints() -> None:
         "get_generation_package_options"
     )
     assert route_registry_module.POST_ROUTE_METHODS["/api/import"] == "post_import"
+    assert (
+        route_registry_module.POST_ROUTE_METHODS["/api/database/backup"] == "post_database_backup"
+    )
+    assert (
+        route_registry_module.POST_ROUTE_METHODS["/api/database/export"] == "post_database_export"
+    )
+    assert (
+        route_registry_module.POST_ROUTE_METHODS["/api/database/import"] == "post_database_import"
+    )
     assert route_registry_module.POST_ROUTE_METHODS["/api/generate"] == "post_generate"
     assert "/api/health" in route_registry_module.API_GET_ROUTE_METHODS
     assert "/" not in route_registry_module.API_GET_ROUTE_METHODS

@@ -36,6 +36,8 @@ class WebAppHandler(BaseHTTPRequestHandler):
     verbose: bool = True
     db_path: Path = Path("pipeworks_name_generation/data/name_packages.sqlite3")
     favorites_db_path: Path = Path("pipeworks_name_generation/data/user_favorites.sqlite3")
+    db_export_path: Path | None = None
+    db_backup_path: Path | None = None
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
     favorites_schema_ready: bool = False

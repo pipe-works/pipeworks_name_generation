@@ -1,5 +1,13 @@
 """Route handler modules for the webapp HTTP server."""
 
-from . import database, favorites, generation, help, imports, static
+from . import database, database_admin, favorites, generation, help, imports, static
 
-__all__ = ["static", "generation", "database", "imports", "favorites", "help"]
+__all__ = [
+    "static",
+    "generation",
+    "database",
+    "database_admin",
+    "imports",
+    "favorites",
+    "help",
+]

@@ -193,9 +193,16 @@
                     </label>
                   </div>
                 </div>
+                <div class="api-builder-checkbox-row api-builder-preview-cap-row">
+                  <input id="api-builder-preview-cap-enabled" type="checkbox" checked />
+                  <label for="api-builder-preview-cap-enabled">Cap preview at 20</label>
+                </div>
                 <button type="button" id="api-builder-generate-preview-btn">Generate Preview</button>
                 <p id="api-builder-param-summary">
                   Set request defaults used by the query/payload preview.
+                </p>
+                <p id="api-builder-preview-cap" class="muted api-builder-preview-note">
+                  Preview shows up to 20 names per selection. Combinations are built from previewed names.
                 </p>
                 <div class="api-builder-inline-preview-grid">
                   <section class="api-builder-inline-preview-card">
@@ -219,6 +226,15 @@
                         >
                           <span class="builder-preview-copy-icon" aria-hidden="true"></span>
                           <span>Copy</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="api-builder-inline-export-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Export generated names as a .txt file"
+                        >
+                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                          <span>Export TXT</span>
                         </button>
                       </div>
                     </div>
@@ -247,6 +263,15 @@
                         >
                           <span class="builder-preview-copy-icon" aria-hidden="true"></span>
                           <span>Copy</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="api-builder-combo-export-btn"
+                          class="api-builder-preview-copy-btn"
+                          title="Export combinations as a .txt file"
+                        >
+                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                          <span>Export TXT</span>
                         </button>
                       </div>
                     </div>
@@ -347,21 +372,34 @@
       </section>
 
       <section class="panel" id="panel-database">
-        <div class="split">
+        <div class="db-layout">
           <div class="db-sidebar">
-            <div class="row-buttons">
-              <button type="button" id="db-refresh-packages">Refresh Packages</button>
-            </div>
-            <div class="grid">
-              <label for="db-package-select">Package</label>
-              <select id="db-package-select"></select>
-            </div>
-            <div class="grid">
-              <label for="db-table-select">Table</label>
-              <select id="db-table-select"></select>
-            </div>
-            <p class="muted" id="db-status">Load packages to begin browsing.</p>
-            <ul id="db-table-list"></ul>
+            <section class="db-card">
+              <h3>Tools</h3>
+              <div class="row-buttons">
+                <button type="button" id="db-refresh-packages">Refresh Packages</button>
+                <button type="button" id="db-export-btn">Export DB</button>
+                <button type="button" id="db-backup-btn">Write Backup</button>
+              </div>
+              <p class="muted">
+                Export and backup paths are configured in <code>server.ini</code>.
+              </p>
+              <p id="db-export-status" class="muted">Ready for export or backup.</p>
+            </section>
+
+            <section class="db-card">
+              <h3>Selection</h3>
+              <div class="grid">
+                <label for="db-package-select">Package</label>
+                <select id="db-package-select"></select>
+              </div>
+              <div class="grid">
+                <label for="db-table-select">Table</label>
+                <select id="db-table-select"></select>
+              </div>
+              <p class="muted" id="db-status">Load packages to begin browsing.</p>
+              <ul id="db-table-list"></ul>
+            </section>
           </div>
           <div class="db-main">
             <div class="row-buttons">
@@ -398,65 +436,74 @@
       </section>
 
       <section class="panel" id="panel-favorites">
-        <div class="favorites-toolbar">
-          <div class="row-buttons">
-            <button type="button" id="favorites-refresh-btn">Refresh Favorites</button>
-            <button type="button" id="favorites-export-btn">Export JSON</button>
-          </div>
-          <div class="grid favorites-path-grid">
-            <label for="favorites-export-path">Backup Path</label>
-            <input id="favorites-export-path" type="text" placeholder="/path/to/favorites_backup.json" />
-          </div>
-          <div class="row-buttons">
-            <button type="button" id="favorites-backup-btn">Write Backup</button>
-          </div>
-        </div>
+        <div class="favorites-layout">
+          <div class="favorites-sidebar">
+            <section class="favorites-card">
+              <h3>Export & Backup</h3>
+              <div class="row-buttons">
+                <button type="button" id="favorites-refresh-btn">Refresh Favorites</button>
+                <button type="button" id="favorites-export-btn">Export JSON</button>
+              </div>
+              <div class="grid favorites-path-grid">
+                <label for="favorites-export-path">Backup Path</label>
+                <input id="favorites-export-path" type="text" placeholder="/path/to/favorites_backup.json" />
+              </div>
+              <div class="row-buttons">
+                <button type="button" id="favorites-backup-btn">Write Backup</button>
+              </div>
+            </section>
 
-        <div class="favorites-import-row">
-          <div class="grid favorites-path-grid">
-            <label for="favorites-import-path">Import JSON Path</label>
-            <input id="favorites-import-path" type="text" placeholder="/path/to/favorites_export.json" />
-          </div>
-          <div class="row-buttons">
-            <button type="button" id="favorites-import-btn">Import Favorites</button>
-          </div>
-        </div>
+            <section class="favorites-card">
+              <h3>Import</h3>
+              <div class="grid favorites-path-grid">
+                <label for="favorites-import-path">Import JSON Path</label>
+                <input id="favorites-import-path" type="text" placeholder="/path/to/favorites_export.json" />
+              </div>
+              <div class="row-buttons">
+                <button type="button" id="favorites-import-btn">Import Favorites</button>
+              </div>
+            </section>
 
-        <div class="favorites-filters">
-          <div class="grid">
-            <label for="favorites-search">Search</label>
-            <input id="favorites-search" type="text" placeholder="Search names or notes" />
+            <section class="favorites-card">
+              <h3>Filters</h3>
+              <div class="grid">
+                <label for="favorites-search">Search</label>
+                <input id="favorites-search" type="text" placeholder="Search names or notes" />
+              </div>
+              <div class="grid">
+                <label for="favorites-tag-filter">Tag</label>
+                <select id="favorites-tag-filter"></select>
+              </div>
+            </section>
           </div>
-          <div class="grid">
-            <label for="favorites-tag-filter">Tag</label>
-            <select id="favorites-tag-filter"></select>
+
+          <div class="favorites-main">
+            <p id="favorites-status" class="muted">Load favorites to begin browsing.</p>
+
+            <div class="favorites-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Class</th>
+                    <th>Gender</th>
+                    <th>Package</th>
+                    <th>Tags</th>
+                    <th>Note</th>
+                    <th>Added</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="favorites-table-body"></tbody>
+              </table>
+            </div>
+
+            <div class="row-buttons favorites-pagination">
+              <button type="button" id="favorites-prev-btn">Previous</button>
+              <button type="button" id="favorites-next-btn">Next</button>
+              <span id="favorites-page-status" class="muted">Rows 0-0</span>
+            </div>
           </div>
-        </div>
-
-        <p id="favorites-status" class="muted">Load favorites to begin browsing.</p>
-
-        <div class="favorites-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Class</th>
-                <th>Gender</th>
-                <th>Package</th>
-                <th>Tags</th>
-                <th>Note</th>
-                <th>Added</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="favorites-table-body"></tbody>
-          </table>
-        </div>
-
-        <div class="row-buttons favorites-pagination">
-          <button type="button" id="favorites-prev-btn">Previous</button>
-          <button type="button" id="favorites-next-btn">Next</button>
-          <span id="favorites-page-status" class="muted">Rows 0-0</span>
         </div>
       </section>
 

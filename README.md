@@ -104,6 +104,11 @@ python -m pipeworks_name_generation.webapp.server --config server.ini --api-only
 
 Open the URL printed in the console (default host `127.0.0.1`).
 
+**Production note:** For reverse-proxy setup, systemd, and CORS allowlists, see the
+deployment guide in the docs. CORS only applies to browser JavaScript and is **not**
+authentication.
+**[Deployment guide →](https://pipeworks-name-generation.readthedocs.io/en/latest/webapp/deployment.html)**
+
 ### What It Does
 
 - **Import**: Load a metadata JSON + ZIP pair, then persist `*.txt` selections into SQLite tables.
@@ -230,6 +235,8 @@ available at **[pipeworks-name-generation.readthedocs.io](https://pipeworks-name
 
 - **[Build Tools Guide](https://pipeworks-name-generation.readthedocs.io/en/latest/build_tools/index.html)**
   \- Detailed usage for all command-line tools.
+- **[Web App Deployment](https://pipeworks-name-generation.readthedocs.io/en/latest/webapp/deployment.html)**
+  \- Production-style setup notes (systemd, nginx, CORS allowlists).
 - **[API Reference](https://pipeworks-name-generation.readthedocs.io/en/latest/autoapi/index.html)**
   \- Complete API documentation for all modules.
 - **[Changelog](https://pipeworks-name-generation.readthedocs.io/en/latest/changelog.html)**

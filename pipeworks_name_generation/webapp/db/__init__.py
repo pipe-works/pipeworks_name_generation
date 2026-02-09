@@ -1,5 +1,6 @@
 """Database-layer modules for the webapp backend."""
 
+from .backup import BackupResult, RestoreResult, backup_database, export_database, restore_database
 from .connection import connect_database
 from .importer import import_package_pair, load_metadata_json, read_txt_rows
 from .repositories import (
@@ -14,6 +15,11 @@ from .table_store import create_text_table, fetch_text_rows, insert_text_rows, q
 
 __all__ = [
     "connect_database",
+    "BackupResult",
+    "RestoreResult",
+    "backup_database",
+    "export_database",
+    "restore_database",
     "initialize_schema",
     "import_package_pair",
     "load_metadata_json",
