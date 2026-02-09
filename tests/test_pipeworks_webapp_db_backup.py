@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from pipeworks_name_generation.webapp.db import backup as backup_module
 from pipeworks_name_generation.webapp.db import (
     backup_database,
     connect_database,
@@ -91,6 +92,17 @@ def test_backup_database_creates_copy(tmp_path: Path) -> None:
     assert packages[0]["package_name"] == "Source Package"
 
 
+def test_backup_database_creates_timestamped_copy(tmp_path: Path) -> None:
+    """Backup without an explicit output path should create a timestamped file."""
+    src_db = tmp_path / "source.sqlite3"
+    _seed_database(src_db, "Timestamp Package")
+
+    result = backup_database(src_db)
+
+    assert result.path.exists()
+    assert result.path.name.startswith("source_backup_")
+
+
 def test_backup_database_rejects_missing_db(tmp_path: Path) -> None:
     """Backup should reject missing source databases."""
     with pytest.raises(ValueError):
@@ -117,6 +129,44 @@ def test_restore_database_overwrites_and_creates_backup(tmp_path: Path) -> None:
     with connect_database(dest_db) as conn:
         packages = list_packages(conn)
     assert packages[0]["package_name"] == "Imported Package"
+
+
+def test_restore_database_rejects_same_path(tmp_path: Path) -> None:
+    """Restore should reject using the destination path as the import path."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Original Package")
+
+    with pytest.raises(ValueError):
+        restore_database(db_path, import_path=db_path, overwrite=True)
+
+
+def test_ensure_sqlite_file_fallback_on_operational_error(tmp_path: Path, monkeypatch: Any) -> None:
+    """OperationalError should fall back to a non-URI SQLite validation."""
+    db_path = tmp_path / "db.sqlite3"
+    db_path.write_text("placeholder", encoding="utf-8")
+
+    class DummyCursor:
+        def fetchone(self) -> None:
+            return None
+
+    class DummyConn:
+        def __enter__(self) -> "DummyConn":
+            return self
+
+        def __exit__(self, *_args: Any) -> None:
+            return None
+
+        def execute(self, *_args: Any, **_kwargs: Any) -> DummyCursor:
+            return DummyCursor()
+
+    def fake_connect(path: Any, *args: Any, **kwargs: Any) -> DummyConn:
+        if kwargs.get("uri"):
+            raise backup_module.sqlite3.OperationalError("uri blocked")
+        return DummyConn()
+
+    monkeypatch.setattr(backup_module.sqlite3, "connect", fake_connect)
+    resolved = backup_module._ensure_sqlite_file(db_path, label="Database")
+    assert resolved == db_path.resolve()
 
 
 def test_restore_database_requires_overwrite(tmp_path: Path) -> None:
@@ -188,6 +238,57 @@ def test_database_export_route_uses_configured_path(tmp_path: Path) -> None:
     assert handler.response_status == 200
     assert output_path.exists()
     assert (handler.response_payload or {}).get("export_path") == str(output_path)
+
+
+def test_database_backup_route_handles_exception(tmp_path: Path) -> None:
+    """Backup route should return 500 when helper raises."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Backup Failure Package")
+
+    handler = _HandlerHarness(db_path=db_path, body={})
+
+    def boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    database_admin_routes.post_database_backup(handler, backup_database=boom)
+    assert handler.response_status == 500
+    assert "Backup failed" in (handler.response_payload or {}).get("error", "")
+
+
+def test_database_export_route_handles_exception(tmp_path: Path) -> None:
+    """Export route should return 500 when helper raises."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Export Failure Package")
+
+    handler = _HandlerHarness(
+        db_path=db_path,
+        body={"output_path": str(tmp_path / "export.sqlite3")},
+    )
+
+    def boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    database_admin_routes.post_database_export(handler, export_database=boom)
+    assert handler.response_status == 500
+    assert "Export failed" in (handler.response_payload or {}).get("error", "")
+
+
+def test_database_import_route_handles_exception(tmp_path: Path) -> None:
+    """Import route should return 500 when helper raises."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Import Failure Package")
+
+    handler = _HandlerHarness(
+        db_path=db_path,
+        body={"import_path": str(tmp_path / "import.sqlite3")},
+    )
+
+    def boom(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    database_admin_routes.post_database_import(handler, restore_database=boom)
+    assert handler.response_status == 500
+    assert "Import failed" in (handler.response_payload or {}).get("error", "")
 
 
 def test_backup_database_rejects_existing_path_without_overwrite(tmp_path: Path) -> None:

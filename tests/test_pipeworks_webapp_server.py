@@ -1565,6 +1565,36 @@ def test_static_asset_missing_returns_404(tmp_path: Path, monkeypatch: pytest.Mo
     assert handler.error_message == "Not Found"
 
 
+def test_static_css_missing_returns_404(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing CSS assets should result in a 404 response."""
+    handler = _HandlerHarness(path="/static/app.css", db_path=tmp_path / "db.sqlite3")
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing css")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+    endpoint_adapters_module.get_static_app_css(handler, {})
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
+def test_static_api_builder_preview_missing_returns_404(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing API builder preview assets should return a 404 response."""
+    handler = _HandlerHarness(
+        path="/static/api_builder_preview.js", db_path=tmp_path / "db.sqlite3"
+    )
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing preview asset")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+    endpoint_adapters_module.get_static_api_builder_preview_js(handler, {})
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
 def test_static_font_missing_returns_404(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Missing font assets should return a 404 response."""
     handler = _HandlerHarness(path="/static/fonts/missing.woff2", db_path=tmp_path / "db.sqlite3")
