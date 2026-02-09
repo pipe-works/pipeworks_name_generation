@@ -240,6 +240,7 @@
       const seedInput = document.getElementById('api-builder-param-seed');
       const formatSelect = document.getElementById('api-builder-param-format');
       const uniqueCheckbox = document.getElementById('api-builder-param-unique');
+      const previewCapCheckbox = document.getElementById('api-builder-preview-cap-enabled');
       const renderInputs = Array.from(
         document.querySelectorAll('.api-builder-render-option-input')
       );
@@ -260,13 +261,17 @@
       }
       const outputFormat = formatSelect.value || 'json';
       const uniqueOnly = Boolean(uniqueCheckbox.checked);
+      const previewCapEnabled = previewCapCheckbox ? Boolean(previewCapCheckbox.checked) : true;
       const selectedRender = renderInputs.find((input) => input.checked);
       const renderStyle = selectedRender ? selectedRender.dataset.renderStyle || 'raw' : 'raw';
 
       const seedText = seed === null ? 'random' : String(seed);
       summary.textContent =
         `Count ${generationCount}, seed ${seedText}, format ${outputFormat}, ` +
-        `unique ${uniqueOnly}, render ${renderStyle}`;
+        `unique ${uniqueOnly}, render ${renderStyle}, preview ${
+          previewCapEnabled ? 'cap 20' : 'uncapped'
+        }`;
+      updatePreviewCapNote(generationCount, previewCapEnabled, null);
 
       return {
         generation_count: generationCount,
@@ -274,6 +279,7 @@
         output_format: outputFormat,
         unique_only: uniqueOnly,
         render_style: renderStyle,
+        preview_cap_enabled: previewCapEnabled,
       };
     }
 
@@ -483,7 +489,10 @@
 
       // Keep preview output bounded for UI readability.
       const requestedCount = params.generation_count;
-      const previewCount = Math.min(20, requestedCount);
+      const previewCount = params.preview_cap_enabled
+        ? Math.min(20, requestedCount)
+        : requestedCount;
+      updatePreviewCapNote(requestedCount, params.preview_cap_enabled, previewCount);
       if (previewApi) {
         previewApi.setInlineMessage(
           `Generating preview (${previewCount} per selection)...`,
@@ -684,6 +693,27 @@
       renderApiBuilder();
     }
 
+    function updatePreviewCapNote(requestedCount, previewCapEnabled, previewCount) {
+      const previewNote = document.getElementById('api-builder-preview-cap');
+      if (!previewNote) {
+        return;
+      }
+      if (!previewCapEnabled) {
+        previewNote.textContent =
+          `Preview uncapped: showing ${requestedCount} per selection. ` +
+          'Combinations use previewed names.';
+        return;
+      }
+      if (previewCount !== null && requestedCount > previewCount) {
+        previewNote.textContent =
+          `Preview capped at ${previewCount} per selection ` +
+          `(requested ${requestedCount}). Combinations use previewed names.`;
+        return;
+      }
+      previewNote.textContent =
+        'Preview capped at 20 per selection. Combinations are built from previewed names.';
+    }
+
     async function sendToApiBuilder(classKey) {
       const packageSelect = document.getElementById(`generation-package-${classKey}`);
       const syllableSelect = document.getElementById(`generation-syllables-${classKey}`);
@@ -728,6 +758,144 @@
       renderApiBuilder();
       note.className = 'ok';
       note.textContent = `Selection sent. Max items ${stats.max_items}; max unique combinations ${stats.max_unique_combinations}.`;
+    }
+
+    // Keep filename timestamps consistent across exports (YYYYMMDD_HHMMSS).
+    function formatTimestamp(dateObj) {
+      const pad = (value) => String(value).padStart(2, '0');
+      return [
+        dateObj.getFullYear(),
+        pad(dateObj.getMonth() + 1),
+        pad(dateObj.getDate()),
+        '_',
+        pad(dateObj.getHours()),
+        pad(dateObj.getMinutes()),
+        pad(dateObj.getSeconds()),
+      ].join('');
+    }
+
+    // Trigger a browser download without involving the server.
+    function downloadTextFile(filename, content) {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Apply quick UI feedback to export buttons while async work runs.
+    function setExportButtonState(button, text, tone, disabled) {
+      if (!button) {
+        return;
+      }
+      button.textContent = text;
+      button.classList.remove('ok', 'err');
+      if (tone) {
+        button.classList.add(tone);
+      }
+      if (typeof disabled === 'boolean') {
+        button.disabled = disabled;
+      }
+    }
+
+    // Export full-count names or combinations based on the current API Builder
+    // selections. This ignores the preview cap and always honors the requested
+    // generation_count from the parameters pane.
+    async function exportApiBuilderNames(kind) {
+      const buttonId =
+        kind === 'combo' ? 'api-builder-combo-export-btn' : 'api-builder-inline-export-btn';
+      const button = document.getElementById(buttonId);
+      if (!button) {
+        return;
+      }
+      if (!apiBuilderSelections.length) {
+        setExportButtonState(button, 'No selections', 'err', false);
+        window.setTimeout(() => {
+          setExportButtonState(button, 'Export TXT', null, false);
+        }, 1200);
+        return;
+      }
+      setExportButtonState(button, 'Exporting...', null, true);
+      const params = readApiBuilderParams();
+      const requestedCount = params.generation_count;
+      // Collect full generated output for each queued selection so the exported
+      // file contains every requested name.
+      const namesByClass = { first_name: [], last_name: [] };
+      const inlineNames = [];
+      try {
+        for (const item of apiBuilderSelections) {
+          const generatePayload = {
+            class_key: item.class_key,
+            package_id: item.package_id,
+            syllable_key: item.syllable_key,
+            generation_count: requestedCount,
+            unique_only: params.unique_only,
+            output_format: params.output_format,
+            render_style: params.render_style,
+          };
+          if (params.seed !== null) {
+            generatePayload.seed = params.seed;
+          }
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generatePayload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to generate export data.');
+          }
+          const generatedNames = (data.names || []).map((value) => String(value));
+          if (kind === 'inline') {
+            inlineNames.push(...generatedNames);
+          }
+          if (item.class_key === 'first_name') {
+            namesByClass.first_name.push(...generatedNames);
+          } else if (item.class_key === 'last_name') {
+            namesByClass.last_name.push(...generatedNames);
+          }
+        }
+
+        let outputNames = [];
+        let filenamePrefix = 'pipeworks_names';
+        if (kind === 'combo') {
+          // Build a full cross-product of first/last names from the generated data.
+          if (!namesByClass.first_name.length || !namesByClass.last_name.length) {
+            throw new Error(
+              'Need at least one First Name and one Last Name selection to export combinations.'
+            );
+          }
+          for (const firstName of namesByClass.first_name) {
+            for (const lastName of namesByClass.last_name) {
+              outputNames.push(`${firstName} ${lastName}`);
+            }
+          }
+          filenamePrefix = 'pipeworks_combinations';
+        } else {
+          outputNames = inlineNames;
+        }
+
+        if (!outputNames.length) {
+          throw new Error('No names generated for export.');
+        }
+
+        const filename = `${filenamePrefix}_${formatTimestamp(new Date())}.txt`;
+        downloadTextFile(filename, `${outputNames.join('\n')}\n`);
+        setExportButtonState(button, 'Exported', 'ok', false);
+      } catch (error) {
+        setExportButtonState(button, 'Export failed', 'err', false);
+        const message =
+          error instanceof Error ? error.message : 'Export failed. Check the console.';
+        console.error(message);
+      } finally {
+        window.setTimeout(() => {
+          setExportButtonState(button, 'Export TXT', null, false);
+        }, 1400);
+      }
     }
 
     async function loadGenerationPackageOptions() {
@@ -820,6 +988,14 @@
         answer.textContent = entry.answer || '';
         card.appendChild(answer);
 
+        if (entry.code) {
+          const pre = document.createElement('pre');
+          const code = document.createElement('code');
+          code.textContent = entry.code;
+          pre.appendChild(code);
+          card.appendChild(pre);
+        }
+
         container.appendChild(card);
       }
     }
@@ -862,6 +1038,61 @@
       status.className = 'ok';
       status.textContent = `Loaded ${packages.length} package(s).`;
       await loadPackageTables();
+    }
+
+    function setDatabaseToolStatus(message, level) {
+      const status = document.getElementById('db-export-status');
+      if (!status) {
+        return;
+      }
+      status.className = level;
+      status.textContent = message;
+    }
+
+    async function exportDatabase() {
+      // Exports write server-local files; nothing is downloaded in the browser.
+      const confirmed = window.confirm('Export database using the server.ini export path?');
+      if (!confirmed) {
+        return;
+      }
+
+      setDatabaseToolStatus('Exporting database...', 'muted');
+      const response = await fetch('/api/database/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDatabaseToolStatus(data.error || 'Failed to export database.', 'err');
+        return;
+      }
+
+      setDatabaseToolStatus(`Export written to ${data.export_path}.`, 'ok');
+    }
+
+    async function backupDatabase() {
+      // Backups are server-local copies; use scp if you need the file elsewhere.
+      const confirmed = window.confirm('Write database backup using the server.ini backup path?');
+      if (!confirmed) {
+        return;
+      }
+
+      setDatabaseToolStatus('Writing backup...', 'muted');
+      const response = await fetch('/api/database/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDatabaseToolStatus(data.error || 'Failed to write backup.', 'err');
+        return;
+      }
+
+      setDatabaseToolStatus(`Backup written to ${data.backup_path}.`, 'ok');
     }
 
     async function loadPackageTables() {
@@ -1001,6 +1232,12 @@
       });
     }
     document.getElementById('db-refresh-packages').addEventListener('click', loadPackages);
+    document.getElementById('db-export-btn').addEventListener('click', () => {
+      void exportDatabase();
+    });
+    document.getElementById('db-backup-btn').addEventListener('click', () => {
+      void backupDatabase();
+    });
     document.getElementById('db-package-select').addEventListener('change', loadPackageTables);
     document.getElementById('db-table-select').addEventListener('change', () => {
       const tableSelect = document.getElementById('db-table-select');
@@ -1035,6 +1272,7 @@
       'api-builder-param-seed',
       'api-builder-param-format',
       'api-builder-param-unique',
+      'api-builder-preview-cap-enabled',
     ];
     for (const paramId of apiParamIds) {
       const element = document.getElementById(paramId);
@@ -1068,6 +1306,12 @@
         renderApiBuilder();
       });
     }
+
+    window.PipeworksApiBuilder = {
+      exportNames(kind) {
+        void exportApiBuilderNames(kind);
+      },
+    };
 
     initThemeToggle();
     loadPackages();

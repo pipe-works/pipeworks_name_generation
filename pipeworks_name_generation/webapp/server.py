@@ -72,6 +72,8 @@ def create_handler_class(
     *,
     favorites_db_path: Path,
     serve_ui: bool,
+    db_export_path: Path | None = None,
+    db_backup_path: Path | None = None,
 ) -> type[WebAppHandler]:
     """Create handler class bound to runtime verbosity and DB path.
 
@@ -93,6 +95,8 @@ def create_handler_class(
             "favorites_db_path": favorites_db_path,
             "favorites_schema_ready": True,
             "favorites_schema_initialized_paths": {favorites_key},
+            "db_export_path": db_export_path,
+            "db_backup_path": db_backup_path,
         },
     )
 
@@ -119,6 +123,8 @@ def start_http_server(settings: ServerSettings) -> tuple[HTTPServer, int]:
             db_path,
             favorites_db_path=settings.favorites_db_path,
             serve_ui=settings.serve_ui,
+            db_export_path=settings.db_export_path,
+            db_backup_path=settings.db_backup_path,
         )
 
     def initialize_storage(_db_path: Path) -> None:

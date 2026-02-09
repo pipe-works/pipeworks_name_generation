@@ -64,6 +64,8 @@ def build_settings_from_args(args: argparse.Namespace) -> ServerSettings:
         port=args.port,
         db_path=None,
         favorites_db_path=args.favorites_db,
+        db_export_path=None,
+        db_backup_path=None,
         verbose=verbose_override,
         serve_ui=serve_ui_override,
     )

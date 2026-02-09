@@ -11,7 +11,13 @@ from typing import Any
 from pipeworks_name_generation.renderer import render_names
 from pipeworks_name_generation.webapp.constants import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from pipeworks_name_generation.webapp.db import (
+    backup_database as _backup_database,
+)
+from pipeworks_name_generation.webapp.db import (
     connect_database as _connect_database,
+)
+from pipeworks_name_generation.webapp.db import (
+    export_database as _export_database,
 )
 from pipeworks_name_generation.webapp.db import (
     fetch_text_rows as _fetch_text_rows,
@@ -27,6 +33,9 @@ from pipeworks_name_generation.webapp.db import (
 )
 from pipeworks_name_generation.webapp.db import (
     list_packages as _list_packages,
+)
+from pipeworks_name_generation.webapp.db import (
+    restore_database as _restore_database,
 )
 from pipeworks_name_generation.webapp.favorites import (
     delete_favorite as _delete_favorite,
@@ -67,6 +76,7 @@ from pipeworks_name_generation.webapp.generation import (
 from pipeworks_name_generation.webapp.help_content import get_help_entries
 from pipeworks_name_generation.webapp.http import _parse_optional_int, _parse_required_int
 from pipeworks_name_generation.webapp.routes import database as database_routes
+from pipeworks_name_generation.webapp.routes import database_admin as database_admin_routes
 from pipeworks_name_generation.webapp.routes import favorites as favorites_routes
 from pipeworks_name_generation.webapp.routes import generation as generation_routes
 from pipeworks_name_generation.webapp.routes import help as help_routes
@@ -326,6 +336,30 @@ def post_generate(handler: Any) -> None:
     )
 
 
+def post_database_backup(handler: Any) -> None:
+    """Create a backup copy of the main SQLite database."""
+    database_admin_routes.post_database_backup(
+        handler,
+        backup_database=_backup_database,
+    )
+
+
+def post_database_export(handler: Any) -> None:
+    """Export the main SQLite database to a file path."""
+    database_admin_routes.post_database_export(
+        handler,
+        export_database=_export_database,
+    )
+
+
+def post_database_import(handler: Any) -> None:
+    """Restore the main SQLite database from a file path."""
+    database_admin_routes.post_database_import(
+        handler,
+        restore_database=_restore_database,
+    )
+
+
 __all__ = [
     "get_root",
     "get_static_app_css",
@@ -351,5 +385,8 @@ __all__ = [
     "post_favorites_delete",
     "post_favorites_export",
     "post_favorites_import",
+    "post_database_backup",
+    "post_database_export",
+    "post_database_import",
     "post_generate",
 ]

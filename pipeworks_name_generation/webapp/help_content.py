@@ -38,6 +38,27 @@ def get_help_entries() -> list[dict[str, str]]:
                 "class, package, syllable mode, and other options."
             ),
         },
+        {
+            "question": "Should the web UI be public?",
+            "answer": (
+                "The UI is best run locally or on a private network. For public access, expose only the "
+                "generation API and keep admin tasks (imports, backups) off the public internet."
+            ),
+        },
+        {
+            "question": "How do I move package data to a server safely?",
+            "answer": (
+                "Set db_export_path in server.ini, use Database View → Export DB to write a .sqlite3 "
+                "file locally, copy it with scp, then run "
+                "the restore script on the server."
+            ),
+            "code": (
+                "python scripts/restore_name_packages_db.py \\\n"
+                "  --db /path/to/name_packages.sqlite3 \\\n"
+                "  --import /path/to/export.sqlite3 \\\n"
+                "  --overwrite"
+            ),
+        },
     ]
 
 

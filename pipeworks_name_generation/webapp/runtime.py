@@ -162,6 +162,16 @@ def run_server(
         printer(f"Serving Pipeworks Name Generator {label} at http://{settings.host}:{port}")
         printer(f"SQLite DB path: {settings.db_path}")
         printer(f"Favorites DB path: {settings.favorites_db_path}")
+        if settings.db_export_path is not None:
+            printer(f"DB export path: {settings.db_export_path}")
+        else:
+            printer("DB export path: (not set)")
+        if settings.db_backup_path is not None:
+            printer(f"DB backup path: {settings.db_backup_path}")
+        else:
+            printer(
+                "DB backup path: (auto) timestamped copy next to DB " f"({settings.db_path.parent})"
+            )
 
     try:
         server.serve_forever()
