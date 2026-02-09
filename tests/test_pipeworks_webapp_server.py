@@ -1523,6 +1523,65 @@ def test_server_start_run_and_main_paths(
     assert args.quiet is True
     assert args.api_only is True
 
+
+def test_run_server_reports_db_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verbose startup should include export/backup path information."""
+
+    class DummyRuntimeServer:
+        """Runtime server double that immediately shuts down."""
+
+        def serve_forever(self) -> None:
+            raise KeyboardInterrupt()
+
+        def server_close(self) -> None:
+            return None
+
+    runtime = DummyRuntimeServer()
+    monkeypatch.setattr(server_module, "start_http_server", lambda _settings: (runtime, 8124))
+
+    settings = ServerSettings(
+        verbose=True,
+        db_export_path=tmp_path / "export.sqlite3",
+        db_backup_path=tmp_path / "backup.sqlite3",
+    )
+    assert run_server(settings) == 0
+    output = capsys.readouterr().out
+    assert "DB export path:" in output
+    assert "DB backup path:" in output
+
+
+def test_static_asset_missing_returns_404(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing static assets should result in a 404 response."""
+    handler = _HandlerHarness(path="/static/app.js", db_path=tmp_path / "db.sqlite3")
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing asset")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+    endpoint_adapters_module.get_static_app_js(handler, {})
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
+def test_static_font_missing_returns_404(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing font assets should return a 404 response."""
+    handler = _HandlerHarness(path="/static/fonts/missing.woff2", db_path=tmp_path / "db.sqlite3")
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing font")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_binary_asset", _raise_missing)
+    endpoint_adapters_module.get_static_font(handler, "/static/fonts/missing.woff2")
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
+def test_argument_parsing_and_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Argument parsing and main entrypoint should handle success and errors."""
     parsed = parse_arguments(["--config", "server.ini"])
     assert str(parsed.config).endswith("server.ini")
 
@@ -1546,6 +1605,7 @@ def test_server_start_run_and_main_paths(
     assert built.verbose is False
     assert built.serve_ui is False
 
+    settings = ServerSettings(host="0.0.0.0", port=8012, verbose=False, serve_ui=False)
     monkeypatch.setattr(server_module, "parse_arguments", lambda _argv=None: namespace)
     monkeypatch.setattr(server_module, "build_settings_from_args", lambda _args: settings)
     monkeypatch.setattr(server_module, "run_server", lambda _settings: 0)

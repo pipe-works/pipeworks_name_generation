@@ -188,3 +188,91 @@ def test_database_export_route_uses_configured_path(tmp_path: Path) -> None:
     assert handler.response_status == 200
     assert output_path.exists()
     assert (handler.response_payload or {}).get("export_path") == str(output_path)
+
+
+def test_backup_database_rejects_existing_path_without_overwrite(tmp_path: Path) -> None:
+    """Backup should refuse to overwrite an existing file without permission."""
+    src_db = tmp_path / "source.sqlite3"
+    _seed_database(src_db, "Existing Backup Source")
+
+    output_path = tmp_path / "backup.sqlite3"
+    output_path.write_text("placeholder", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        backup_database(src_db, output_path=output_path, overwrite=False)
+
+
+def test_backup_database_rejects_directory_path(tmp_path: Path) -> None:
+    """Backup should reject directory output paths."""
+    src_db = tmp_path / "source.sqlite3"
+    _seed_database(src_db, "Directory Backup Source")
+
+    with pytest.raises(ValueError):
+        backup_database(src_db, output_path=tmp_path)
+
+
+def test_backup_database_rejects_directory_source(tmp_path: Path) -> None:
+    """Backup should reject non-file source paths."""
+    output_path = tmp_path / "backup.sqlite3"
+    with pytest.raises(ValueError):
+        backup_database(tmp_path, output_path=output_path)
+
+
+def test_restore_database_without_backup(tmp_path: Path) -> None:
+    """Restore can skip creating a pre-restore backup."""
+    dest_db = tmp_path / "dest.sqlite3"
+    import_db = tmp_path / "import.sqlite3"
+    _seed_database(dest_db, "Original Package")
+    _seed_database(import_db, "Imported Package")
+
+    result = restore_database(
+        dest_db,
+        import_path=import_db,
+        overwrite=True,
+        create_backup=False,
+    )
+
+    assert result.backup_path is None
+
+
+def test_restore_database_rejects_invalid_import(tmp_path: Path) -> None:
+    """Restore should reject files that are not valid SQLite databases."""
+    dest_db = tmp_path / "dest.sqlite3"
+    _seed_database(dest_db, "Original Package")
+
+    import_path = tmp_path / "not-a-db.sqlite3"
+    import_path.write_text("not sqlite content", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        restore_database(dest_db, import_path=import_path, overwrite=True)
+
+
+def test_database_backup_route_accepts_body_path_and_bool(tmp_path: Path) -> None:
+    """Backup route should accept explicit output_path and string booleans."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Backup Path Package")
+
+    output_path = tmp_path / "backup.sqlite3"
+    handler = _HandlerHarness(
+        db_path=db_path,
+        body={"output_path": str(output_path), "overwrite": "true"},
+    )
+    database_admin_routes.post_database_backup(handler, backup_database=backup_database)
+
+    assert handler.response_status == 200
+    assert output_path.exists()
+
+
+def test_database_export_route_rejects_invalid_bool(tmp_path: Path) -> None:
+    """Export route should reject invalid boolean values."""
+    db_path = tmp_path / "db.sqlite3"
+    _seed_database(db_path, "Bad Bool Package")
+
+    handler = _HandlerHarness(
+        db_path=db_path,
+        body={"output_path": str(tmp_path / "export.sqlite3"), "overwrite": "maybe"},
+    )
+    database_admin_routes.post_database_export(handler, export_database=export_database)
+
+    assert handler.response_status == 400
+    assert "overwrite" in (handler.response_payload or {}).get("error", "")

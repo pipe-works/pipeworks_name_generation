@@ -98,6 +98,25 @@ def test_load_server_settings_api_only_overrides_serve_ui(tmp_path: Path) -> Non
     assert settings.serve_ui is False
 
 
+def test_load_server_settings_ignores_blank_paths(tmp_path: Path) -> None:
+    """Blank optional paths should resolve to None/defaults."""
+    ini_path = tmp_path / "server.ini"
+    ini_path.write_text(
+        "\n".join(
+            [
+                "[server]",
+                "db_export_path =   ",
+                "db_backup_path =",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = load_server_settings(ini_path)
+    assert settings.db_export_path is None
+    assert settings.db_backup_path is None
+
+
 def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path) -> None:
     """INI files without ``[server]`` should fall back to defaults."""
     ini_path = tmp_path / "no-server-section.ini"
