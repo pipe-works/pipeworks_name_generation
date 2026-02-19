@@ -468,7 +468,6 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert root.response_status == 200
     assert root.response_headers.get("Content-Type") == "text/html"
     root_html = root.wfile.getvalue().decode("utf-8")
-    assert "Generation Placeholder" in root_html
     assert "API Builder" in root_html
     assert "/static/app.css" in root_html
     assert "/static/app.js" in root_html
@@ -491,7 +490,6 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-render-upper"' in root_html
     assert 'id="api-builder-render-title"' in root_html
     assert 'id="api-builder-render-sentence"' in root_html
-    assert 'id="api-builder-param-summary"' in root_html
     assert 'id="api-builder-generate-preview-btn"' in root_html
     assert 'id="api-builder-inline-preview"' in root_html
     assert 'id="api-builder-combo-preview"' in root_html

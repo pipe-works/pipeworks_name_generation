@@ -238,13 +238,11 @@ class TestCorpusBrowserScreen:
 
         screen = CorpusBrowserScreen(tmp_path)
 
-        # Test that cancel_pressed calls dismiss with None
         class TestApp(App):
-            def compose(self):
-                yield screen
+            async def on_mount(self):
+                await self.push_screen(screen)
 
         async with TestApp().run_test():
-            # Call cancel_pressed directly
             screen.cancel_pressed()
             # Screen should be dismissed (we can't easily test the result
             # without the full push_screen_wait flow, but we verify the
@@ -258,13 +256,11 @@ class TestCorpusBrowserScreen:
         screen = CorpusBrowserScreen(tmp_path)
         screen.selected_path = valid_nltk_corpus
 
-        # Test that select_pressed calls dismiss with the selected path
         class TestApp(App):
-            def compose(self):
-                yield screen
+            async def on_mount(self):
+                await self.push_screen(screen)
 
         async with TestApp().run_test():
-            # Call select_pressed directly to test the dismiss behavior
             screen.select_pressed()
             # Screen should be dismissed with selected_path
             # (we verify the method works and uses selected_path)

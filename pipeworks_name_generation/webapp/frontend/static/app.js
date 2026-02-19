@@ -68,7 +68,7 @@
       const toggle = document.getElementById('theme-toggle');
       document.body.dataset.theme = theme;
       if (toggle) {
-        toggle.textContent = theme === 'light' ? 'Dark Theme' : 'Light Theme';
+        toggle.textContent = theme === 'dark' ? 'Light Theme' : 'Dark Theme';
       }
       try {
         window.localStorage.setItem(themeStorageKey, theme);
@@ -79,11 +79,11 @@
 
     function initThemeToggle() {
       const toggle = document.getElementById('theme-toggle');
-      let storedTheme = 'light';
+      let storedTheme = 'dark';
       try {
-        storedTheme = window.localStorage.getItem(themeStorageKey) || 'light';
+        storedTheme = window.localStorage.getItem(themeStorageKey) || 'dark';
       } catch (_error) {
-        storedTheme = 'light';
+        storedTheme = 'dark';
       }
       applyTheme(storedTheme);
       if (!toggle) {
@@ -244,8 +244,6 @@
       const renderInputs = Array.from(
         document.querySelectorAll('.api-builder-render-option-input')
       );
-      const summary = document.getElementById('api-builder-param-summary');
-
       const rawCount = Number(countInput.value || '0');
       const generationCount = Number.isFinite(rawCount)
         ? Math.min(100000, Math.max(1, Math.trunc(rawCount)))
@@ -264,14 +262,6 @@
       const previewCapEnabled = previewCapCheckbox ? Boolean(previewCapCheckbox.checked) : true;
       const selectedRender = renderInputs.find((input) => input.checked);
       const renderStyle = selectedRender ? selectedRender.dataset.renderStyle || 'raw' : 'raw';
-
-      const seedText = seed === null ? 'random' : String(seed);
-      summary.textContent =
-        `Count ${generationCount}, seed ${seedText}, format ${outputFormat}, ` +
-        `unique ${uniqueOnly}, render ${renderStyle}, preview ${
-          previewCapEnabled ? 'cap 20' : 'uncapped'
-        }`;
-      updatePreviewCapNote(generationCount, previewCapEnabled, null);
 
       return {
         generation_count: generationCount,
@@ -492,7 +482,6 @@
       const previewCount = params.preview_cap_enabled
         ? Math.min(20, requestedCount)
         : requestedCount;
-      updatePreviewCapNote(requestedCount, params.preview_cap_enabled, previewCount);
       if (previewApi) {
         previewApi.setInlineMessage(
           `Generating preview (${previewCount} per selection)...`,
@@ -693,27 +682,6 @@
       renderApiBuilder();
     }
 
-    function updatePreviewCapNote(requestedCount, previewCapEnabled, previewCount) {
-      const previewNote = document.getElementById('api-builder-preview-cap');
-      if (!previewNote) {
-        return;
-      }
-      if (!previewCapEnabled) {
-        previewNote.textContent =
-          `Preview uncapped: showing ${requestedCount} per selection. ` +
-          'Combinations use previewed names.';
-        return;
-      }
-      if (previewCount !== null && requestedCount > previewCount) {
-        previewNote.textContent =
-          `Preview capped at ${previewCount} per selection ` +
-          `(requested ${requestedCount}). Combinations use previewed names.`;
-        return;
-      }
-      previewNote.textContent =
-        'Preview capped at 20 per selection. Combinations are built from previewed names.';
-    }
-
     async function sendToApiBuilder(classKey) {
       const packageSelect = document.getElementById(`generation-package-${classKey}`);
       const syllableSelect = document.getElementById(`generation-syllables-${classKey}`);
@@ -899,14 +867,14 @@
     }
 
     async function loadGenerationPackageOptions() {
-      const status = document.getElementById('generation-status');
-      status.className = 'muted';
+      const status = document.getElementById('status-text');
+      status.className = 'status-bar__text';
       status.textContent = 'Loading package options...';
 
       const response = await fetch('/api/generation/package-options');
       const data = await response.json();
       if (!response.ok) {
-        status.className = 'err';
+        status.className = 'status-bar__text err';
         status.textContent = data.error || 'Failed to load generation package options.';
         return;
       }
@@ -942,12 +910,12 @@
       }
 
       if (!nonEmptyClassCount) {
-        status.className = 'muted';
+        status.className = 'status-bar__text';
         status.textContent = 'No generation package options available yet. Import a package pair first.';
         return;
       }
 
-      status.className = 'ok';
+      status.className = 'status-bar__text ok';
       status.textContent = `Loaded package options for ${nonEmptyClassCount} name class(es).`;
     }
 
