@@ -15,49 +15,44 @@
     el.textContent = text;
   }
 
-  // Clear all child nodes to prepare a container for new preview chips.
+  // Clear all child nodes to prepare a container for new content.
   function clearElement(el) {
     while (el && el.firstChild) {
       el.removeChild(el.firstChild);
     }
   }
 
-  // Render a single group of names with a label and clickable chips.
-  function buildGroup(container, label, entries) {
-    const group = document.createElement('div');
-    group.className = 'api-builder-preview-group';
-
-    const title = document.createElement('div');
-    title.className = 'api-builder-preview-group-title';
-    title.textContent = label;
-    group.appendChild(title);
-
-    const row = document.createElement('div');
-    row.className = 'api-builder-preview-chip-row';
+  // Render a single group of names as table rows with a group header.
+  function buildGroup(tbody, label, entries) {
+    const headerRow = document.createElement('tr');
+    headerRow.className = 'preview-table__group-header';
+    const headerCell = document.createElement('td');
+    headerCell.textContent = label;
+    headerRow.appendChild(headerCell);
+    tbody.appendChild(headerRow);
 
     if (!entries.length) {
-      const empty = document.createElement('span');
-      empty.className = 'muted';
-      empty.textContent = 'No names returned.';
-      row.appendChild(empty);
-    } else {
-      for (const entry of entries) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'api-builder-preview-chip';
-        chip.textContent = entry.name;
-        chip.addEventListener('click', () => {
-          setLivePreview(entry);
-        });
-        row.appendChild(chip);
-      }
+      const emptyRow = document.createElement('tr');
+      const emptyCell = document.createElement('td');
+      emptyCell.className = 'muted';
+      emptyCell.textContent = 'No names returned.';
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
     }
 
-    group.appendChild(row);
-    container.appendChild(group);
+    for (const entry of entries) {
+      const row = document.createElement('tr');
+      row.className = 'preview-table__row';
+      const cell = document.createElement('td');
+      cell.textContent = entry.name;
+      row.appendChild(cell);
+      row.addEventListener('click', () => setLivePreview(entry));
+      tbody.appendChild(row);
+    }
   }
 
-  // Render the multi-group inline preview (one group per selection).
+  // Render the multi-group inline preview as a table (one group per selection).
   function renderGroups(container, groups) {
     if (!container) {
       return;
@@ -70,13 +65,21 @@
     }
     container.className = 'api-builder-preview-list';
     previewState.inlineEntries = [];
+
+    const table = document.createElement('table');
+    table.className = 'preview-table';
+    const tbody = document.createElement('tbody');
+
     for (const group of groups) {
-      buildGroup(container, group.label, group.entries);
+      buildGroup(tbody, group.label, group.entries);
       previewState.inlineEntries.push(...group.entries);
     }
+
+    table.appendChild(tbody);
+    container.appendChild(table);
   }
 
-  // Render a flattened list of First + Last combinations with summary metadata.
+  // Render a two-column table of First + Last combinations with summary metadata.
   function renderCombo(container, combos, summary) {
     if (!container) {
       return;
@@ -93,31 +96,47 @@
     }
     container.className = 'api-builder-preview-list';
     previewState.comboEntries = combos.slice();
-    const group = document.createElement('div');
-    group.className = 'api-builder-preview-group';
 
-    const title = document.createElement('div');
-    title.className = 'api-builder-preview-group-title';
-    title.textContent = summary;
-    group.appendChild(title);
+    const table = document.createElement('table');
+    table.className = 'preview-table';
 
-    const row = document.createElement('div');
-    row.className = 'api-builder-preview-chip-row';
-    for (const combo of combos) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'api-builder-preview-chip';
-      chip.textContent = combo.name;
-      chip.addEventListener('click', () => {
-        setLivePreview(combo);
-      });
-      row.appendChild(chip);
+    const thead = document.createElement('thead');
+    const summaryRow = document.createElement('tr');
+    summaryRow.className = 'preview-table__group-header';
+    const summaryCell = document.createElement('td');
+    summaryCell.colSpan = 2;
+    summaryCell.textContent = summary;
+    summaryRow.appendChild(summaryCell);
+    thead.appendChild(summaryRow);
+
+    const headerRow = document.createElement('tr');
+    for (const label of ['First', 'Last']) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      headerRow.appendChild(th);
     }
-    group.appendChild(row);
-    container.appendChild(group);
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (const combo of combos) {
+      const row = document.createElement('tr');
+      row.className = 'preview-table__row';
+      const parts = combo.name.split(' ');
+      const firstCell = document.createElement('td');
+      firstCell.textContent = parts[0] || '';
+      const lastCell = document.createElement('td');
+      lastCell.textContent = parts.slice(1).join(' ') || '';
+      row.appendChild(firstCell);
+      row.appendChild(lastCell);
+      row.addEventListener('click', () => setLivePreview(combo));
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
   }
 
-  // Update the live preview output when a chip is clicked.
+  // Update the live preview output when a row is clicked.
   function setLivePreview(entry) {
     const output = document.getElementById('api-builder-live-output');
     if (!output) {

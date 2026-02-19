@@ -7,26 +7,19 @@
     <link rel="stylesheet" href="/static/app.css" />
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header-row">
-        <h1>Pipeworks Name Generator</h1>
-        <button type="button" id="theme-toggle" class="theme-toggle">Light Theme</button>
-      </div>
-      <div class="tabs">
-        <button type="button" class="tab active" data-tab="generation">Generation</button>
-        <button type="button" class="tab" data-tab="database">Database View</button>
-        <button type="button" class="tab" data-tab="import">Import</button>
-        <button type="button" class="tab" data-tab="favorites">Favorites</button>
-        <button type="button" class="tab" data-tab="help">Help</button>
-      </div>
-
-      <section class="panel active" id="panel-generation">
-        <article class="generation-card generation-placeholder generation-card-full-width">
-          <h3>Generation Placeholder</h3>
-          <p class="muted">Reserved for future blended generation controls.</p>
-        </article>
-
+  <header class="app-header">
+    <span class="app-header__title">Pipeworks Name Generator</span>
+    <nav class="tabs">
+      <button type="button" class="tab active" data-tab="generation">Generation</button>
+      <button type="button" class="tab" data-tab="database">Database View</button>
+      <button type="button" class="tab" data-tab="import">Import</button>
+      <button type="button" class="tab" data-tab="favorites">Favorites</button>
+      <button type="button" class="tab" data-tab="help">Help</button>
+    </nav>
+    <button type="button" id="theme-toggle" class="theme-toggle">Light Theme</button>
+  </header>
+  <main class="app-main">
+    <section class="panel active" id="panel-generation">
         <section class="generation-class-wrapper generation-card-full-width">
           <div class="row-buttons">
             <button type="button" id="generation-toggle-btn">Show Name Class Cards</button>
@@ -198,82 +191,36 @@
                   <label for="api-builder-preview-cap-enabled">Cap preview at 20</label>
                 </div>
                 <button type="button" id="api-builder-generate-preview-btn">Generate Preview</button>
-                <p id="api-builder-param-summary">
-                  Set request defaults used by the query/payload preview.
-                </p>
-                <p id="api-builder-preview-cap" class="muted api-builder-preview-note">
-                  Preview shows up to 20 names per selection. Combinations are built from previewed names.
-                </p>
                 <div class="api-builder-inline-preview-grid">
                   <section class="api-builder-inline-preview-card">
-                    <div class="api-builder-preview-header">
-                      <h5>Generated Names Preview</h5>
-                      <div class="api-builder-preview-actions">
-                        <button
-                          type="button"
-                          id="api-builder-inline-fav-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Favorite all generated names"
-                        >
-                          <span class="favorite-icon" aria-hidden="true"></span>
-                          <span>Favorite All</span>
-                        </button>
-                        <button
-                          type="button"
-                          id="api-builder-inline-copy-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Copy generated names"
-                        >
-                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                          <span>Copy</span>
-                        </button>
-                        <button
-                          type="button"
-                          id="api-builder-inline-export-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Export generated names as a .txt file"
-                        >
-                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                          <span>Export TXT</span>
-                        </button>
-                      </div>
+                    <h5>Generated Names Preview</h5>
+                    <div class="api-builder-preview-actions">
+                      <button type="button" id="api-builder-inline-fav-btn" class="api-builder-preview-copy-btn" title="Favorite all generated names">
+                        <span class="favorite-icon" aria-hidden="true"></span> Favorite All
+                      </button>
+                      <button type="button" id="api-builder-inline-copy-btn" class="api-builder-preview-copy-btn" title="Copy generated names">
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
+                      </button>
+                      <button type="button" id="api-builder-inline-export-btn" class="api-builder-preview-copy-btn" title="Export generated names as a .txt file">
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Export TXT
+                      </button>
                     </div>
                     <div id="api-builder-inline-preview" class="api-builder-preview-list muted">
                       No preview generated yet.
                     </div>
                   </section>
                   <section class="api-builder-inline-preview-card">
-                    <div class="api-builder-preview-header">
-                      <h5>First + Last Combinations</h5>
-                      <div class="api-builder-preview-actions">
-                        <button
-                          type="button"
-                          id="api-builder-combo-fav-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Favorite all combinations"
-                        >
-                          <span class="favorite-icon" aria-hidden="true"></span>
-                          <span>Favorite All</span>
-                        </button>
-                        <button
-                          type="button"
-                          id="api-builder-combo-copy-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Copy combinations"
-                        >
-                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                          <span>Copy</span>
-                        </button>
-                        <button
-                          type="button"
-                          id="api-builder-combo-export-btn"
-                          class="api-builder-preview-copy-btn"
-                          title="Export combinations as a .txt file"
-                        >
-                          <span class="builder-preview-copy-icon" aria-hidden="true"></span>
-                          <span>Export TXT</span>
-                        </button>
-                      </div>
+                    <h5>First + Last Combinations</h5>
+                    <div class="api-builder-preview-actions">
+                      <button type="button" id="api-builder-combo-fav-btn" class="api-builder-preview-copy-btn" title="Favorite all combinations">
+                        <span class="favorite-icon" aria-hidden="true"></span> Favorite All
+                      </button>
+                      <button type="button" id="api-builder-combo-copy-btn" class="api-builder-preview-copy-btn" title="Copy combinations">
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
+                      </button>
+                      <button type="button" id="api-builder-combo-export-btn" class="api-builder-preview-copy-btn" title="Export combinations as a .txt file">
+                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Export TXT
+                      </button>
                     </div>
                     <div id="api-builder-combo-preview" class="api-builder-preview-list muted">
                       No combination preview generated yet.
@@ -368,7 +315,6 @@
             </section>
           </div>
         </article>
-        <p id="generation-status" class="muted">Loading package options...</p>
       </section>
 
       <section class="panel" id="panel-database">
@@ -507,13 +453,15 @@
         </div>
       </section>
 
-      <section class="panel" id="panel-help">
-        <h2>Help</h2>
-        <p class="muted" id="help-status">Loading help content...</p>
-        <div id="help-content" class="help-content"></div>
-      </section>
-    </div>
-  </div>
+    <section class="panel" id="panel-help">
+      <h2>Help</h2>
+      <p class="muted" id="help-status">Loading help content...</p>
+      <div id="help-content" class="help-content"></div>
+    </section>
+  </main>
+  <footer class="status-bar">
+    <span id="status-text" class="status-bar__text">Ready.</span>
+  </footer>
 
   <div id="favorites-modal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close="true"></div>
