@@ -23,7 +23,6 @@
         <section class="generation-class-wrapper generation-card-full-width">
           <div class="row-buttons">
             <button type="button" id="generation-toggle-btn">Show Name Class Cards</button>
-            <span id="generation-toggle-status" class="muted">Cards collapsed to save vertical space.</span>
           </div>
           <div id="generation-class-card-section" class="generation-class-grid generation-class-grid-collapsed">
             <article class="generation-card generation-class-card" data-class-key="first_name">
@@ -103,10 +102,30 @@
           <div class="api-builder-layout">
             <section class="api-builder-left-column">
               <section class="api-builder-pane api-builder-selection-pane">
-                <h4>Selected Inputs</h4>
-                <ul id="api-builder-queue"></ul>
-                <div class="row-buttons">
-                  <button type="button" id="api-builder-clear-btn">Clear Builder</button>
+                <div class="api-builder-selection-header">
+                  <h4>Selected Inputs</h4>
+                  <button type="button" id="api-builder-selection-toggle-btn" class="api-builder-selection-toggle-btn" title="Collapse / expand">
+                    <span id="api-builder-selection-toggle-icon" class="live-nav-icon live-nav-icon--collapse" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div id="api-builder-selection-body" class="api-builder-selection-body">
+                  <div class="api-builder-selection-table-wrap">
+                    <table class="api-builder-selection-table">
+                      <thead>
+                        <tr>
+                          <th>Class</th>
+                          <th>Package</th>
+                          <th>Syl</th>
+                          <th>Items</th>
+                          <th>Unique</th>
+                        </tr>
+                      </thead>
+                      <tbody id="api-builder-queue"></tbody>
+                    </table>
+                  </div>
+                  <div class="row-buttons">
+                    <button type="button" id="api-builder-clear-btn">Clear Builder</button>
+                  </div>
                 </div>
                 <p id="api-builder-combined">Combined unique combinations: 0</p>
               </section>
@@ -119,7 +138,7 @@
                     type="number"
                     min="1"
                     max="100000"
-                    value="100"
+                    value="5"
                   />
                 </div>
                 <div class="api-builder-param-grid">
@@ -136,57 +155,6 @@
                 <div class="api-builder-checkbox-row">
                   <input id="api-builder-param-unique" type="checkbox" />
                   <label for="api-builder-param-unique">Unique only</label>
-                  <span class="api-builder-render-label">Render</span>
-                  <div class="api-builder-render-options" role="group" aria-label="Render style">
-                    <label for="api-builder-render-raw" class="api-builder-render-option">
-                      <input
-                        id="api-builder-render-raw"
-                        class="api-builder-render-option-input"
-                        type="checkbox"
-                        data-render-style="raw"
-                        checked
-                      />
-                      Raw
-                    </label>
-                    <label for="api-builder-render-lower" class="api-builder-render-option">
-                      <input
-                        id="api-builder-render-lower"
-                        class="api-builder-render-option-input"
-                        type="checkbox"
-                        data-render-style="lower"
-                      />
-                      lower
-                    </label>
-                    <label for="api-builder-render-upper" class="api-builder-render-option">
-                      <input
-                        id="api-builder-render-upper"
-                        class="api-builder-render-option-input"
-                        type="checkbox"
-                        data-render-style="upper"
-                      />
-                      UPPER
-                    </label>
-                    <label for="api-builder-render-title" class="api-builder-render-option">
-                      <input
-                        id="api-builder-render-title"
-                        class="api-builder-render-option-input"
-                        type="checkbox"
-                        data-render-style="title"
-                      />
-                      Title
-                    </label>
-                    <label for="api-builder-render-sentence" class="api-builder-render-option">
-                      <input
-                        id="api-builder-render-sentence"
-                        class="api-builder-render-option-input"
-                        type="checkbox"
-                        data-render-style="sentence"
-                      />
-                      Sentence
-                    </label>
-                  </div>
-                </div>
-                <div class="api-builder-checkbox-row api-builder-preview-cap-row">
                   <input id="api-builder-preview-cap-enabled" type="checkbox" checked />
                   <label for="api-builder-preview-cap-enabled">Cap preview at 20</label>
                 </div>
@@ -202,7 +170,7 @@
                         <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
                       </button>
                       <button type="button" id="api-builder-inline-export-btn" class="api-builder-preview-copy-btn" title="Export generated names as a .txt file">
-                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Export TXT
+                        <span class="builder-preview-export-icon" aria-hidden="true"></span> Export TXT
                       </button>
                     </div>
                     <div id="api-builder-inline-preview" class="api-builder-preview-list muted">
@@ -219,7 +187,7 @@
                         <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
                       </button>
                       <button type="button" id="api-builder-combo-export-btn" class="api-builder-preview-copy-btn" title="Export combinations as a .txt file">
-                        <span class="builder-preview-copy-icon" aria-hidden="true"></span> Export TXT
+                        <span class="builder-preview-export-icon" aria-hidden="true"></span> Export TXT
                       </button>
                     </div>
                     <div id="api-builder-combo-preview" class="api-builder-preview-list muted">
@@ -256,6 +224,16 @@
                       </select>
                     </div>
                     <div class="api-builder-live-control">
+                      <label for="preview-render-style">Render</label>
+                      <select id="preview-render-style">
+                        <option value="raw" selected>Raw</option>
+                        <option value="lower">lower</option>
+                        <option value="upper">UPPER</option>
+                        <option value="title">Title</option>
+                        <option value="sentence">Sentence</option>
+                      </select>
+                    </div>
+                    <div class="api-builder-live-control">
                       <label for="preview-font-size">Size</label>
                       <div class="api-builder-live-range">
                         <input id="preview-font-size" type="range" min="12" max="42" value="22" />
@@ -279,38 +257,39 @@
                   <div id="api-builder-live-output" class="api-builder-live-output muted">
                     No selection focused yet.
                   </div>
+                  <div class="api-builder-live-nav">
+                    <button type="button" id="api-builder-live-prev-btn" class="api-builder-live-nav-btn" title="Previous (h)" disabled>
+                      <span class="live-nav-icon live-nav-icon--prev" aria-hidden="true"></span>
+                    </button>
+                    <span id="api-builder-live-nav-pos" class="api-builder-live-nav-pos muted"></span>
+                    <button type="button" id="api-builder-live-next-btn" class="api-builder-live-nav-btn" title="Next (l)" disabled>
+                      <span class="live-nav-icon live-nav-icon--next" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </section>
               </section>
             </section>
             <section class="api-builder-pane api-builder-params-pane">
               <h4>Builder Preview</h4>
-              <div class="builder-preview-controls">
-                <div class="builder-preview-view-group">
-                  <span class="builder-preview-label">Preview view</span>
-                  <button type="button" id="api-builder-view-query-btn" class="builder-preview-view-btn">
-                    View Query Text
-                  </button>
-                  <button type="button" id="api-builder-view-curl-btn" class="builder-preview-view-btn">
-                    View cURL Set
-                  </button>
-                  <button type="button" id="api-builder-view-post-btn" class="builder-preview-view-btn">
-                    View POST Set
-                  </button>
-                </div>
-                <div class="builder-preview-status">
-                  <span class="builder-preview-label">Status</span>
-                  <p id="api-builder-copy-status">No query content yet.</p>
-                </div>
-              </div>
-              <div class="builder-preview-output">
+              <div class="builder-preview-section">
                 <div class="builder-preview-header">
-                  <span id="api-builder-preview-title">Query Text</span>
-                  <button type="button" id="api-builder-copy-btn" class="builder-preview-copy-btn">
+                  <span>cURL</span>
+                  <button type="button" id="api-builder-copy-curl-btn" class="builder-preview-copy-btn">
                     <span class="builder-preview-copy-icon" aria-hidden="true"></span>
                     <span>Copy</span>
                   </button>
                 </div>
-                <p id="api-builder-preview">No selections queued yet.</p>
+                <pre id="api-builder-preview-curl" class="builder-preview-pre">No selections queued yet.</pre>
+              </div>
+              <div class="builder-preview-section">
+                <div class="builder-preview-header">
+                  <span>POST Payload</span>
+                  <button type="button" id="api-builder-copy-post-btn" class="builder-preview-copy-btn">
+                    <span class="builder-preview-copy-icon" aria-hidden="true"></span>
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <pre id="api-builder-preview-post" class="builder-preview-pre">No selections queued yet.</pre>
               </div>
             </section>
           </div>

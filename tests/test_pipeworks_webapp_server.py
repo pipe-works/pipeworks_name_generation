@@ -485,11 +485,7 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="api-builder-param-seed"' in root_html
     assert 'id="api-builder-param-format"' in root_html
     assert 'id="api-builder-param-unique"' in root_html
-    assert 'id="api-builder-render-raw"' in root_html
-    assert 'id="api-builder-render-lower"' in root_html
-    assert 'id="api-builder-render-upper"' in root_html
-    assert 'id="api-builder-render-title"' in root_html
-    assert 'id="api-builder-render-sentence"' in root_html
+    assert 'id="preview-render-style"' in root_html
     assert 'id="api-builder-generate-preview-btn"' in root_html
     assert 'id="api-builder-inline-preview"' in root_html
     assert 'id="api-builder-combo-preview"' in root_html
@@ -498,17 +494,15 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="preview-font-size"' in root_html
     assert 'id="preview-font-weight"' in root_html
     assert 'id="preview-font-italic"' in root_html
-    assert 'id="api-builder-copy-btn"' in root_html
-    assert 'id="api-builder-view-query-btn"' in root_html
-    assert 'id="api-builder-view-curl-btn"' in root_html
-    assert 'id="api-builder-view-post-btn"' in root_html
-    assert 'id="api-builder-copy-status"' in root_html
+    assert 'id="api-builder-copy-curl-btn"' in root_html
+    assert 'id="api-builder-copy-post-btn"' in root_html
+    assert 'id="api-builder-preview-curl"' in root_html
+    assert 'id="api-builder-preview-post"' in root_html
     assert "/static/api_builder_preview.js" in root_html
     assert "/static/favorites.js" in root_html
     assert 'id="theme-toggle"' in root_html
     assert 'id="panel-help"' in root_html
     assert 'id="panel-favorites"' in root_html
-    assert 'id="api-builder-preview"' in root_html
 
     app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
     app_css.do_GET()

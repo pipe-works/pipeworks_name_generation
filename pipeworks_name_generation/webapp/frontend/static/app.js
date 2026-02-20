@@ -43,12 +43,11 @@
     };
     const apiBuilderSelections = [];
     const apiBuilderPreviewState = {
-      previewText: '',
       curlText: '',
       postText: '',
-      activeView: 'query',
     };
     let generationCardsCollapsed = true;
+    let selectionPaneCollapsed = false;
     const themeStorageKey = 'pipeworks-theme';
 
     function setActiveTab(tabName) {
@@ -109,6 +108,12 @@
 
     function toggleGenerationCards() {
       setGenerationCardsCollapsed(!generationCardsCollapsed);
+    }
+
+    function toggleSelectionPane() {
+      selectionPaneCollapsed = !selectionPaneCollapsed;
+      const pane = document.querySelector('.api-builder-selection-pane');
+      if (pane) pane.classList.toggle('collapsed', selectionPaneCollapsed);
     }
 
     async function importPair() {
@@ -241,9 +246,7 @@
       const formatSelect = document.getElementById('api-builder-param-format');
       const uniqueCheckbox = document.getElementById('api-builder-param-unique');
       const previewCapCheckbox = document.getElementById('api-builder-preview-cap-enabled');
-      const renderInputs = Array.from(
-        document.querySelectorAll('.api-builder-render-option-input')
-      );
+      const renderSelect = document.getElementById('preview-render-style');
       const rawCount = Number(countInput.value || '0');
       const generationCount = Number.isFinite(rawCount)
         ? Math.min(100000, Math.max(1, Math.trunc(rawCount)))
@@ -260,8 +263,7 @@
       const outputFormat = formatSelect.value || 'json';
       const uniqueOnly = Boolean(uniqueCheckbox.checked);
       const previewCapEnabled = previewCapCheckbox ? Boolean(previewCapCheckbox.checked) : true;
-      const selectedRender = renderInputs.find((input) => input.checked);
-      const renderStyle = selectedRender ? selectedRender.dataset.renderStyle || 'raw' : 'raw';
+      const renderStyle = renderSelect ? renderSelect.value : 'raw';
 
       return {
         generation_count: generationCount,
@@ -273,102 +275,56 @@
       };
     }
 
-    // Render API Builder queue, combined unique estimate, and copyable query
-    // snippets from current selections + parameter defaults.
-    function renderApiBuilderPreview() {
-      const preview = document.getElementById('api-builder-preview');
-      const title = document.getElementById('api-builder-preview-title');
-      const viewButtons = {
-        query: document.getElementById('api-builder-view-query-btn'),
-        curl: document.getElementById('api-builder-view-curl-btn'),
-        post: document.getElementById('api-builder-view-post-btn'),
-      };
-
-      for (const [key, button] of Object.entries(viewButtons)) {
-        if (!button) {
-          continue;
-        }
-        button.classList.toggle('active', key === apiBuilderPreviewState.activeView);
-      }
-
-      const view = apiBuilderPreviewState.activeView;
-      if (view === 'curl') {
-        title.textContent = 'cURL Set';
-        preview.textContent = apiBuilderPreviewState.curlText || 'No selections queued yet.';
-        return;
-      }
-      if (view === 'post') {
-        title.textContent = 'POST Set';
-        preview.textContent = apiBuilderPreviewState.postText || 'No selections queued yet.';
-        return;
-      }
-      title.textContent = 'Query Text';
-      preview.textContent = apiBuilderPreviewState.previewText || 'No selections queued yet.';
-    }
-
     function renderApiBuilder() {
       const queue = document.getElementById('api-builder-queue');
       const combined = document.getElementById('api-builder-combined');
-      const copyStatus = document.getElementById('api-builder-copy-status');
+      const curlEl = document.getElementById('api-builder-preview-curl');
+      const postEl = document.getElementById('api-builder-preview-post');
       const clearButton = document.getElementById('api-builder-clear-btn');
       const requestParams = readApiBuilderParams();
       queue.innerHTML = '';
 
       if (!apiBuilderSelections.length) {
         clearButton.disabled = true;
-        const li = document.createElement('li');
-        li.className = 'muted';
-        li.textContent = 'No selections queued.';
-        queue.appendChild(li);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 5;
+        td.className = 'muted';
+        td.textContent = 'No selections queued.';
+        tr.appendChild(td);
+        queue.appendChild(tr);
         combined.textContent = 'Combined unique combinations: 0';
-        copyStatus.className = 'muted';
-        copyStatus.textContent = 'No preview content yet.';
-        apiBuilderPreviewState.previewText = '';
         apiBuilderPreviewState.curlText = '';
         apiBuilderPreviewState.postText = '';
-        renderApiBuilderPreview();
+        if (curlEl) curlEl.textContent = 'No selections queued yet.';
+        if (postEl) postEl.textContent = 'No selections queued yet.';
         return;
       }
       clearButton.disabled = false;
 
       // Use BigInt to avoid overflow when selections from multiple classes are multiplied.
       let combinedUnique = 1n;
-      const curlLines = ['# Pipeworks API Builder cURL Set'];
+      const curlLines = [];
       const postPayloads = [];
 
       for (const item of apiBuilderSelections) {
-        const li = document.createElement('li');
-        li.textContent =
-          `${item.class_label}: ${item.package_label} [${item.syllable_label}] ` +
-          `(max items ${item.max_items}, max unique ${item.max_unique_combinations})`;
-        queue.appendChild(li);
+        const tr = document.createElement('tr');
+        const fmtNum = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        for (const text of [
+          item.class_label,
+          item.package_label,
+          item.syllable_label,
+          fmtNum(item.max_items),
+          fmtNum(item.max_unique_combinations),
+        ]) {
+          const td = document.createElement('td');
+          td.textContent = text;
+          tr.appendChild(td);
+        }
+        queue.appendChild(tr);
         const uniqueCount = Math.max(0, Number(item.max_unique_combinations || 0));
         combinedUnique *= BigInt(uniqueCount);
-      }
 
-      const combinedDisplay = String(combinedUnique).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      combined.textContent = `Combined unique combinations: ${combinedDisplay}`;
-      const previewLines = [
-        '# Pipeworks API Builder Output',
-        '# Selection stats query commands',
-        `# Defaults: count=${requestParams.generation_count}, seed=${requestParams.seed === null ? 'random' : requestParams.seed}, format=${requestParams.output_format}, unique_only=${requestParams.unique_only}, render_style=${requestParams.render_style}`,
-      ];
-      for (const item of apiBuilderSelections) {
-        const query = new URLSearchParams({
-          class_key: item.class_key,
-          package_id: String(item.package_id),
-          syllable_key: item.syllable_key,
-        });
-        previewLines.push('');
-        previewLines.push(`# ${item.class_label} (${item.syllable_label})`);
-        previewLines.push(
-          `curl -s "${window.location.origin}/api/generation/selection-stats?${query.toString()}"`
-        );
-        curlLines.push('');
-        curlLines.push(`# ${item.class_label} (${item.syllable_label})`);
-        curlLines.push(
-          `curl -s "${window.location.origin}/api/generation/selection-stats?${query.toString()}"`
-        );
         const generatePayload = {
           class_key: item.class_key,
           package_id: item.package_id,
@@ -382,71 +338,46 @@
           generatePayload.seed = requestParams.seed;
         }
         postPayloads.push(generatePayload);
-        previewLines.push('POST /api/generate payload:');
-        previewLines.push(JSON.stringify(generatePayload));
         curlLines.push(
           `curl -s -X POST "${window.location.origin}/api/generate" ` +
-            `-H "Content-Type: application/json" -d '${JSON.stringify(generatePayload)}'`
+            `-H "Content-Type: application/json" ` +
+            `-d '${JSON.stringify(generatePayload)}'`
         );
       }
-      previewLines.push('');
-      previewLines.push(`# Combined unique combinations estimate: ${combinedDisplay}`);
-      previewLines.push('# Structured selection payload');
-      previewLines.push(
-        JSON.stringify(
-          apiBuilderSelections.map((item) => ({
-            class_key: item.class_key,
-            package_id: item.package_id,
-            syllable_key: item.syllable_key,
-            generation_count: requestParams.generation_count,
-            seed: requestParams.seed,
-            output_format: requestParams.output_format,
-            unique_only: requestParams.unique_only,
-            render_style: requestParams.render_style,
-            max_items: item.max_items,
-            max_unique_combinations: item.max_unique_combinations,
-          })),
-          null,
-          2
-        )
-      );
-      copyStatus.className = 'muted';
-      copyStatus.textContent = 'Preview ready. Use copy button for programmatic use.';
-      apiBuilderPreviewState.previewText = previewLines.join('\n');
-      apiBuilderPreviewState.curlText = curlLines.join('\n').trim();
+
+      const combinedDisplay = String(combinedUnique).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      combined.textContent = `Combined unique combinations: ${combinedDisplay}`;
+
+      apiBuilderPreviewState.curlText = curlLines.join('\n\n');
       apiBuilderPreviewState.postText = JSON.stringify(postPayloads, null, 2);
-      renderApiBuilderPreview();
+      if (curlEl) curlEl.textContent = apiBuilderPreviewState.curlText || 'No selections queued yet.';
+      if (postEl) postEl.textContent = apiBuilderPreviewState.postText || 'No selections queued yet.';
     }
 
-    // Copy the full builder preview text (query snippets + payload examples)
-    // into the clipboard so it can be pasted into scripts or terminals.
-    async function copyApiBuilderPreview() {
-      const copyStatus = document.getElementById('api-builder-copy-status');
-      const view = apiBuilderPreviewState.activeView;
-      const text =
-        view === 'curl'
-          ? apiBuilderPreviewState.curlText
-          : view === 'post'
-            ? apiBuilderPreviewState.postText
-            : apiBuilderPreviewState.previewText;
+    async function copyBuilderSection(button, text) {
       if (!text) {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Nothing to copy yet. Queue at least one selection.';
         return;
       }
-
+      const label = button.querySelector('span:last-child');
       try {
         await navigator.clipboard.writeText(text);
-        copyStatus.className = 'ok';
-        const label = view === 'curl' ? 'cURL set' : view === 'post' ? 'POST set' : 'query text';
-        copyStatus.textContent = `Copied ${label} to clipboard.`;
+        if (label) {
+          label.textContent = 'Copied';
+          button.classList.add('ok');
+        }
       } catch (_error) {
-        copyStatus.className = 'err';
-        copyStatus.textContent = 'Clipboard unavailable. Copy directly from preview text.';
+        if (label) {
+          label.textContent = 'Failed';
+          button.classList.add('err');
+        }
       }
+      window.setTimeout(() => {
+        if (label) {
+          label.textContent = 'Copy';
+          button.classList.remove('ok', 'err');
+        }
+      }, 1400);
     }
-
-    // Copy button uses the currently selected preview view.
 
     // Generate a quick inline sample preview using the current queued
     // selections. This calls the SQLite-backed /api/generate endpoint and also
@@ -1189,6 +1120,7 @@
 
     document.getElementById('import-btn').addEventListener('click', importPair);
     document.getElementById('generation-toggle-btn').addEventListener('click', toggleGenerationCards);
+    document.getElementById('api-builder-selection-toggle-btn').addEventListener('click', toggleSelectionPane);
     for (const classKey of generationCardKeys) {
       const select = document.getElementById(`generation-package-${classKey}`);
       const sendButton = document.getElementById(`generation-send-${classKey}`);
@@ -1216,20 +1148,11 @@
     });
     document.getElementById('db-prev-btn').addEventListener('click', pagePrev);
     document.getElementById('db-next-btn').addEventListener('click', pageNext);
-    document.getElementById('api-builder-copy-btn').addEventListener('click', () => {
-      void copyApiBuilderPreview();
+    document.getElementById('api-builder-copy-curl-btn').addEventListener('click', (e) => {
+      void copyBuilderSection(e.currentTarget, apiBuilderPreviewState.curlText);
     });
-    document.getElementById('api-builder-view-query-btn').addEventListener('click', () => {
-      apiBuilderPreviewState.activeView = 'query';
-      renderApiBuilderPreview();
-    });
-    document.getElementById('api-builder-view-curl-btn').addEventListener('click', () => {
-      apiBuilderPreviewState.activeView = 'curl';
-      renderApiBuilderPreview();
-    });
-    document.getElementById('api-builder-view-post-btn').addEventListener('click', () => {
-      apiBuilderPreviewState.activeView = 'post';
-      renderApiBuilderPreview();
+    document.getElementById('api-builder-copy-post-btn').addEventListener('click', (e) => {
+      void copyBuilderSection(e.currentTarget, apiBuilderPreviewState.postText);
     });
     document.getElementById('api-builder-clear-btn').addEventListener('click', clearApiBuilder);
     document.getElementById('api-builder-generate-preview-btn').addEventListener('click', () => {
@@ -1247,32 +1170,9 @@
       element.addEventListener('input', renderApiBuilder);
       element.addEventListener('change', renderApiBuilder);
     }
-    const renderOptions = Array.from(
-      document.querySelectorAll('.api-builder-render-option-input')
-    );
-    for (const option of renderOptions) {
-      option.addEventListener('change', (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement)) {
-          return;
-        }
-        if (target.checked) {
-          for (const other of renderOptions) {
-            if (other !== target) {
-              other.checked = false;
-            }
-          }
-        }
-        if (!renderOptions.some((input) => input.checked)) {
-          const rawOption = document.querySelector(
-            '.api-builder-render-option-input[data-render-style="raw"]'
-          );
-          if (rawOption instanceof HTMLInputElement) {
-            rawOption.checked = true;
-          }
-        }
-        renderApiBuilder();
-      });
+    const renderSelect = document.getElementById('preview-render-style');
+    if (renderSelect) {
+      renderSelect.addEventListener('change', renderApiBuilder);
     }
 
     window.PipeworksApiBuilder = {
