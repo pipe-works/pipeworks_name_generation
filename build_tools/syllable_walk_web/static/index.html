@@ -6,7 +6,7 @@
   <title>Pipe-Works Build Tools</title>
   <link rel="stylesheet" href="static/css/pipe-works-fonts.css" />
   <link rel="stylesheet" href="static/css/pipe-works-base.css" />
-  <link rel="stylesheet" href="static/css/syllable-walk.css" />
+  <link rel="stylesheet" href="static/css/app.css" />
 </head>
 <body>
 
@@ -305,7 +305,6 @@
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Run History</h1>
-        <span class="badge badge--muted">Demo</span>
       </div>
 
       <div class="history-layout">
@@ -314,72 +313,41 @@
         <div class="history-list panel panel--dark">
           <h2 class="panel__heading">Previous Runs</h2>
           <div class="history-runs" id="history-runs">
-            <div class="history-run is-selected" data-run="run-001">
-              <span class="history-run__date u-muted">2026-02-20 09:14</span>
-              <span class="history-run__name u-accent">fantasy_corpus_v1</span>
-              <span class="badge badge--success">completed</span>
-            </div>
-            <div class="history-run" data-run="run-002">
-              <span class="history-run__date u-muted">2026-02-19 16:42</span>
-              <span class="history-run__name u-accent">nordic_source_raw</span>
-              <span class="badge badge--success">completed</span>
-            </div>
-            <div class="history-run" data-run="run-003">
-              <span class="history-run__date u-muted">2026-02-19 11:05</span>
-              <span class="history-run__name u-accent">latin_fragments_test</span>
-              <span class="badge badge--error">failed</span>
-            </div>
-            <div class="history-run" data-run="run-004">
-              <span class="history-run__date u-muted">2026-02-18 14:30</span>
-              <span class="history-run__name u-accent">goblin_dialect_raw</span>
-              <span class="badge badge--success">completed</span>
-            </div>
-            <div class="history-run" data-run="run-005">
-              <span class="history-run__date u-muted">2026-02-17 10:18</span>
-              <span class="history-run__name u-accent">elvish_source_v2</span>
-              <span class="badge badge--muted">cancelled</span>
-            </div>
+            <p class="placeholder-text" id="history-loading">Scanning for runs…</p>
           </div>
         </div>
 
         <!-- Run detail -->
         <div class="history-detail panel panel--dark" id="history-detail">
-          <h2 class="panel__heading">Run Detail — <span id="history-detail-name" class="u-accent">fantasy_corpus_v1</span></h2>
+          <h2 class="panel__heading">Run Detail — <span id="history-detail-name" class="u-accent">—</span></h2>
 
           <div class="history-detail__meta">
-            <div class="job-meta__row"><span class="control-label">Status</span>     <span class="u-accent u-mono" id="hd-status">completed</span></div>
-            <div class="job-meta__row"><span class="control-label">Started</span>    <span class="u-mono u-muted" id="hd-started">2026-02-20 09:14:03</span></div>
-            <div class="job-meta__row"><span class="control-label">Duration</span>   <span class="u-mono u-muted" id="hd-duration">4m 22s</span></div>
-            <div class="job-meta__row"><span class="control-label">Extractor</span>  <span class="u-mono u-muted" id="hd-extractor">pyphen · en_US</span></div>
-            <div class="job-meta__row"><span class="control-label">Source</span>     <span class="u-mono u-muted" id="hd-source">~/projects/fantasy_corpus/raw/</span></div>
-            <div class="job-meta__row"><span class="control-label">Files</span>      <span class="u-mono u-muted" id="hd-files">12 .txt files</span></div>
-            <div class="job-meta__row"><span class="control-label">Output</span>     <span class="u-mono u-muted" id="hd-output">_working/output/run_20260220_091403/</span></div>
-            <div class="job-meta__row"><span class="control-label">Syllables</span>  <span class="u-mono u-accent" id="hd-syllables">1,240 extracted · 847 unique</span></div>
+            <div class="job-meta__row"><span class="control-label">Status</span>     <span class="u-accent u-mono" id="hd-status">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Started</span>    <span class="u-mono u-muted" id="hd-started">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Duration</span>   <span class="u-mono u-muted" id="hd-duration">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Extractor</span>  <span class="u-mono u-muted" id="hd-extractor">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Source</span>     <span class="u-mono u-muted" id="hd-source">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Files</span>      <span class="u-mono u-muted" id="hd-files">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Output</span>     <span class="u-mono u-muted" id="hd-output">—</span></div>
+            <div class="job-meta__row"><span class="control-label">Syllables</span>  <span class="u-mono u-accent" id="hd-syllables">—</span></div>
           </div>
 
           <hr class="divider" />
 
           <div class="history-stages">
-            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Extract <span class="u-muted">(1m 14s)</span></span></div>
-            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Normalize <span class="u-muted">(0m 48s)</span></span></div>
-            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Annotate <span class="u-muted">(2m 20s)</span></span></div>
+            <div class="stage-indicator"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Extract</span></div>
+            <div class="stage-indicator"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Normalize</span></div>
+            <div class="stage-indicator"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Annotate</span></div>
           </div>
 
           <hr class="divider" />
 
           <div class="history-outputs">
             <p class="control-label">Output Files</p>
-            <div class="output-box" style="font-size:var(--text-xs)">
-run_20260220_091403/<br>
-├── corpus.syllables        1,240 entries<br>
-├── corpus.normalized       847 unique<br>
-├── corpus.annotated        847 annotated<br>
-├── corpus.meta             run metadata<br>
-└── corpus.db               SQLite index
+            <div class="output-box" id="history-output-tree" style="font-size:var(--text-xs)">
+              <span class="placeholder-text">(Select a run to view details)</span>
             </div>
           </div>
-
-          <button class="btn btn--secondary" id="history-rerun-btn" style="margin-top:var(--sp-3)">↺ Re-run with same config</button>
         </div>
 
       </div>
@@ -967,7 +935,6 @@ run_20260220_091403/<br>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Corpus Analysis</h1>
-        <span class="badge badge--muted">Demo</span>
       </div>
 
       <div class="analysis-columns">
@@ -1137,7 +1104,6 @@ run_20260220_091403/<br>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Package</h1>
-        <span class="badge badge--muted">Demo</span>
       </div>
       <div class="package-layout">
         <div class="package-config panel panel--dark">
@@ -1153,16 +1119,16 @@ run_20260220_091403/<br>
           <fieldset class="radio-group">
             <legend class="control-label">Include</legend>
             <label class="toggle-label" style="margin-bottom:var(--sp-2)">
-              <input type="checkbox" checked /> <span class="toggle-text">Patch A walks</span>
+              <input type="checkbox" id="pkg-walks-a" checked /> <span class="toggle-text">Patch A walks</span>
             </label>
             <label class="toggle-label" style="margin-bottom:var(--sp-2)">
-              <input type="checkbox" checked /> <span class="toggle-text">Patch B walks</span>
+              <input type="checkbox" id="pkg-walks-b" checked /> <span class="toggle-text">Patch B walks</span>
             </label>
             <label class="toggle-label" style="margin-bottom:var(--sp-2)">
-              <input type="checkbox" checked /> <span class="toggle-text">Candidates</span>
+              <input type="checkbox" id="pkg-candidates" checked /> <span class="toggle-text">Candidates</span>
             </label>
             <label class="toggle-label">
-              <input type="checkbox" checked /> <span class="toggle-text">Selections</span>
+              <input type="checkbox" id="pkg-selections" checked /> <span class="toggle-text">Selections</span>
             </label>
           </fieldset>
           <button class="btn btn--primary btn--full" id="build-package" style="margin-top:var(--sp-3)">Build Package</button>
@@ -1225,25 +1191,11 @@ run_20260220_091403/<br>
         <button class="btn btn--icon" id="corpus-modal-close" aria-label="Close">✕</button>
       </div>
       <p style="font-size:var(--text-sm);color:var(--col-text-muted)">
-        In the live app, this opens a filesystem browser. For this demo, select a sample corpus below.
+        Select a pipeline run to load as corpus. Runs are discovered from <code id="corpus-output-base">…</code>.
+        <button class="btn btn--ghost btn--sm" id="corpus-change-base" style="margin-left:var(--sp-2)">Change…</button>
       </p>
-      <div class="corpus-browser">
-        <div class="corpus-browser__item" data-corpus="fantasy_names">
-          <span class="u-accent u-mono">fantasy_names/</span>
-          <span class="u-muted">1,240 syllables · 3 walks</span>
-        </div>
-        <div class="corpus-browser__item" data-corpus="nordic_roots">
-          <span class="u-accent u-mono">nordic_roots/</span>
-          <span class="u-muted">892 syllables · 2 walks</span>
-        </div>
-        <div class="corpus-browser__item" data-corpus="latin_fragments">
-          <span class="u-accent u-mono">latin_fragments/</span>
-          <span class="u-muted">2,105 syllables · 5 walks</span>
-        </div>
-        <div class="corpus-browser__item" data-corpus="goblin_tongue">
-          <span class="u-accent u-mono">goblin_tongue/</span>
-          <span class="u-muted">567 syllables · 1 walk</span>
-        </div>
+      <div class="corpus-browser" id="corpus-browser-list">
+        <p class="placeholder-text" id="corpus-browser-loading">Scanning for runs…</p>
       </div>
       <div class="modal__actions">
         <button class="btn btn--ghost" id="corpus-modal-cancel">Cancel</button>
@@ -1288,6 +1240,6 @@ run_20260220_091403/<br>
     </div>
   </div>
 
-  <script src="static/js/syllable-walk.js"></script>
+  <script src="static/js/app.js"></script>
 </body>
 </html>

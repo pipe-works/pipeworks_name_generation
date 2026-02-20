@@ -48,6 +48,7 @@ body {
   flex-direction: column;
   gap: 0;
   padding: 0;
+  height: auto;   /* override base --header-h so both rows fit */
 }
 
 .app-header__spacer {

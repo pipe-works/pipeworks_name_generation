@@ -1,0 +1,486 @@
+"""Tests for the pipeline runner service.
+
+This module tests pipeline execution orchestration:
+- _log: log line formatting
+- get_status: status dict construction
+- cancel_pipeline: cancellation logic
+- start_pipeline: background thread launch
+- _run_stage: subprocess execution with cancellation
+- _parse_run_directory: stdout parsing and fallback heuristics
+"""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from build_tools.syllable_walk_web.services.pipeline_runner import (
+    _log,
+    _parse_run_directory,
+    _run_stage,
+    cancel_pipeline,
+    get_status,
+    start_pipeline,
+)
+from build_tools.syllable_walk_web.state import PipelineJobState
+
+# ============================================================
+# Fixtures
+# ============================================================
+
+
+@pytest.fixture
+def job():
+    """Fresh idle pipeline job."""
+    return PipelineJobState()
+
+
+@pytest.fixture
+def running_job():
+    """Pipeline job in running state."""
+    j = PipelineJobState()
+    j.status = "running"
+    j.job_id = "20260220_120000"
+    return j
+
+
+# ============================================================
+# _log
+# ============================================================
+
+
+class TestLog:
+    """Test log line appending."""
+
+    def test_appends_log_line(self, job):
+        """Test _log appends a dict with cls and text."""
+        _log(job, "info", "test message")
+        assert len(job.log_lines) == 1
+        assert job.log_lines[0]["text"] == "test message"
+        assert job.log_lines[0]["cls"] == "log-line--info"
+
+    def test_multiple_logs(self, job):
+        """Test multiple log entries accumulate."""
+        _log(job, "info", "first")
+        _log(job, "error", "second")
+        assert len(job.log_lines) == 2
+        assert job.log_lines[1]["cls"] == "log-line--error"
+
+
+# ============================================================
+# get_status
+# ============================================================
+
+
+class TestGetStatus:
+    """Test pipeline status reporting."""
+
+    def test_idle_status(self, job):
+        """Test status dict for idle job."""
+        status = get_status(job)
+        assert status["status"] == "idle"
+        assert status["job_id"] is None
+        assert status["progress_percent"] == 0
+        assert status["log_lines"] == []
+
+    def test_running_status(self, running_job):
+        """Test status dict for running job."""
+        running_job.current_stage = "extract"
+        running_job.progress_percent = 25
+        _log(running_job, "info", "extracting")
+
+        status = get_status(running_job)
+        assert status["status"] == "running"
+        assert status["current_stage"] == "extract"
+        assert status["progress_percent"] == 25
+        assert len(status["log_lines"]) == 1
+        assert status["log_offset"] == 1
+
+
+# ============================================================
+# cancel_pipeline
+# ============================================================
+
+
+class TestCancelPipeline:
+    """Test pipeline cancellation."""
+
+    def test_cancel_idle_does_nothing(self, job):
+        """Test cancelling an idle job is a no-op."""
+        cancel_pipeline(job)
+        assert job.status == "idle"
+
+    def test_cancel_running_sets_cancelled(self, running_job):
+        """Test cancelling a running job sets status to cancelled."""
+        cancel_pipeline(running_job)
+        assert running_job.status == "cancelled"
+
+    def test_cancel_terminates_process(self, running_job):
+        """Test cancellation terminates the subprocess."""
+        mock_proc = MagicMock()
+        running_job.process = mock_proc
+        cancel_pipeline(running_job)
+        mock_proc.terminate.assert_called_once()
+
+    def test_cancel_handles_oserror(self, running_job):
+        """Test cancellation handles OSError from terminate gracefully."""
+        mock_proc = MagicMock()
+        mock_proc.terminate.side_effect = OSError("already dead")
+        running_job.process = mock_proc
+        cancel_pipeline(running_job)
+        assert running_job.status == "cancelled"
+
+
+# ============================================================
+# start_pipeline
+# ============================================================
+
+
+class TestStartPipeline:
+    """Test pipeline background thread launch."""
+
+    def test_sets_initial_state(self, job):
+        """Test start_pipeline sets job state correctly."""
+        with patch("build_tools.syllable_walk_web.services.pipeline_runner._run_pipeline"):
+            start_pipeline(
+                job,
+                source_path="/test",
+                output_dir="/output",
+                extractor="pyphen",
+            )
+
+        assert job.status == "running"
+        assert job.job_id is not None
+        assert job.progress_percent == 0
+        assert job.config["extractor"] == "pyphen"
+
+    def test_resets_previous_state(self, running_job):
+        """Test start_pipeline clears error and log from previous run."""
+        running_job.error_message = "old error"
+        running_job.log_lines = [{"text": "old log"}]
+        running_job.status = "failed"
+
+        with patch("build_tools.syllable_walk_web.services.pipeline_runner._run_pipeline"):
+            start_pipeline(
+                running_job,
+                source_path="/test",
+                output_dir="/output",
+            )
+
+        assert running_job.error_message is None
+        assert running_job.log_lines == []
+
+
+# ============================================================
+# _run_stage
+# ============================================================
+
+
+class TestRunStage:
+    """Test individual subprocess stage execution."""
+
+    def test_success(self, job):
+        """Test successful stage execution."""
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["output line 1\n", "output line 2\n"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            ok, stdout = _run_stage(job, ["echo", "test"], "extract")
+
+        assert ok is True
+        assert "output line 1" in stdout
+
+    def test_failure_nonzero_exit(self, job):
+        """Test stage failure on non-zero exit code."""
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["error output\n"])
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = 1
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            ok, stdout = _run_stage(job, ["false"], "extract")
+
+        assert ok is False
+
+    def test_cancellation_mid_stream(self, job):
+        """Test stage terminates on cancellation."""
+        mock_proc = MagicMock()
+
+        # After first line, simulate cancellation
+        def stdout_iter():
+            yield "line 1\n"
+            job.status = "cancelled"
+            yield "line 2\n"
+
+        mock_proc.stdout = stdout_iter()
+        mock_proc.returncode = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            ok, stdout = _run_stage(job, ["cmd"], "extract")
+
+        assert ok is False
+        mock_proc.terminate.assert_called_once()
+
+    def test_exception_handling(self, job):
+        """Test stage handles exceptions gracefully."""
+        with patch("subprocess.Popen", side_effect=OSError("no such cmd")):
+            ok, stdout = _run_stage(job, ["nonexistent"], "extract")
+
+        assert ok is False
+        assert stdout == ""
+
+
+# ============================================================
+# _parse_run_directory
+# ============================================================
+
+
+class TestParseRunDirectory:
+    """Test run directory path extraction from stdout."""
+
+    def test_parses_run_directory_label(self, tmp_path):
+        """Test parsing 'Run Directory: /path' from stdout."""
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+
+        stdout = f"Run Directory: {run_dir}\nDone."
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result == run_dir
+
+    def test_parses_output_label(self, tmp_path):
+        """Test parsing 'Output: /path' from stdout."""
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+
+        stdout = f"Output: {run_dir}"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result == run_dir
+
+    def test_parses_created_label(self, tmp_path):
+        """Test parsing 'Created /path' from stdout."""
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+
+        stdout = f"Created {run_dir}"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result == run_dir
+
+    def test_suffix_fallback(self, tmp_path):
+        """Test fallback to directory with _extractor suffix."""
+        # Stdout mentions a base path, but actual dir has _pyphen suffix
+        base_dir = tmp_path / "20260220_120000"
+        suffixed_dir = tmp_path / "20260220_120000_pyphen"
+        suffixed_dir.mkdir()
+
+        stdout = f"Run Directory: {base_dir}"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result == suffixed_dir
+
+    def test_directory_scan_fallback(self, tmp_path):
+        """Test fallback to most recent timestamped directory."""
+        # Create dirs — the newer one should be found
+        old = tmp_path / "20260101_000000_pyphen"
+        old.mkdir()
+        new = tmp_path / "20260220_120000_pyphen"
+        new.mkdir()
+
+        # No valid path in stdout
+        stdout = "No directory mentioned\n"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result == new
+
+    def test_returns_none_when_nothing_found(self, tmp_path):
+        """Test returns None when no matching directory exists."""
+        stdout = "No output"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result is None
+
+    def test_ignores_wrong_extractor(self, tmp_path):
+        """Test directory scan ignores dirs with wrong extractor name."""
+        nltk_dir = tmp_path / "20260220_120000_nltk"
+        nltk_dir.mkdir()
+
+        stdout = "No output"
+        result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
+        assert result is None
+
+
+# ============================================================
+# _run_pipeline (integration-style)
+# ============================================================
+
+
+class TestRunPipeline:
+    """Test the full _run_pipeline orchestration function."""
+
+    def test_extraction_only(self, job, tmp_path):
+        """Test pipeline with extraction stage only (no normalize/annotate)."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": False,
+            "run_annotate": False,
+        }
+
+        # Mock subprocess.Popen so extraction "succeeds" and prints run dir
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "completed"
+        assert job.progress_percent == 100
+        assert job.output_path == run_dir
+
+    def test_extraction_failure(self, job, tmp_path):
+        """Test pipeline fails if extraction stage fails."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["error\n"])
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = 1
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert job.error_message is not None
+
+    def test_cancellation_during_extraction(self, job, tmp_path):
+        """Test pipeline handles cancellation during extraction."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        # Simulate cancellation mid-extraction
+        def stdout_with_cancel():
+            yield "processing...\n"
+            job.status = "cancelled"
+            yield "more output\n"
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = stdout_with_cancel()
+        mock_proc.returncode = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "cancelled"
+
+    def test_no_run_directory_found(self, job, tmp_path):
+        """Test pipeline fails when run directory can't be determined."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": False,
+            "run_annotate": False,
+        }
+
+        # Extraction succeeds but doesn't print a directory path
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["no path here\n"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert "Could not determine" in job.error_message
+
+    def test_full_pipeline_all_stages(self, job, tmp_path):
+        """Test full pipeline with all four stages succeeding."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+        # Create required normaliser output files
+        (run_dir / "pyphen_syllables_unique.txt").write_text("ka\nri\n")
+        (run_dir / "pyphen_syllables_frequencies.json").write_text('{"ka": 100}')
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        call_count = 0
+
+        def make_proc(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            proc = MagicMock()
+            if call_count == 1:
+                # Extraction: print run directory
+                proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+            else:
+                # Other stages: just succeed
+                proc.stdout = iter(["ok\n"])
+            proc.returncode = 0
+            proc.wait.return_value = 0
+            return proc
+
+        with patch("subprocess.Popen", side_effect=make_proc):
+            _run_pipeline(job)
+
+        assert job.status == "completed"
+        assert job.progress_percent == 100
+        # 4 stages: extract, normalize, annotate, database
+        assert call_count == 4

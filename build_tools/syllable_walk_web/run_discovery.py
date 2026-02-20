@@ -154,19 +154,22 @@ def _discover_selections(run_dir: Path, extractor_type: str) -> dict[str, Path]:
     selections = {}
     prefix = f"{extractor_type}_"
 
+    # Selection files follow the naming convention:
+    #   {extractor}_{name_class}_{N}syl.json
+    # e.g. "nltk_first_name_2syl.json".
     for json_file in selections_dir.glob(f"{prefix}*_*.json"):
-        # Parse filename: {prefix}_{name_class}_{syllables}syl.json
-        # e.g., nltk_first_name_2syl.json
-        filename = json_file.stem  # e.g., "nltk_first_name_2syl"
+        filename = json_file.stem  # e.g. "nltk_first_name_2syl"
 
-        # Skip meta files
         if filename.endswith("_meta"):
             continue
 
-        # Remove prefix and extract name class
-        name_part = filename[len(prefix) :]  # e.g., "first_name_2syl"
+        # Strip the extractor prefix to isolate the name class + syllable
+        # count portion (e.g. "first_name_2syl").
+        name_part = filename[len(prefix) :]
 
-        # Extract name class (everything before _Nsyl)
+        # rsplit("_", 1) splits from the right to handle compound name
+        # classes like "first_name" — splitting from the left would break
+        # on the underscore within the class name.
         parts = name_part.rsplit("_", 1)  # ["first_name", "2syl"]
         if len(parts) == 2 and parts[1].endswith("syl"):
             name_class = parts[0]  # e.g., "first_name"
@@ -207,34 +210,41 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
         if not run_dir.is_dir():
             continue
 
-        # Parse directory name: YYYYMMDD_HHMMSS_{extractor}
+        # Pipeline run directories follow the convention
+        # YYYYMMDD_HHMMSS_{extractor}, e.g. "20260121_084017_nltk".
         dir_name = run_dir.name
         parts = dir_name.split("_")
 
         if len(parts) < 3:
             continue
 
-        # Validate timestamp parts
+        # First two parts must be numeric (date and time).
         if not (parts[0].isdigit() and parts[1].isdigit()):
             continue
 
         timestamp = f"{parts[0]}_{parts[1]}"
-        extractor_type = "_".join(parts[2:])  # Handle multi-word extractors
+        # parts[2:] is joined to handle multi-word extractors like
+        # "custom_extractor".
+        extractor_type = "_".join(parts[2:])
 
-        # Look for corpus.db in data/ subdirectory
+        # DB in data/ is the canonical post-pipeline-v2 location for the
+        # indexed corpus.
         data_dir = run_dir / "data"
         corpus_db_path = data_dir / "corpus.db" if data_dir.exists() else None
         if corpus_db_path and not corpus_db_path.exists():
             corpus_db_path = None
 
-        # Look for annotated JSON
+        # Glob with the extractor prefix to match only the correct file and
+        # avoid cross-contamination if multiple extractors share a directory.
         annotated_json_path = None
         if data_dir.exists():
             for json_file in data_dir.glob(f"{extractor_type}_syllables_annotated.json"):
                 annotated_json_path = json_file
                 break
 
-        # Get syllable count (prefer DB, fall back to JSON)
+        # Prefer DB for syllable count — the database has the authoritative
+        # indexed count after the corpus_sqlite_builder stage.  Fall back to
+        # JSON for runs that skipped the database stage.
         syllable_count = 0
         if corpus_db_path:
             syllable_count = _get_syllable_count_from_db(corpus_db_path)
