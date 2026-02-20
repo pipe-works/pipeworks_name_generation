@@ -7,14 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.20](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.19...pipeworks-name-generation-v0.5.20) (2026-02-20)
 
-
 ### Features
 
 * replace chip layout with table layout for name previews ([532f1b5](https://github.com/pipe-works/pipeworks_name_generation/commit/532f1b5b238426431f037daf5548ab64e395f060))
 * replace chip layout with table layout for name previews ([2df4fbb](https://github.com/pipe-works/pipeworks_name_generation/commit/2df4fbbb1b2cc5e7fab490baa65d4b271614170e))
 * **webapp:** replace builder preview tabs with stacked cURL + POST sections ([4f53e82](https://github.com/pipe-works/pipeworks_name_generation/commit/4f53e82dfa5c1cb2fe021130d89667adaf3f5e0c))
 * **webapp:** replace builder preview tabs with stacked cURL + POST sections ([d67209c](https://github.com/pipe-works/pipeworks_name_generation/commit/d67209ce7bcd1b9c47c20a693dc115937b236d37))
-
 
 ### Fixes
 
@@ -23,13 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.19](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.18...pipeworks-name-generation-v0.5.19) (2026-02-09)
 
-
 ### Features
 
 * expand webapp admin tools and exports ([#81](https://github.com/pipe-works/pipeworks_name_generation/issues/81)) ([b78606b](https://github.com/pipe-works/pipeworks_name_generation/commit/b78606b1f288f168b3a4f078928c033158497843))
 
 ## [0.5.18](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.17...pipeworks-name-generation-v0.5.18) (2026-02-08)
-
 
 ### Features
 
@@ -41,20 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **webapp:** add api builder curl/post tools ([faccf9e](https://github.com/pipe-works/pipeworks_name_generation/commit/faccf9e6695dadedfaaec199cc99f2f1da110ff0))
 * **webapp:** add light theme toggle ([f239d0a](https://github.com/pipe-works/pipeworks_name_generation/commit/f239d0a295c8ed85a62c0bf0efd9479341352359))
 
-
 ### Fixes
 
 * add favorites_db to CLI test args ([998258b](https://github.com/pipe-works/pipeworks_name_generation/commit/998258b7236395eebf14cc22e8d0f1825c95ae70))
 
 ## [0.5.17](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.16...pipeworks-name-generation-v0.5.17) (2026-02-08)
 
-
 ### Features
 
 * **webapp:** add optional renderer and api-only mode ([be08256](https://github.com/pipe-works/pipeworks_name_generation/commit/be082560e982462753b7d687db5cc15282e7735a))
 * **webapp:** cache generation package options ([ba9cfd0](https://github.com/pipe-works/pipeworks_name_generation/commit/ba9cfd090684e6e3e0426f10d9d8a17723891cac))
 * **webapp:** cache generation package options ([66c5b5d](https://github.com/pipe-works/pipeworks_name_generation/commit/66c5b5da5110d2148e6f6e106fc9cc2ecb468b6c))
-
 
 ### Documentation
 
@@ -64,7 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **webapp:** expand API examples and cache notes ([4ae39ae](https://github.com/pipe-works/pipeworks_name_generation/commit/4ae39ae45a15f5c83064c241d536ecf1f9c0e546))
 * **webapp:** expand API examples and cache notes ([c02f246](https://github.com/pipe-works/pipeworks_name_generation/commit/c02f2463b98939d44d5a7c2f269c57bd9d17afd7))
 
-
 ### Internal Changes
 
 * **webapp:** remove storage facade and harden db layer ([58ceec9](https://github.com/pipe-works/pipeworks_name_generation/commit/58ceec94c36dd4fd22a6f6346786e525561563aa))
@@ -73,7 +65,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **webapp:** split monolithic server into modular architecture ([fb9686b](https://github.com/pipe-works/pipeworks_name_generation/commit/fb9686bece29ee15099c1c414ae7585e63cbede4))
 
 ## [0.5.16](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.15...pipeworks-name-generation-v0.5.16) (2026-02-08)
-
 
 ### Features
 
@@ -91,18 +82,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.15](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.14...pipeworks-name-generation-v0.5.15) (2026-02-07)
 
-
 ### Documentation
 
 * require release-please conventional commits ([#60](https://github.com/pipe-works/pipeworks_name_generation/issues/60)) ([507112e](https://github.com/pipe-works/pipeworks_name_generation/commit/507112e59af8f00ed35f75e29ec273bb660ff3fe))
 
 ## [0.5.14](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.13...pipeworks-name-generation-v0.5.14) (2026-01-30)
 
-
 ### Fixes
 
 * **ci:** use reusable release-please workflow ([#57](https://github.com/pipe-works/pipeworks_name_generation/issues/57)) ([b20dfd5](https://github.com/pipe-works/pipeworks_name_generation/commit/b20dfd5fc50e46a117219214511d75332e932a18))
-
 
 ### Documentation
 
@@ -111,30 +99,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.13](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.12...pipeworks-name-generation-v0.5.13) (2026-01-27)
 
-
 ### Fixes
 
-* **packaging:** exclude __pycache__ from distribution ([#52](https://github.com/pipe-works/pipeworks_name_generation/issues/52)) ([f370ec9](https://github.com/pipe-works/pipeworks_name_generation/commit/f370ec9c8551a40e4bbd35cd920a7e25e32f428d))
+* **packaging:** exclude **pycache** from distribution ([#52](https://github.com/pipe-works/pipeworks_name_generation/issues/52)) ([f370ec9](https://github.com/pipe-works/pipeworks_name_generation/commit/f370ec9c8551a40e4bbd35cd920a7e25e32f428d))
 
 ## [0.5.12](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.11...pipeworks-name-generation-v0.5.12) (2026-01-26)
-
 
 ### Features
 
 * **ci:** add workflow_dispatch trigger to release-please ([#50](https://github.com/pipe-works/pipeworks_name_generation/issues/50)) ([012adda](https://github.com/pipe-works/pipeworks_name_generation/commit/012addae689be216c560966f6d6dc4d020ca7bee))
 
-
 ### Fixes
 
 * **tests:** Add pilot.pause() to fix flaky Windows TUI test ([#47](https://github.com/pipe-works/pipeworks_name_generation/issues/47)) ([4c1d5c8](https://github.com/pipe-works/pipeworks_name_generation/commit/4c1d5c85833642b5c3dc5fba3207221258b28b7a))
-
 
 ### Internal Changes
 
 * migrate to reusable workflows ([#49](https://github.com/pipe-works/pipeworks_name_generation/issues/49)) ([e53f2af](https://github.com/pipe-works/pipeworks_name_generation/commit/e53f2af384db518e2e248c354b184bd0f1d13a21))
 
 ## [0.5.11](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.10...pipeworks-name-generation-v0.5.11) (2026-01-24)
-
 
 ### Internal Changes
 
@@ -143,25 +126,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.10](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.9...pipeworks-name-generation-v0.5.10) (2026-01-23)
 
-
 ### Internal Changes
 
 * **build_tools:** Extract shared CLI code from syllable extractors ([#41](https://github.com/aa-parky/pipeworks_name_generation/issues/41)) ([cb353c9](https://github.com/aa-parky/pipeworks_name_generation/commit/cb353c9ae603b9ba49e2a270c2902b587a73150b))
 
 ## [0.5.9](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.8...pipeworks-name-generation-v0.5.9) (2026-01-23)
 
-
 ### Documentation
 
 * Automate version from pyproject.toml in Sphinx conf.py ([#40](https://github.com/aa-parky/pipeworks_name_generation/issues/40)) ([8a821b8](https://github.com/aa-parky/pipeworks_name_generation/commit/8a821b83bd1b0626110d3a74bd71c0289627855b))
-
 
 ### Internal Changes
 
 * **syllable_walk_tui:** Extract UI updates and validation helpers from app.py ([#38](https://github.com/aa-parky/pipeworks_name_generation/issues/38)) ([7d64dc9](https://github.com/aa-parky/pipeworks_name_generation/commit/7d64dc955c916da9a81dc4355b14a66ff4bc2e75))
 
 ## [0.5.8](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.7...pipeworks-name-generation-v0.5.8) (2026-01-23)
-
 
 ### Internal Changes
 
@@ -172,13 +151,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.7](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.6...pipeworks-name-generation-v0.5.7) (2026-01-23)
 
-
 ### Documentation
 
 * **syllable_walk_tui:** Update documentation for refactored TUI with Render Screen ([#34](https://github.com/aa-parky/pipeworks_name_generation/issues/34)) ([f5d2dcb](https://github.com/aa-parky/pipeworks_name_generation/commit/f5d2dcb0763ca4174bd5c333a1e3706a906388b1))
 
 ## [0.5.6](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.5...pipeworks-name-generation-v0.5.6) (2026-01-23)
-
 
 ### Features
 
@@ -187,18 +164,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **syllable_walk_tui:** Add name_selector functionality to TUI ([#27](https://github.com/aa-parky/pipeworks_name_generation/issues/27)) ([d980f9a](https://github.com/aa-parky/pipeworks_name_generation/commit/d980f9aca991499d162c1eec934d2a65f2f75439))
 * **syllable_walk_tui:** Add TXT export for selected names ([#30](https://github.com/aa-parky/pipeworks_name_generation/issues/30)) ([2460005](https://github.com/aa-parky/pipeworks_name_generation/commit/24600050ceb9dfcfd99187f59d2ab940e3847e45))
 
-
 ### Internal Changes
 
 * **syllable_walk_tui:** Modularize app.py into focused modules ([#31](https://github.com/aa-parky/pipeworks_name_generation/issues/31)) ([73a126d](https://github.com/aa-parky/pipeworks_name_generation/commit/73a126dd4db668f9856009b086bc7f50b9262461))
 
 ## [0.5.5](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.4...pipeworks-name-generation-v0.5.5) (2026-01-22)
 
-
 ### Features
 
 * **name_selector:** Add organisation and title_epithet name classes ([#25](https://github.com/aa-parky/pipeworks_name_generation/issues/25)) ([92b7919](https://github.com/aa-parky/pipeworks_name_generation/commit/92b7919765f0072eb334b75973a57a1360d2a4d9))
-
 
 ### Internal Changes
 
@@ -206,13 +180,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.4](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.3...pipeworks-name-generation-v0.5.4) (2026-01-21)
 
-
 ### Features
 
 * **syllable_walk:** Simplify web interface with selections browser and SQLite support ([#20](https://github.com/aa-parky/pipeworks_name_generation/issues/20)) ([360be4f](https://github.com/aa-parky/pipeworks_name_generation/commit/360be4fa1b7922393032cd32661f5c9c024a5239))
 
 ## [0.5.3](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.2...pipeworks-name-generation-v0.5.3) (2026-01-21)
-
 
 ### Features
 
@@ -220,12 +192,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.2](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.1...pipeworks-name-generation-v0.5.2) (2026-01-21)
 
-
 ### Features
 
 * **build_tools:** Add Selection Policy Layer for name generation ([#10](https://github.com/aa-parky/pipeworks_name_generation/issues/10)) ([313cd0d](https://github.com/aa-parky/pipeworks_name_generation/commit/313cd0d3d4a64dd23adca449bd203f6e3f6ec8d4))
 * **pre-commit:** Add RST docstring linter hook ([#17](https://github.com/aa-parky/pipeworks_name_generation/issues/17)) ([d321a2c](https://github.com/aa-parky/pipeworks_name_generation/commit/d321a2c973a2e64f80fddea99476a8d0fc0c1754))
-
 
 ### Fixes
 
@@ -234,13 +204,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **ci:** Report commit status for release-please PRs ([#15](https://github.com/aa-parky/pipeworks_name_generation/issues/15)) ([95da8ee](https://github.com/aa-parky/pipeworks_name_generation/commit/95da8ee3939585819709c58148c5a9e027c4ad4d))
 * **ci:** Trigger CI on release-please branches ([#12](https://github.com/aa-parky/pipeworks_name_generation/issues/12)) ([e738b2e](https://github.com/aa-parky/pipeworks_name_generation/commit/e738b2ef83317b068582ac7022fb9f908da75648))
 
-
 ### Documentation
 
 * Fix CLI code block formatting in docstrings and epilogs ([#16](https://github.com/aa-parky/pipeworks_name_generation/issues/16)) ([8f09dd7](https://github.com/aa-parky/pipeworks_name_generation/commit/8f09dd770e5943e0dfdcbfa68d9101a86a449292))
 
 ## [0.5.1](https://github.com/aa-parky/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.0...pipeworks-name-generation-v0.5.1) (2026-01-21)
-
 
 ### Features
 
@@ -255,7 +223,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **tui:** Add pipeline execution, file selection, and navigation improvements ([3a05f60](https://github.com/aa-parky/pipeworks_name_generation/commit/3a05f600eb81cc62573332fd03cb8bf2bd7b0173))
 * **tui:** Add terrain weights editor and file browser hidden files toggle ([e69eb67](https://github.com/aa-parky/pipeworks_name_generation/commit/e69eb670741aa0756cfb185a849014efa0dd3822))
 
-
 ### Fixes
 
 * **ci:** Pin black to exact version 26.1.0 and reformat files ([51cc780](https://github.com/aa-parky/pipeworks_name_generation/commit/51cc780392cc046996247483ed217ab28cd22088))
@@ -268,7 +235,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **tests:** Update syllable_walk_tui test for new browser error message ([d65f33e](https://github.com/aa-parky/pipeworks_name_generation/commit/d65f33e9e0a29812ac465136f0d339154bd378b3))
 * **tests:** Use _validate_and_update_status directly in browser tests ([cfd5826](https://github.com/aa-parky/pipeworks_name_generation/commit/cfd58268f5086c271845b1954953761b0f711129))
 * **tui:** Remove auto-validation from _expand_to_initial_dir ([19ac585](https://github.com/aa-parky/pipeworks_name_generation/commit/19ac5857026a843f708b694070cf37f7289bca61))
-
 
 ### Internal Changes
 

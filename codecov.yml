@@ -28,10 +28,10 @@ coverage:
 
   precision: 2
   round: down
-  range: "50...100"  # Color coding: 50% is yellow, 100% is bright green
+  range: 50...100    # Color coding: 50% is yellow, 100% is bright green
 
 comment:
-  layout: "reach, diff, flags, files"
+  layout: reach, diff, flags, files
   behavior: default
   require_changes: false
   require_base: false
@@ -39,11 +39,11 @@ comment:
 
 # Ignore paths (customize for your project)
 ignore:
-  - "tests/"
-  - "examples/"
-  - "docs/"
-  - "**/__pycache__"
-  - "**/*.egg-info"
+- tests/
+- examples/
+- docs/
+- '**/__pycache__'
+- '**/*.egg-info'
 
 # ========================================
 # UI-Specific Ignores (if applicable)
