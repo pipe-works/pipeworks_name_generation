@@ -3,6 +3,9 @@
 The application supports a small INI file so end users can set runtime values
 without changing Python code. The most important setting is ``port``; when it
 is omitted the server auto-selects a free port in the 8000 range.
+
+The canonical INI section name is ``[webapp]``. For backward compatibility,
+``[server]`` is accepted as a fallback when ``[webapp]`` is not present.
 """
 
 from __future__ import annotations
@@ -84,8 +87,9 @@ def _coerce_optional_path(raw_path: str | None) -> Path | None:
 def load_server_settings(config_path: Path | None) -> ServerSettings:
     """Load server settings from an INI file.
 
-    The parser reads a ``[server]`` section with the following optional keys:
-    ``host``, ``port``, ``db_path``, ``favorites_db_path``, ``verbose``, and
+    The parser reads a ``[webapp]`` section (preferred) or ``[server]`` section
+    (backward-compatible fallback) with the following optional keys: ``host``,
+    ``port``, ``db_path``, ``favorites_db_path``, ``verbose``, and
     ``serve_ui``. An optional ``api_only`` flag can be used to force API-only
     mode and overrides ``serve_ui`` when set.
 
@@ -106,34 +110,39 @@ def load_server_settings(config_path: Path | None) -> ServerSettings:
     parser = ConfigParser()
     parser.read(config_path, encoding="utf-8")
 
-    if not parser.has_section("server"):
+    # Prefer [webapp]; fall back to legacy [server] for backward compat.
+    if parser.has_section("webapp"):
+        section = "webapp"
+    elif parser.has_section("server"):
+        section = "server"
+    else:
         return settings
 
-    host = parser.get("server", "host", fallback=settings.host).strip() or settings.host
-    port = _coerce_port(parser.get("server", "port", fallback=None))
+    host = parser.get(section, "host", fallback=settings.host).strip() or settings.host
+    port = _coerce_port(parser.get(section, "port", fallback=None))
 
-    db_path_raw = parser.get("server", "db_path", fallback=str(settings.db_path)).strip()
+    db_path_raw = parser.get(section, "db_path", fallback=str(settings.db_path)).strip()
     db_path = Path(db_path_raw).expanduser() if db_path_raw else settings.db_path
 
     favorites_raw = parser.get(
-        "server", "favorites_db_path", fallback=str(settings.favorites_db_path)
+        section, "favorites_db_path", fallback=str(settings.favorites_db_path)
     ).strip()
     favorites_db_path = (
         Path(favorites_raw).expanduser() if favorites_raw else settings.favorites_db_path
     )
 
     db_export_path = (
-        _coerce_optional_path(parser.get("server", "db_export_path", fallback=None))
+        _coerce_optional_path(parser.get(section, "db_export_path", fallback=None))
         or settings.db_export_path
     )
     db_backup_path = (
-        _coerce_optional_path(parser.get("server", "db_backup_path", fallback=None))
+        _coerce_optional_path(parser.get(section, "db_backup_path", fallback=None))
         or settings.db_backup_path
     )
 
-    verbose = parser.getboolean("server", "verbose", fallback=settings.verbose)
-    serve_ui = parser.getboolean("server", "serve_ui", fallback=settings.serve_ui)
-    api_only = parser.getboolean("server", "api_only", fallback=False)
+    verbose = parser.getboolean(section, "verbose", fallback=settings.verbose)
+    serve_ui = parser.getboolean(section, "serve_ui", fallback=settings.serve_ui)
+    api_only = parser.getboolean(section, "api_only", fallback=False)
 
     if api_only:
         serve_ui = False

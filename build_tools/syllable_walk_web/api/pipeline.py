@@ -106,18 +106,28 @@ def handle_cancel(state: ServerState) -> dict[str, Any]:
     return {"status": "cancelled"}
 
 
-def handle_runs(state: ServerState) -> dict[str, Any]:
+def handle_runs(state: ServerState, patch: str | None = None) -> dict[str, Any]:
     """Handle GET /api/pipeline/runs.
 
-    Lists discovered pipeline runs.
+    Lists discovered pipeline runs.  When *patch* is ``"a"`` or ``"b"``
+    and a per-patch corpus directory is configured, runs are discovered
+    from that directory instead of *output_base*.
 
     Args:
         state: Global server state.
+        patch: Optional patch key (``"a"`` or ``"b"``).
 
     Returns:
         Dict with runs list.
     """
     from build_tools.syllable_walk_web.run_discovery import discover_runs
 
-    runs = discover_runs(state.output_base)
+    if patch == "a" and state.corpus_dir_a:
+        base = state.corpus_dir_a
+    elif patch == "b" and state.corpus_dir_b:
+        base = state.corpus_dir_b
+    else:
+        base = state.output_base
+
+    runs = discover_runs(base)
     return {"runs": [r.to_dict() for r in runs]}

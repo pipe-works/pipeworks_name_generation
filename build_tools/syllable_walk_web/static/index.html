@@ -363,7 +363,7 @@
   <main class="app-main screen" id="screen-walker-main" role="main" hidden>
     <div class="walk-layout">
 
-      <!-- ── COLUMN 1: Patch A ── -->
+      <!-- ── ROW 1, COL 1: Patch A ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch A configuration">
         <h2 class="panel__heading">Patch A</h2>
 
@@ -504,277 +504,7 @@
         </div>
       </section>
 
-      <!-- ── COLUMN 2: Combiner A + Selector A ── -->
-      <section class="walk-col walk-col--combiner panel" aria-label="Patch A name generation">
-
-        <div class="sub-panel">
-          <h2 class="panel__heading">Patch A — Name Combiner</h2>
-
-          <div class="spinner-control">
-            <label class="control-label" for="comb-syllables-a">Syllables (Exact)</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="-1" aria-label="Decrease">−</button>
-              <input class="input input--sm spinner-val" id="comb-syllables-a" type="number" value="2" min="2" max="4" />
-              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="1"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Syllable Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="comb-mode-a" value="exact" checked /> exact
-              <span class="u-muted">Use selected count</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="comb-mode-a" value="all" /> all
-              <span class="u-muted">Generate 2–4</span>
-            </label>
-          </fieldset>
-
-          <div class="spinner-control">
-            <label class="control-label" for="comb-count-a">Count</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="-1000" aria-label="Decrease">−</button>
-              <input class="input spinner-val" id="comb-count-a" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
-              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="1000"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <div class="seed-control">
-            <label class="control-label" for="comb-seed-a">Seed</label>
-            <div class="spinner-row">
-              <input class="input seed-input" id="comb-seed-a" type="text" placeholder="random" />
-              <button class="btn btn--icon" data-random-seed="comb-seed-a" title="Randomise" aria-label="Randomise">⟳</button>
-            </div>
-          </div>
-
-          <div class="slider-control">
-            <div class="slider-control__header">
-              <label class="control-label" for="comb-freq-a">Freq Weight</label>
-              <span class="slider-val u-accent" id="comb-freq-a-val">1.0</span>
-            </div>
-            <input class="range-input" id="comb-freq-a" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
-          </div>
-
-          <button class="btn btn--primary btn--full" id="generate-candidates-a">Generate Candidates</button>
-
-          <div class="output-meta" id="comb-output-a" aria-live="polite">
-            <p class="placeholder-text">(Press Generate to create candidates)</p>
-          </div>
-        </div>
-
-        <hr class="divider" />
-
-        <div class="sub-panel">
-          <h2 class="panel__heading">Patch A — Name Selector</h2>
-
-          <label class="control-label" for="sel-class-a">Name Class</label>
-          <select class="select" id="sel-class-a" style="width:100%;margin-bottom:var(--sp-2)">
-            <option value="first_name" selected>First Name</option>
-            <option value="last_name">Last Name</option>
-            <option value="place_name">Place Name</option>
-            <option value="location_name">Location Name</option>
-            <option value="object_item">Object Item</option>
-            <option value="organisation">Organisation</option>
-            <option value="title_epithet">Title Epithet</option>
-          </select>
-
-          <div class="spinner-control">
-            <label class="control-label" for="sel-count-a">Count</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="-10" aria-label="Decrease">−</button>
-              <input class="input input--sm spinner-val" id="sel-count-a" type="number" value="100" min="10" max="1000" step="10" />
-              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="10"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Count Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-count-mode-a" value="manual" checked /> manual
-              <span class="u-muted">Use count value</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-count-mode-a" value="unique" /> unique
-              <span class="u-muted">Use unique candidates</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-mode-a" value="hard" checked /> hard
-              <span class="u-muted">Reject discouraged</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-mode-a" value="soft" /> soft
-              <span class="u-muted">Penalize discouraged</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Order</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-order-a" value="random" checked /> random
-              <span class="u-muted">Random (shuffled)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-order-a" value="alphabetical" /> alphabetical
-              <span class="u-muted">Alphabetical</span>
-            </label>
-          </fieldset>
-
-          <button class="btn btn--primary btn--full" id="select-names-a">Select Names</button>
-          <button class="btn btn--secondary btn--full" id="export-txt-a" style="margin-top:var(--sp-2)">Export TXT</button>
-
-          <div class="selector-output" id="sel-output-a" aria-live="polite">
-            <div class="selector-output__meta">
-              <p class="placeholder-text">(Generate candidates first, then select)</p>
-            </div>
-            <div class="selector-output__names">
-              <p class="control-label">Selected Names</p>
-              <div class="names-list" id="sel-names-a"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── COLUMN 3: Combiner B + Selector B ── -->
-      <section class="walk-col walk-col--combiner panel" aria-label="Patch B name generation">
-
-        <div class="sub-panel">
-          <h2 class="panel__heading">Patch B — Name Combiner</h2>
-
-          <div class="spinner-control">
-            <label class="control-label" for="comb-syllables-b">Syllables (Exact)</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="-1" aria-label="Decrease">−</button>
-              <input class="input input--sm spinner-val" id="comb-syllables-b" type="number" value="2" min="2" max="4" />
-              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="1"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Syllable Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="comb-mode-b" value="exact" checked /> exact
-              <span class="u-muted">Use selected count</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="comb-mode-b" value="all" /> all
-              <span class="u-muted">Generate 2–4</span>
-            </label>
-          </fieldset>
-
-          <div class="spinner-control">
-            <label class="control-label" for="comb-count-b">Count</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="-1000" aria-label="Decrease">−</button>
-              <input class="input spinner-val" id="comb-count-b" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
-              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="1000"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <div class="seed-control">
-            <label class="control-label" for="comb-seed-b">Seed</label>
-            <div class="spinner-row">
-              <input class="input seed-input" id="comb-seed-b" type="text" placeholder="random" />
-              <button class="btn btn--icon" data-random-seed="comb-seed-b" title="Randomise" aria-label="Randomise">⟳</button>
-            </div>
-          </div>
-
-          <div class="slider-control">
-            <div class="slider-control__header">
-              <label class="control-label" for="comb-freq-b">Freq Weight</label>
-              <span class="slider-val u-accent" id="comb-freq-b-val">1.0</span>
-            </div>
-            <input class="range-input" id="comb-freq-b" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
-          </div>
-
-          <button class="btn btn--primary btn--full" id="generate-candidates-b">Generate Candidates</button>
-
-          <div class="output-meta" id="comb-output-b" aria-live="polite">
-            <p class="placeholder-text">(Press Generate to create candidates)</p>
-          </div>
-        </div>
-
-        <hr class="divider" />
-
-        <div class="sub-panel">
-          <h2 class="panel__heading">Patch B — Name Selector</h2>
-
-          <label class="control-label" for="sel-class-b">Name Class</label>
-          <select class="select" id="sel-class-b" style="width:100%;margin-bottom:var(--sp-2)">
-            <option value="first_name">First Name</option>
-            <option value="last_name" selected>Last Name</option>
-            <option value="place_name">Place Name</option>
-            <option value="location_name">Location Name</option>
-            <option value="object_item">Object Item</option>
-            <option value="organisation">Organisation</option>
-            <option value="title_epithet">Title Epithet</option>
-          </select>
-
-          <div class="spinner-control">
-            <label class="control-label" for="sel-count-b">Count</label>
-            <div class="spinner-row">
-              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="-10" aria-label="Decrease">−</button>
-              <input class="input input--sm spinner-val" id="sel-count-b" type="number" value="100" min="10" max="1000" step="10" />
-              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="10"  aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Count Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-count-mode-b" value="manual" checked /> manual
-              <span class="u-muted">Use count value</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-count-mode-b" value="unique" /> unique
-              <span class="u-muted">Use unique candidates</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Mode</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-mode-b" value="hard" checked /> hard
-              <span class="u-muted">Reject discouraged</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-mode-b" value="soft" /> soft
-              <span class="u-muted">Penalize discouraged</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="radio-group">
-            <legend class="control-label">Order</legend>
-            <label class="radio-option is-selected">
-              <input type="radio" name="sel-order-b" value="random" checked /> random
-              <span class="u-muted">Random (shuffled)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="sel-order-b" value="alphabetical" /> alphabetical
-              <span class="u-muted">Alphabetical</span>
-            </label>
-          </fieldset>
-
-          <button class="btn btn--primary btn--full" id="select-names-b">Select Names</button>
-          <button class="btn btn--secondary btn--full" id="export-txt-b" style="margin-top:var(--sp-2)">Export TXT</button>
-
-          <div class="selector-output" id="sel-output-b" aria-live="polite">
-            <div class="selector-output__meta">
-              <p class="placeholder-text">(Generate candidates first, then select)</p>
-            </div>
-            <div class="selector-output__names">
-              <p class="control-label">Selected Names</p>
-              <div class="names-list" id="sel-names-b"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── COLUMN 4: Patch B ── -->
+      <!-- ── ROW 1, COL 2: Patch B ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch B configuration">
         <h2 class="panel__heading">Patch B</h2>
 
@@ -911,6 +641,276 @@
 
         <div class="walks-output" id="walks-output-b" aria-live="polite">
           <p class="placeholder-text">(Press Generate to create walks)</p>
+        </div>
+      </section>
+
+      <!-- ── ROW 2, COL 1: Combiner A + Selector A ── -->
+      <section class="walk-col walk-col--combiner panel" aria-label="Patch A name generation">
+
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch A — Name Combiner</h2>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-syllables-a">Syllables (Exact)</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="comb-syllables-a" type="number" value="2" min="2" max="4" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="1"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Syllable Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="comb-mode-a" value="exact" checked /> exact
+              <span class="u-muted">Use selected count</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="comb-mode-a" value="all" /> all
+              <span class="u-muted">Generate 2–4</span>
+            </label>
+          </fieldset>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-count-a">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="-1000" aria-label="Decrease">−</button>
+              <input class="input spinner-val" id="comb-count-a" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="1000"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <div class="seed-control">
+            <label class="control-label" for="comb-seed-a">Seed</label>
+            <div class="spinner-row">
+              <input class="input seed-input" id="comb-seed-a" type="text" placeholder="random" />
+              <button class="btn btn--icon" data-random-seed="comb-seed-a" title="Randomise" aria-label="Randomise">⟳</button>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="comb-freq-a">Freq Weight</label>
+              <span class="slider-val u-accent" id="comb-freq-a-val">1.0</span>
+            </div>
+            <input class="range-input" id="comb-freq-a" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <button class="btn btn--primary btn--full" id="generate-candidates-a">Generate Candidates</button>
+
+          <div class="output-meta" id="comb-output-a" aria-live="polite">
+            <p class="placeholder-text">(Press Generate to create candidates)</p>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch A — Name Selector</h2>
+
+          <label class="control-label" for="sel-class-a">Name Class</label>
+          <select class="select" id="sel-class-a" style="width:100%;margin-bottom:var(--sp-2)">
+            <option value="first_name" selected>First Name</option>
+            <option value="last_name">Last Name</option>
+            <option value="place_name">Place Name</option>
+            <option value="location_name">Location Name</option>
+            <option value="object_item">Object Item</option>
+            <option value="organisation">Organisation</option>
+            <option value="title_epithet">Title Epithet</option>
+          </select>
+
+          <div class="spinner-control">
+            <label class="control-label" for="sel-count-a">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="-10" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="sel-count-a" type="number" value="100" min="10" max="1000" step="10" />
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="10"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Count Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-count-mode-a" value="manual" checked /> manual
+              <span class="u-muted">Use count value</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-count-mode-a" value="unique" /> unique
+              <span class="u-muted">Use unique candidates</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-mode-a" value="hard" checked /> hard
+              <span class="u-muted">Reject discouraged</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-mode-a" value="soft" /> soft
+              <span class="u-muted">Penalize discouraged</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Order</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-order-a" value="random" checked /> random
+              <span class="u-muted">Random (shuffled)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-order-a" value="alphabetical" /> alphabetical
+              <span class="u-muted">Alphabetical</span>
+            </label>
+          </fieldset>
+
+          <button class="btn btn--primary btn--full" id="select-names-a">Select Names</button>
+          <button class="btn btn--secondary btn--full" id="export-txt-a" style="margin-top:var(--sp-2)">Export TXT</button>
+
+          <div class="selector-output" id="sel-output-a" aria-live="polite">
+            <div class="selector-output__meta">
+              <p class="placeholder-text">(Generate candidates first, then select)</p>
+            </div>
+            <div class="selector-output__names">
+              <p class="control-label">Selected Names</p>
+              <div class="names-list" id="sel-names-a"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ROW 2, COL 2: Combiner B + Selector B ── -->
+      <section class="walk-col walk-col--combiner panel" aria-label="Patch B name generation">
+
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch B — Name Combiner</h2>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-syllables-b">Syllables (Exact)</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="comb-syllables-b" type="number" value="2" min="2" max="4" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="1"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Syllable Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="comb-mode-b" value="exact" checked /> exact
+              <span class="u-muted">Use selected count</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="comb-mode-b" value="all" /> all
+              <span class="u-muted">Generate 2–4</span>
+            </label>
+          </fieldset>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-count-b">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="-1000" aria-label="Decrease">−</button>
+              <input class="input spinner-val" id="comb-count-b" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="1000"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <div class="seed-control">
+            <label class="control-label" for="comb-seed-b">Seed</label>
+            <div class="spinner-row">
+              <input class="input seed-input" id="comb-seed-b" type="text" placeholder="random" />
+              <button class="btn btn--icon" data-random-seed="comb-seed-b" title="Randomise" aria-label="Randomise">⟳</button>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="comb-freq-b">Freq Weight</label>
+              <span class="slider-val u-accent" id="comb-freq-b-val">1.0</span>
+            </div>
+            <input class="range-input" id="comb-freq-b" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <button class="btn btn--primary btn--full" id="generate-candidates-b">Generate Candidates</button>
+
+          <div class="output-meta" id="comb-output-b" aria-live="polite">
+            <p class="placeholder-text">(Press Generate to create candidates)</p>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch B — Name Selector</h2>
+
+          <label class="control-label" for="sel-class-b">Name Class</label>
+          <select class="select" id="sel-class-b" style="width:100%;margin-bottom:var(--sp-2)">
+            <option value="first_name">First Name</option>
+            <option value="last_name" selected>Last Name</option>
+            <option value="place_name">Place Name</option>
+            <option value="location_name">Location Name</option>
+            <option value="object_item">Object Item</option>
+            <option value="organisation">Organisation</option>
+            <option value="title_epithet">Title Epithet</option>
+          </select>
+
+          <div class="spinner-control">
+            <label class="control-label" for="sel-count-b">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="-10" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="sel-count-b" type="number" value="100" min="10" max="1000" step="10" />
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="10"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Count Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-count-mode-b" value="manual" checked /> manual
+              <span class="u-muted">Use count value</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-count-mode-b" value="unique" /> unique
+              <span class="u-muted">Use unique candidates</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-mode-b" value="hard" checked /> hard
+              <span class="u-muted">Reject discouraged</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-mode-b" value="soft" /> soft
+              <span class="u-muted">Penalize discouraged</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Order</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-order-b" value="random" checked /> random
+              <span class="u-muted">Random (shuffled)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-order-b" value="alphabetical" /> alphabetical
+              <span class="u-muted">Alphabetical</span>
+            </label>
+          </fieldset>
+
+          <button class="btn btn--primary btn--full" id="select-names-b">Select Names</button>
+          <button class="btn btn--secondary btn--full" id="export-txt-b" style="margin-top:var(--sp-2)">Export TXT</button>
+
+          <div class="selector-output" id="sel-output-b" aria-live="polite">
+            <div class="selector-output__meta">
+              <p class="placeholder-text">(Generate candidates first, then select)</p>
+            </div>
+            <div class="selector-output__names">
+              <p class="control-label">Selected Names</p>
+              <div class="names-list" id="sel-names-b"></div>
+            </div>
+          </div>
         </div>
       </section>
 

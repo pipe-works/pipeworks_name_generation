@@ -49,13 +49,13 @@ def test_load_server_settings_defaults_when_file_missing(tmp_path: Path) -> None
     assert settings.serve_ui is True
 
 
-def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
-    """INI values in ``[server]`` should be parsed into ``ServerSettings``."""
+def test_load_server_settings_reads_webapp_section(tmp_path: Path) -> None:
+    """INI values in ``[webapp]`` should be parsed into ``ServerSettings``."""
     ini_path = tmp_path / "server.ini"
     ini_path.write_text(
         "\n".join(
             [
-                "[server]",
+                "[webapp]",
                 "host = 0.0.0.0",
                 "port = 8111",
                 "db_path = ~/pipeworks/test.sqlite3",
@@ -80,13 +80,57 @@ def test_load_server_settings_reads_server_section(tmp_path: Path) -> None:
     assert settings.serve_ui is False
 
 
+def test_load_server_settings_falls_back_to_server_section(tmp_path: Path) -> None:
+    """Legacy ``[server]`` section should still work when ``[webapp]`` is absent."""
+    ini_path = tmp_path / "server.ini"
+    ini_path.write_text(
+        "\n".join(
+            [
+                "[server]",
+                "host = 0.0.0.0",
+                "port = 8222",
+                "verbose = false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = load_server_settings(ini_path)
+    assert settings.host == "0.0.0.0"
+    assert settings.port == 8222
+    assert settings.verbose is False
+
+
+def test_load_server_settings_webapp_takes_precedence_over_server(tmp_path: Path) -> None:
+    """When both ``[webapp]`` and ``[server]`` exist, ``[webapp]`` wins."""
+    ini_path = tmp_path / "server.ini"
+    ini_path.write_text(
+        "\n".join(
+            [
+                "[server]",
+                "host = 10.0.0.1",
+                "port = 9000",
+                "",
+                "[webapp]",
+                "host = 10.0.0.2",
+                "port = 9001",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = load_server_settings(ini_path)
+    assert settings.host == "10.0.0.2"
+    assert settings.port == 9001
+
+
 def test_load_server_settings_api_only_overrides_serve_ui(tmp_path: Path) -> None:
     """``api_only`` should force UI serving to be disabled."""
     ini_path = tmp_path / "server.ini"
     ini_path.write_text(
         "\n".join(
             [
-                "[server]",
+                "[webapp]",
                 "serve_ui = true",
                 "api_only = true",
             ]
@@ -104,7 +148,7 @@ def test_load_server_settings_ignores_blank_paths(tmp_path: Path) -> None:
     ini_path.write_text(
         "\n".join(
             [
-                "[server]",
+                "[webapp]",
                 "db_export_path =   ",
                 "db_backup_path =",
             ]
@@ -117,8 +161,8 @@ def test_load_server_settings_ignores_blank_paths(tmp_path: Path) -> None:
     assert settings.db_backup_path is None
 
 
-def test_load_server_settings_ignores_ini_without_server_section(tmp_path: Path) -> None:
-    """INI files without ``[server]`` should fall back to defaults."""
+def test_load_server_settings_ignores_ini_without_known_section(tmp_path: Path) -> None:
+    """INI files without ``[webapp]`` or ``[server]`` should fall back to defaults."""
     ini_path = tmp_path / "no-server-section.ini"
     ini_path.write_text("[other]\nkey = value\n", encoding="utf-8")
     settings = load_server_settings(ini_path)

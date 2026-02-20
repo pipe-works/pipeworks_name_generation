@@ -212,3 +212,47 @@ class TestHandleRuns:
 
         mock_discover.assert_called_once_with(state.output_base)
         assert len(result["runs"]) == 1
+
+    def test_uses_corpus_dir_a_for_patch_a(self, state, tmp_path):
+        """Test patch=a discovers from corpus_dir_a when set."""
+        state.corpus_dir_a = tmp_path
+
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.discover_runs",
+            return_value=[],
+        ) as mock_discover:
+            handle_runs(state, patch="a")
+
+        mock_discover.assert_called_once_with(tmp_path)
+
+    def test_uses_corpus_dir_b_for_patch_b(self, state, tmp_path):
+        """Test patch=b discovers from corpus_dir_b when set."""
+        state.corpus_dir_b = tmp_path
+
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.discover_runs",
+            return_value=[],
+        ) as mock_discover:
+            handle_runs(state, patch="b")
+
+        mock_discover.assert_called_once_with(tmp_path)
+
+    def test_falls_back_to_output_base_when_no_corpus_dir(self, state):
+        """Test patch=a falls back to output_base when corpus_dir_a is None."""
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.discover_runs",
+            return_value=[],
+        ) as mock_discover:
+            handle_runs(state, patch="a")
+
+        mock_discover.assert_called_once_with(state.output_base)
+
+    def test_no_patch_param_uses_output_base(self, state):
+        """Test no patch parameter uses output_base."""
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.discover_runs",
+            return_value=[],
+        ) as mock_discover:
+            handle_runs(state, patch=None)
+
+        mock_discover.assert_called_once_with(state.output_base)
