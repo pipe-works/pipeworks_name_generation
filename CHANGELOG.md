@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.20](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.19...pipeworks-name-generation-v0.5.20) (2026-02-20)
+
+
+### Features
+
+* replace chip layout with table layout for name previews ([532f1b5](https://github.com/pipe-works/pipeworks_name_generation/commit/532f1b5b238426431f037daf5548ab64e395f060))
+* replace chip layout with table layout for name previews ([2df4fbb](https://github.com/pipe-works/pipeworks_name_generation/commit/2df4fbbb1b2cc5e7fab490baa65d4b271614170e))
+* **webapp:** replace builder preview tabs with stacked cURL + POST sections ([4f53e82](https://github.com/pipe-works/pipeworks_name_generation/commit/4f53e82dfa5c1cb2fe021130d89667adaf3f5e0c))
+* **webapp:** replace builder preview tabs with stacked cURL + POST sections ([d67209c](https://github.com/pipe-works/pipeworks_name_generation/commit/d67209ce7bcd1b9c47c20a693dc115937b236d37))
+
+
+### Fixes
+
+* **tests:** remove stale HTML assertions for renamed/removed elements ([3c6a480](https://github.com/pipe-works/pipeworks_name_generation/commit/3c6a480c2bb65c9076d58918b447e58d0b438bd6))
+* **tests:** use push_screen for CorpusBrowserScreen dismiss tests ([55f0337](https://github.com/pipe-works/pipeworks_name_generation/commit/55f033759da78ab7259a302b618b0b155830c63f))
+
 ## [0.5.19](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.18...pipeworks-name-generation-v0.5.19) (2026-02-09)
 
 
