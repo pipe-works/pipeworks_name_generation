@@ -86,6 +86,8 @@ pip install "pipeworks-name-generation @ git+https://github.com/pipe-works/pipew
 The project includes a lightweight web UI for importing packages, browsing SQLite-backed tables, and generating
 names from imported data.
 
+![Webapp Preview](docs/source/_static/webapp_preview.png)
+
 ### Run the Web App
 
 ```bash
@@ -113,8 +115,16 @@ authentication.
 
 - **Import**: Load a metadata JSON + ZIP pair, then persist `*.txt` selections into SQLite tables.
 - **Database View**: Browse imported packages and paginated table rows.
-- **Generation**: Select a name class + package + syllable mode, then generate names via the API builder.
-  Optional `render_style` values: `raw`, `lower`, `upper`, `title`, `sentence`.
+- **Generation**: Select a name class + package + syllable mode, then compose requests via the API Builder.
+  - **Selected Inputs** table with collapsible pane showing class, package,
+    syllable mode, item counts, and unique combination estimates.
+  - **Request Parameters** for generation count, seed, output format,
+    unique-only filtering, and render style
+    (`raw`, `lower`, `upper`, `title`, `sentence`).
+  - **Generated Names Preview** and **First + Last Combinations** tables with Favorite All, Copy, and Export TXT actions.
+  - **Live Preview** with font, size, weight, and italic controls plus keyboard navigation (`h`/`l`).
+  - **Builder Preview** with stacked cURL and POST Payload sections, each with dedicated Copy buttons.
+- **Favorites**: Save, tag, annotate, search, and export favorited names across sessions.
 
 ---
 

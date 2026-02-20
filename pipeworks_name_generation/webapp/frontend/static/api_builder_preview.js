@@ -3,6 +3,7 @@
     inlineEntries: [],
     comboEntries: [],
     liveEntry: null,
+    liveIndex: -1,
   };
   // Live preview helpers are split into their own file so the main app logic
   // can remain focused on data fetching and API composition.
@@ -136,6 +137,43 @@
     container.appendChild(table);
   }
 
+  // Apply a render style transform to a name for live preview display.
+  function transformName(name, style) {
+    switch (style) {
+      case 'lower': return name.toLowerCase();
+      case 'upper': return name.toUpperCase();
+      case 'title': return name.replace(/\b\w/g, (c) => c.toUpperCase());
+      case 'sentence': return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+      default: return name;
+    }
+  }
+
+  // Read the current render style from the Live Preview dropdown.
+  function getPreviewRenderStyle() {
+    const el = document.getElementById('preview-render-style');
+    return el ? el.value : 'raw';
+  }
+
+  // Build a flat list of all navigable entries across both tables.
+  function getAllEntries() {
+    return [...previewState.inlineEntries, ...previewState.comboEntries];
+  }
+
+  // Update nav button enabled state and position indicator.
+  function updateNavControls() {
+    const prevBtn = document.getElementById('api-builder-live-prev-btn');
+    const nextBtn = document.getElementById('api-builder-live-next-btn');
+    const posEl = document.getElementById('api-builder-live-nav-pos');
+    const all = getAllEntries();
+    const idx = previewState.liveIndex;
+
+    if (prevBtn) prevBtn.disabled = idx <= 0;
+    if (nextBtn) nextBtn.disabled = idx < 0 || idx >= all.length - 1;
+    if (posEl) {
+      posEl.textContent = idx >= 0 && all.length ? `${idx + 1} / ${all.length}` : '';
+    }
+  }
+
   // Update the live preview output when a row is clicked.
   function setLivePreview(entry) {
     const output = document.getElementById('api-builder-live-output');
@@ -143,8 +181,29 @@
       return;
     }
     output.classList.remove('muted');
-    output.textContent = entry.name;
+    output.textContent = transformName(entry.name, getPreviewRenderStyle());
     previewState.liveEntry = entry;
+
+    // Resolve index in the combined entry list.
+    const all = getAllEntries();
+    const idx = all.indexOf(entry);
+    previewState.liveIndex = idx >= 0 ? idx : -1;
+    updateNavControls();
+  }
+
+  // Navigate the live preview by a signed delta (-1 = prev, +1 = next).
+  function navigateLive(delta) {
+    const all = getAllEntries();
+    if (!all.length) {
+      return;
+    }
+    let idx = previewState.liveIndex + delta;
+    if (idx < 0) idx = 0;
+    if (idx >= all.length) idx = all.length - 1;
+    if (idx === previewState.liveIndex) {
+      return;
+    }
+    setLivePreview(all[idx]);
   }
 
   // Restore the live preview placeholder text.
@@ -156,6 +215,8 @@
     output.classList.add('muted');
     output.textContent = 'No selection focused yet.';
     previewState.liveEntry = null;
+    previewState.liveIndex = -1;
+    updateNavControls();
   }
 
   // Apply font controls to the live preview output so users can
@@ -187,7 +248,7 @@
     output.style.fontStyle = italicInput.checked ? 'italic' : 'normal';
   }
 
-  // Hook up font control listeners once the DOM is ready.
+  // Hook up font and render control listeners once the DOM is ready.
   function initPreviewControls() {
     const fontSelect = document.getElementById('preview-font-family');
     const sizeInput = document.getElementById('preview-font-size');
@@ -201,6 +262,21 @@
     sizeInput.addEventListener('input', applyPreviewStyles);
     weightInput.addEventListener('input', applyPreviewStyles);
     italicInput.addEventListener('change', applyPreviewStyles);
+
+    const renderSelect = document.getElementById('preview-render-style');
+    if (renderSelect) {
+      renderSelect.addEventListener('change', () => {
+        if (previewState.liveEntry) {
+          const output = document.getElementById('api-builder-live-output');
+          if (output) {
+            output.textContent = transformName(
+              previewState.liveEntry.name,
+              renderSelect.value
+            );
+          }
+        }
+      });
+    }
   }
 
   async function copyNames(button, entries, emptyMessage) {
@@ -335,6 +411,7 @@
     },
     resetLivePreview,
     setLivePreview,
+    navigateLive,
     getInlineEntries() {
       return previewState.inlineEntries.slice();
     },
@@ -346,13 +423,39 @@
     },
   };
 
+  function initLiveNav() {
+    const prevBtn = document.getElementById('api-builder-live-prev-btn');
+    const nextBtn = document.getElementById('api-builder-live-next-btn');
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => navigateLive(-1));
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => navigateLive(1));
+    }
+    document.addEventListener('keydown', (e) => {
+      // Only respond when no input/textarea/select is focused.
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return;
+      }
+      if (e.key === 'h') {
+        navigateLive(-1);
+      } else if (e.key === 'l') {
+        navigateLive(1);
+      }
+    });
+    updateNavControls();
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initPreviewControls();
       initCopyButtons();
+      initLiveNav();
     });
   } else {
     initPreviewControls();
     initCopyButtons();
+    initLiveNav();
   }
 })();
