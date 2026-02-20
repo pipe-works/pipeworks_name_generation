@@ -362,6 +362,18 @@ body {
   gap: var(--sp-1);
 }
 
+/* Horizontal row: <select> fills available width, refresh button stays fixed. */
+.corpus-selector__row {
+  display: flex;
+  gap: var(--sp-1);
+  align-items: center;
+}
+
+.corpus-selector__row .select {
+  flex: 1;
+  min-width: 0;             /* allow the select to shrink below its content width */
+}
+
 .corpus-status {
   font-size: var(--text-xs);
   font-style: italic;

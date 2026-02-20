@@ -367,8 +367,15 @@
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch A configuration">
         <h2 class="panel__heading">Patch A</h2>
 
+        <!-- Corpus selector: one-step dropdown.  Selecting a run immediately
+             loads the corpus — no modal, no extra confirm click needed. -->
         <div class="corpus-selector">
-          <button class="btn btn--secondary btn--full" id="select-corpus-a">Select Corpus Directory</button>
+          <div class="corpus-selector__row">
+            <select class="select" id="corpus-select-a" aria-label="Select corpus for Patch A">
+              <option value="">-- Select corpus --</option>
+            </select>
+            <button class="btn btn--icon" id="corpus-refresh-a" aria-label="Refresh run list" title="Refresh">⟳</button>
+          </div>
           <p class="corpus-status u-muted" id="corpus-status-a">No corpus selected</p>
         </div>
 
@@ -771,8 +778,14 @@
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch B configuration">
         <h2 class="panel__heading">Patch B</h2>
 
+        <!-- Corpus selector: mirrors Patch A's one-step dropdown pattern. -->
         <div class="corpus-selector">
-          <button class="btn btn--secondary btn--full" id="select-corpus-b">Select Corpus Directory</button>
+          <div class="corpus-selector__row">
+            <select class="select" id="corpus-select-b" aria-label="Select corpus for Patch B">
+              <option value="">-- Select corpus --</option>
+            </select>
+            <button class="btn btn--icon" id="corpus-refresh-b" aria-label="Refresh run list" title="Refresh">⟳</button>
+          </div>
           <p class="corpus-status u-muted" id="corpus-status-b">No corpus selected</p>
         </div>
 
@@ -1182,29 +1195,7 @@
        MODALS
   ═══════════════════════════════════════════════════════════ -->
 
-  <!-- Corpus selector modal (Walker) -->
-  <div class="modal hidden" id="corpus-modal" role="dialog" aria-modal="true" aria-labelledby="corpus-modal-title">
-    <div class="modal__backdrop" id="corpus-modal-backdrop"></div>
-    <div class="modal__card">
-      <div class="modal__header">
-        <h2 class="panel__heading" id="corpus-modal-title">Select Corpus Directory</h2>
-        <button class="btn btn--icon" id="corpus-modal-close" aria-label="Close">✕</button>
-      </div>
-      <p style="font-size:var(--text-sm);color:var(--col-text-muted)">
-        Select a pipeline run to load as corpus. Runs are discovered from <code id="corpus-output-base">…</code>.
-        <button class="btn btn--ghost btn--sm" id="corpus-change-base" style="margin-left:var(--sp-2)">Change…</button>
-      </p>
-      <div class="corpus-browser" id="corpus-browser-list">
-        <p class="placeholder-text" id="corpus-browser-loading">Scanning for runs…</p>
-      </div>
-      <div class="modal__actions">
-        <button class="btn btn--ghost" id="corpus-modal-cancel">Cancel</button>
-        <button class="btn btn--primary" id="corpus-modal-select" disabled>Select</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Directory browser modal (Pipeline) -->
+  <!-- Directory browser modal (Pipeline + output base change) -->
   <div class="modal hidden" id="dir-modal" role="dialog" aria-modal="true" aria-labelledby="dir-modal-title">
     <div class="modal__backdrop" id="dir-modal-backdrop"></div>
     <div class="modal__card">
@@ -1212,26 +1203,9 @@
         <h2 class="panel__heading" id="dir-modal-title">Select Directory</h2>
         <button class="btn btn--icon" id="dir-modal-close" aria-label="Close">✕</button>
       </div>
-      <p style="font-size:var(--text-sm);color:var(--col-text-muted)">
-        In the live app, this opens a filesystem browser. For this demo, select a sample directory below.
-      </p>
+      <!-- browseTo() replaces this container's contents dynamically -->
       <div class="corpus-browser" id="dir-browser">
-        <div class="corpus-browser__item" data-dir="~/projects/fantasy_corpus/raw">
-          <span class="u-accent u-mono">~/projects/fantasy_corpus/raw/</span>
-          <span class="u-muted">12 .txt files</span>
-        </div>
-        <div class="corpus-browser__item" data-dir="~/projects/nordic_source">
-          <span class="u-accent u-mono">~/projects/nordic_source/</span>
-          <span class="u-muted">8 .txt files</span>
-        </div>
-        <div class="corpus-browser__item" data-dir="~/projects/latin_fragments/src">
-          <span class="u-accent u-mono">~/projects/latin_fragments/src/</span>
-          <span class="u-muted">31 .txt files</span>
-        </div>
-        <div class="corpus-browser__item" data-dir="~/projects/goblin_dialect/raw">
-          <span class="u-accent u-mono">~/projects/goblin_dialect/raw/</span>
-          <span class="u-muted">5 .txt files</span>
-        </div>
+        <p class="placeholder-text">Loading…</p>
       </div>
       <div class="modal__actions">
         <button class="btn btn--ghost" id="dir-modal-cancel">Cancel</button>
