@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syllable Walker — Pipe-Works</title>
+  <link rel="stylesheet" href="static/css/pipe-works-fonts.css" />
+  <link rel="stylesheet" href="static/css/pipe-works-base.css" />
+  <link rel="stylesheet" href="static/css/syllable-walk.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP HEADER
+  ═══════════════════════════════════════════════════════════ -->
+  <header class="app-header">
+    <span class="app-header__title">Syllable Walker</span>
+    <span class="app-header__subtitle">pipe-works · corpus tool · v0.1.0</span>
+
+    <nav class="app-nav" role="navigation" aria-label="Screen navigation">
+      <button class="tab is-active" data-screen="main"    aria-current="page">Walk</button>
+      <button class="tab"           data-screen="blended"                    >Blended</button>
+      <button class="tab"           data-screen="analysis"                   >Analysis</button>
+      <button class="tab"           data-screen="render"                     >Render</button>
+      <button class="tab"           data-screen="package"                    >Package</button>
+    </nav>
+
+    <div class="app-header__spacer"></div>
+
+    <button class="btn btn--secondary btn--sm theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+      Light Theme
+    </button>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCREEN: MAIN — Four-column Walk Layout
+  ═══════════════════════════════════════════════════════════ -->
+  <main class="app-main screen is-visible" id="screen-main" role="main">
+    <div class="walk-layout">
+
+      <!-- ── COLUMN 1: Oscillator / Patch A ── -->
+      <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch A configuration">
+        <h2 class="panel__heading">Patch A</h2>
+
+        <div class="corpus-selector">
+          <button class="btn btn--secondary btn--full" id="select-corpus-a">Select Corpus Directory</button>
+          <p class="corpus-status u-muted" id="corpus-status-a">No corpus selected</p>
+        </div>
+
+        <hr class="divider" />
+
+        <fieldset class="profile-group">
+          <legend class="control-label">Profile</legend>
+          <label class="profile-option" data-patch="a" data-profile="clerical">
+            <input type="radio" name="profile-a" value="clerical" />
+            <span class="profile-option__name">clerical</span>
+            <span class="profile-option__desc u-muted">Conservative, favors common</span>
+          </label>
+          <label class="profile-option is-selected" data-patch="a" data-profile="dialect">
+            <input type="radio" name="profile-a" value="dialect" checked />
+            <span class="profile-option__name">dialect</span>
+            <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+          </label>
+          <label class="profile-option" data-patch="a" data-profile="goblin">
+            <input type="radio" name="profile-a" value="goblin" />
+            <span class="profile-option__name">goblin</span>
+            <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+          </label>
+          <label class="profile-option" data-patch="a" data-profile="ritual">
+            <input type="radio" name="profile-a" value="ritual" />
+            <span class="profile-option__name">ritual</span>
+            <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+          </label>
+          <label class="profile-option" data-patch="a" data-profile="custom">
+            <input type="radio" name="profile-a" value="custom" />
+            <span class="profile-option__name">custom</span>
+            <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+          </label>
+        </fieldset>
+
+        <hr class="divider" />
+
+        <div class="param-group">
+          <div class="spinner-control">
+            <label class="control-label" for="min-length-a">Min Length</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="min-length-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="min-length-a" type="number" value="2" min="1" max="10" />
+              <button class="btn btn--icon spinner-btn" data-target="min-length-a" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">chars</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="max-length-a">Max Length</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="max-length-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="max-length-a" type="number" value="5" min="1" max="10" />
+              <button class="btn btn--icon spinner-btn" data-target="max-length-a" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">chars</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="walk-steps-a">Walk Steps</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="walk-steps-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="walk-steps-a" type="number" value="5" min="0" max="20" />
+              <button class="btn btn--icon spinner-btn" data-target="walk-steps-a" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted" id="walk-steps-a-suffix">→ 6 syl</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="max-flips-a">Max Flips</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="max-flips-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="max-flips-a" type="number" value="2" min="1" max="3" />
+              <button class="btn btn--icon spinner-btn" data-target="max-flips-a" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">per step</span>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="temperature-a">Temperature</label>
+              <span class="slider-val u-accent" id="temperature-a-val">0.7</span>
+            </div>
+            <input class="range-input" id="temperature-a" type="range" min="0.1" max="5.0" step="0.1" value="0.7" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="freq-weight-a">Freq Weight</label>
+              <span class="slider-val u-accent" id="freq-weight-a-val">0.0</span>
+              <span class="u-muted" style="font-size:var(--text-xs)">bias</span>
+            </div>
+            <input class="range-input" id="freq-weight-a" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" />
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="neighbors-a">Neighbors</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="neighbors-a" data-delta="-5" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="neighbors-a" type="number" value="10" min="5" max="50" />
+              <button class="btn btn--icon spinner-btn" data-target="neighbors-a" data-delta="5"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">max</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="seed-control">
+          <label class="control-label" for="seed-a">Seed</label>
+          <div class="spinner-row">
+            <input class="input seed-input" id="seed-a" type="text" placeholder="random" />
+            <button class="btn btn--icon" id="seed-random-a" title="Randomise seed" aria-label="Randomise seed">⟳</button>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="spinner-control">
+          <label class="control-label" for="walk-count-a">Walk Count</label>
+          <div class="spinner-row">
+            <button class="btn btn--icon spinner-btn" data-target="walk-count-a" data-delta="-1" aria-label="Decrease">−</button>
+            <input class="input input--sm spinner-val" id="walk-count-a" type="number" value="2" min="1" max="20" />
+            <button class="btn btn--icon spinner-btn" data-target="walk-count-a" data-delta="1"  aria-label="Increase">+</button>
+            <span class="spinner-suffix u-muted">walks</span>
+          </div>
+        </div>
+
+        <button class="btn btn--primary btn--full" id="generate-a">Generate Walks</button>
+
+        <div class="walks-output" id="walks-output-a" aria-live="polite">
+          <p class="placeholder-text">(Press Generate to create walks)</p>
+        </div>
+      </section>
+
+      <!-- ── COLUMN 2: Combiner A + Selector A ── -->
+      <section class="walk-col walk-col--combiner panel" aria-label="Patch A name generation">
+
+        <!-- Combiner A -->
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch A — Name Combiner</h2>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-syllables-a">Syllables (Exact)</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="comb-syllables-a" type="number" value="2" min="2" max="4" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-a" data-delta="1"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Syllable Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="comb-mode-a" value="exact" checked /> exact
+              <span class="u-muted">Use selected count</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="comb-mode-a" value="all" /> all
+              <span class="u-muted">Generate 2–4</span>
+            </label>
+          </fieldset>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-count-a">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="-1000" aria-label="Decrease">−</button>
+              <input class="input spinner-val" id="comb-count-a" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-a" data-delta="1000"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <div class="seed-control">
+            <label class="control-label" for="comb-seed-a">Seed</label>
+            <div class="spinner-row">
+              <input class="input seed-input" id="comb-seed-a" type="text" placeholder="random" />
+              <button class="btn btn--icon" data-random-seed="comb-seed-a" title="Randomise" aria-label="Randomise">⟳</button>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="comb-freq-a">Freq Weight</label>
+              <span class="slider-val u-accent" id="comb-freq-a-val">1.0</span>
+            </div>
+            <input class="range-input" id="comb-freq-a" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <button class="btn btn--primary btn--full" id="generate-candidates-a">Generate Candidates</button>
+
+          <div class="output-meta" id="comb-output-a" aria-live="polite">
+            <p class="placeholder-text">(Press Generate to create candidates)</p>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- Selector A -->
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch A — Name Selector</h2>
+
+          <label class="control-label" for="sel-class-a">Name Class</label>
+          <select class="select" id="sel-class-a" style="width:100%;margin-bottom:var(--sp-2)">
+            <option value="first_name" selected>First Name</option>
+            <option value="last_name">Last Name</option>
+            <option value="place_name">Place Name</option>
+            <option value="location_name">Location Name</option>
+            <option value="object_item">Object Item</option>
+            <option value="organisation">Organisation</option>
+            <option value="title_epithet">Title Epithet</option>
+          </select>
+
+          <div class="spinner-control">
+            <label class="control-label" for="sel-count-a">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="-10" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="sel-count-a" type="number" value="100" min="10" max="1000" step="10" />
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-a" data-delta="10"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Count Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-count-mode-a" value="manual" checked /> manual
+              <span class="u-muted">Use count value</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-count-mode-a" value="unique" /> unique
+              <span class="u-muted">Use unique candidates</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-mode-a" value="hard" checked /> hard
+              <span class="u-muted">Reject discouraged</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-mode-a" value="soft" /> soft
+              <span class="u-muted">Penalize discouraged</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Order</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-order-a" value="random" checked /> random
+              <span class="u-muted">Random (shuffled)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-order-a" value="alphabetical" /> alphabetical
+              <span class="u-muted">Alphabetical</span>
+            </label>
+          </fieldset>
+
+          <button class="btn btn--primary btn--full" id="select-names-a">Select Names</button>
+          <button class="btn btn--secondary btn--full" id="export-txt-a" style="margin-top:var(--sp-2)">Export TXT</button>
+
+          <div class="selector-output" id="sel-output-a" aria-live="polite">
+            <div class="selector-output__meta">
+              <p class="placeholder-text">(Generate candidates first, then select)</p>
+            </div>
+            <div class="selector-output__names">
+              <p class="control-label">Selected Names</p>
+              <div class="names-list" id="sel-names-a"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── COLUMN 3: Combiner B + Selector B ── -->
+      <section class="walk-col walk-col--combiner panel" aria-label="Patch B name generation">
+
+        <!-- Combiner B -->
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch B — Name Combiner</h2>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-syllables-b">Syllables (Exact)</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="comb-syllables-b" type="number" value="2" min="2" max="4" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-syllables-b" data-delta="1"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Syllable Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="comb-mode-b" value="exact" checked /> exact
+              <span class="u-muted">Use selected count</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="comb-mode-b" value="all" /> all
+              <span class="u-muted">Generate 2–4</span>
+            </label>
+          </fieldset>
+
+          <div class="spinner-control">
+            <label class="control-label" for="comb-count-b">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="-1000" aria-label="Decrease">−</button>
+              <input class="input spinner-val" id="comb-count-b" type="number" value="10000" min="100" max="100000" step="1000" style="width:7rem" />
+              <button class="btn btn--icon spinner-btn" data-target="comb-count-b" data-delta="1000"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <div class="seed-control">
+            <label class="control-label" for="comb-seed-b">Seed</label>
+            <div class="spinner-row">
+              <input class="input seed-input" id="comb-seed-b" type="text" placeholder="random" />
+              <button class="btn btn--icon" data-random-seed="comb-seed-b" title="Randomise" aria-label="Randomise">⟳</button>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="comb-freq-b">Freq Weight</label>
+              <span class="slider-val u-accent" id="comb-freq-b-val">1.0</span>
+            </div>
+            <input class="range-input" id="comb-freq-b" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <button class="btn btn--primary btn--full" id="generate-candidates-b">Generate Candidates</button>
+
+          <div class="output-meta" id="comb-output-b" aria-live="polite">
+            <p class="placeholder-text">(Press Generate to create candidates)</p>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <!-- Selector B -->
+        <div class="sub-panel">
+          <h2 class="panel__heading">Patch B — Name Selector</h2>
+
+          <label class="control-label" for="sel-class-b">Name Class</label>
+          <select class="select" id="sel-class-b" style="width:100%;margin-bottom:var(--sp-2)">
+            <option value="first_name">First Name</option>
+            <option value="last_name" selected>Last Name</option>
+            <option value="place_name">Place Name</option>
+            <option value="location_name">Location Name</option>
+            <option value="object_item">Object Item</option>
+            <option value="organisation">Organisation</option>
+            <option value="title_epithet">Title Epithet</option>
+          </select>
+
+          <div class="spinner-control">
+            <label class="control-label" for="sel-count-b">Count</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="-10" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="sel-count-b" type="number" value="100" min="10" max="1000" step="10" />
+              <button class="btn btn--icon spinner-btn" data-target="sel-count-b" data-delta="10"  aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Count Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-count-mode-b" value="manual" checked /> manual
+              <span class="u-muted">Use count value</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-count-mode-b" value="unique" /> unique
+              <span class="u-muted">Use unique candidates</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Mode</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-mode-b" value="hard" checked /> hard
+              <span class="u-muted">Reject discouraged</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-mode-b" value="soft" /> soft
+              <span class="u-muted">Penalize discouraged</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Order</legend>
+            <label class="radio-option is-selected">
+              <input type="radio" name="sel-order-b" value="random" checked /> random
+              <span class="u-muted">Random (shuffled)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="sel-order-b" value="alphabetical" /> alphabetical
+              <span class="u-muted">Alphabetical</span>
+            </label>
+          </fieldset>
+
+          <button class="btn btn--primary btn--full" id="select-names-b">Select Names</button>
+          <button class="btn btn--secondary btn--full" id="export-txt-b" style="margin-top:var(--sp-2)">Export TXT</button>
+
+          <div class="selector-output" id="sel-output-b" aria-live="polite">
+            <div class="selector-output__meta">
+              <p class="placeholder-text">(Generate candidates first, then select)</p>
+            </div>
+            <div class="selector-output__names">
+              <p class="control-label">Selected Names</p>
+              <div class="names-list" id="sel-names-b"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── COLUMN 4: Oscillator / Patch B ── -->
+      <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch B configuration">
+        <h2 class="panel__heading">Patch B</h2>
+
+        <div class="corpus-selector">
+          <button class="btn btn--secondary btn--full" id="select-corpus-b">Select Corpus Directory</button>
+          <p class="corpus-status u-muted" id="corpus-status-b">No corpus selected</p>
+        </div>
+
+        <hr class="divider" />
+
+        <fieldset class="profile-group">
+          <legend class="control-label">Profile</legend>
+          <label class="profile-option" data-patch="b" data-profile="clerical">
+            <input type="radio" name="profile-b" value="clerical" />
+            <span class="profile-option__name">clerical</span>
+            <span class="profile-option__desc u-muted">Conservative, favors common</span>
+          </label>
+          <label class="profile-option" data-patch="b" data-profile="dialect">
+            <input type="radio" name="profile-b" value="dialect" />
+            <span class="profile-option__name">dialect</span>
+            <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+          </label>
+          <label class="profile-option" data-patch="b" data-profile="goblin">
+            <input type="radio" name="profile-b" value="goblin" />
+            <span class="profile-option__name">goblin</span>
+            <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+          </label>
+          <label class="profile-option is-selected" data-patch="b" data-profile="ritual">
+            <input type="radio" name="profile-b" value="ritual" checked />
+            <span class="profile-option__name">ritual</span>
+            <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+          </label>
+          <label class="profile-option" data-patch="b" data-profile="custom">
+            <input type="radio" name="profile-b" value="custom" />
+            <span class="profile-option__name">custom</span>
+            <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+          </label>
+        </fieldset>
+
+        <hr class="divider" />
+
+        <div class="param-group">
+          <div class="spinner-control">
+            <label class="control-label" for="min-length-b">Min Length</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="min-length-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="min-length-b" type="number" value="2" min="1" max="10" />
+              <button class="btn btn--icon spinner-btn" data-target="min-length-b" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">chars</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="max-length-b">Max Length</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="max-length-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="max-length-b" type="number" value="5" min="1" max="10" />
+              <button class="btn btn--icon spinner-btn" data-target="max-length-b" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">chars</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="walk-steps-b">Walk Steps</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="walk-steps-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="walk-steps-b" type="number" value="7" min="0" max="20" />
+              <button class="btn btn--icon spinner-btn" data-target="walk-steps-b" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted" id="walk-steps-b-suffix">→ 8 syl</span>
+            </div>
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="max-flips-b">Max Flips</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="max-flips-b" data-delta="-1" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="max-flips-b" type="number" value="3" min="1" max="3" />
+              <button class="btn btn--icon spinner-btn" data-target="max-flips-b" data-delta="1"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">per step</span>
+            </div>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="temperature-b">Temperature</label>
+              <span class="slider-val u-accent" id="temperature-b-val">2.1</span>
+            </div>
+            <input class="range-input" id="temperature-b" type="range" min="0.1" max="5.0" step="0.1" value="2.1" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-control__header">
+              <label class="control-label" for="freq-weight-b">Freq Weight</label>
+              <span class="slider-val u-accent" id="freq-weight-b-val">-1.2</span>
+              <span class="u-muted" style="font-size:var(--text-xs)">bias</span>
+            </div>
+            <input class="range-input" id="freq-weight-b" type="range" min="-2.0" max="2.0" step="0.1" value="-1.2" />
+          </div>
+
+          <div class="spinner-control">
+            <label class="control-label" for="neighbors-b">Neighbors</label>
+            <div class="spinner-row">
+              <button class="btn btn--icon spinner-btn" data-target="neighbors-b" data-delta="-5" aria-label="Decrease">−</button>
+              <input class="input input--sm spinner-val" id="neighbors-b" type="number" value="25" min="5" max="50" />
+              <button class="btn btn--icon spinner-btn" data-target="neighbors-b" data-delta="5"  aria-label="Increase">+</button>
+              <span class="spinner-suffix u-muted">max</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="seed-control">
+          <label class="control-label" for="seed-b">Seed</label>
+          <div class="spinner-row">
+            <input class="input seed-input" id="seed-b" type="text" placeholder="random" />
+            <button class="btn btn--icon" id="seed-random-b" title="Randomise seed" aria-label="Randomise seed">⟳</button>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="spinner-control">
+          <label class="control-label" for="walk-count-b">Walk Count</label>
+          <div class="spinner-row">
+            <button class="btn btn--icon spinner-btn" data-target="walk-count-b" data-delta="-1" aria-label="Decrease">−</button>
+            <input class="input input--sm spinner-val" id="walk-count-b" type="number" value="2" min="1" max="20" />
+            <button class="btn btn--icon spinner-btn" data-target="walk-count-b" data-delta="1"  aria-label="Increase">+</button>
+            <span class="spinner-suffix u-muted">walks</span>
+          </div>
+        </div>
+
+        <button class="btn btn--primary btn--full" id="generate-b">Generate Walks</button>
+
+        <div class="walks-output" id="walks-output-b" aria-live="polite">
+          <p class="placeholder-text">(Press Generate to create walks)</p>
+        </div>
+      </section>
+
+    </div><!-- /walk-layout -->
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCREEN: BLENDED WALK
+  ═══════════════════════════════════════════════════════════ -->
+  <main class="app-main screen" id="screen-blended" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Blended Walk Results</h1>
+        <span class="badge badge--muted">Demo</span>
+      </div>
+
+      <div class="blended-columns">
+        <div class="blended-col panel panel--dark">
+          <h2 class="panel__heading">Patch A Walks</h2>
+          <div class="walks-output" id="blended-a-output">
+            <p class="placeholder-text">(Generate walks in the Walk screen first)</p>
+          </div>
+        </div>
+        <div class="blended-col panel panel--dark">
+          <h2 class="panel__heading">Patch B Walks</h2>
+          <div class="walks-output" id="blended-b-output">
+            <p class="placeholder-text">(Generate walks in the Walk screen first)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCREEN: ANALYSIS
+  ═══════════════════════════════════════════════════════════ -->
+  <main class="app-main screen" id="screen-analysis" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Corpus Analysis</h1>
+        <span class="badge badge--muted">Demo</span>
+      </div>
+
+      <div class="analysis-columns">
+
+        <!-- Patch A Analysis -->
+        <div class="analysis-col panel panel--dark" id="analysis-col-a">
+          <h2 class="panel__heading">Patch A — Corpus Shape</h2>
+          <p class="u-muted analysis-hint" id="analysis-hint-a" style="font-size:var(--text-xs);margin-bottom:var(--sp-3)">Load a corpus in the Walk screen to populate metrics.</p>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Inventory</p>
+            <table>
+              <thead><tr><th>Metric</th><th class="col-numeric">Value</th></tr></thead>
+              <tbody id="analysis-inventory-a">
+                <tr><td>Total syllables</td><td class="col-numeric u-accent" id="an-a-total">—</td></tr>
+                <tr><td>Unique syllables</td><td class="col-numeric" id="an-a-unique">—</td></tr>
+                <tr><td>Hapax (freq=1)</td><td class="col-numeric" id="an-a-hapax">—</td></tr>
+                <tr><td>Hapax rate</td><td class="col-numeric" id="an-a-hapax-rate">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Length Distribution</p>
+            <table>
+              <thead><tr><th>Length</th><th class="col-numeric">Count</th><th class="col-numeric">%</th></tr></thead>
+              <tbody id="analysis-len-a">
+                <tr><td>2 chars</td><td class="col-numeric" id="an-a-len2">—</td><td class="col-numeric" id="an-a-len2p">—</td></tr>
+                <tr><td>3 chars</td><td class="col-numeric" id="an-a-len3">—</td><td class="col-numeric" id="an-a-len3p">—</td></tr>
+                <tr><td>4 chars</td><td class="col-numeric" id="an-a-len4">—</td><td class="col-numeric" id="an-a-len4p">—</td></tr>
+                <tr><td>5+ chars</td><td class="col-numeric" id="an-a-len5">—</td><td class="col-numeric" id="an-a-len5p">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Terrain</p>
+            <div class="terrain-display" id="terrain-a">
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Shape: Round ↔ Jagged</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-a-shape-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-a-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-a-shape-ex">round: — · jagged: —</p>
+              </div>
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Craft: Flowing ↔ Worked</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-a-craft-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-a-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-a-craft-ex">flowing: — · worked: —</p>
+              </div>
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Space: Open ↔ Dense</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-a-space-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-a-space-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-a-space-ex">open: — · dense: —</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Patch B Analysis -->
+        <div class="analysis-col panel panel--dark" id="analysis-col-b">
+          <h2 class="panel__heading">Patch B — Corpus Shape</h2>
+          <p class="u-muted analysis-hint" id="analysis-hint-b" style="font-size:var(--text-xs);margin-bottom:var(--sp-3)">Load a corpus in the Walk screen to populate metrics.</p>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Inventory</p>
+            <table>
+              <thead><tr><th>Metric</th><th class="col-numeric">Value</th></tr></thead>
+              <tbody id="analysis-inventory-b">
+                <tr><td>Total syllables</td><td class="col-numeric u-accent" id="an-b-total">—</td></tr>
+                <tr><td>Unique syllables</td><td class="col-numeric" id="an-b-unique">—</td></tr>
+                <tr><td>Hapax (freq=1)</td><td class="col-numeric" id="an-b-hapax">—</td></tr>
+                <tr><td>Hapax rate</td><td class="col-numeric" id="an-b-hapax-rate">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Length Distribution</p>
+            <table>
+              <thead><tr><th>Length</th><th class="col-numeric">Count</th><th class="col-numeric">%</th></tr></thead>
+              <tbody id="analysis-len-b">
+                <tr><td>2 chars</td><td class="col-numeric" id="an-b-len2">—</td><td class="col-numeric" id="an-b-len2p">—</td></tr>
+                <tr><td>3 chars</td><td class="col-numeric" id="an-b-len3">—</td><td class="col-numeric" id="an-b-len3p">—</td></tr>
+                <tr><td>4 chars</td><td class="col-numeric" id="an-b-len4">—</td><td class="col-numeric" id="an-b-len4p">—</td></tr>
+                <tr><td>5+ chars</td><td class="col-numeric" id="an-b-len5">—</td><td class="col-numeric" id="an-b-len5p">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="analysis-section">
+            <p class="analysis-section__heading">Terrain</p>
+            <div class="terrain-display" id="terrain-b">
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Shape: Round ↔ Jagged</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-b-shape-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-b-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-b-shape-ex">round: — · jagged: —</p>
+              </div>
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Craft: Flowing ↔ Worked</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-b-craft-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-b-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-b-craft-ex">flowing: — · worked: —</p>
+              </div>
+              <div class="terrain-axis">
+                <span class="terrain-axis__label u-muted">Space: Open ↔ Dense</span>
+                <div class="terrain-bar">
+                  <div class="terrain-bar__track">
+                    <div class="terrain-bar__fill" id="an-b-space-bar" style="width:48%"></div>
+                  </div>
+                  <span class="terrain-bar__label u-muted" id="an-b-space-label">NEUTRAL <span class="u-accent">+0.000</span></span>
+                </div>
+                <p class="terrain-axis__exemplars u-muted" id="an-b-space-ex">open: — · dense: —</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /analysis-columns -->
+    </div>
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCREEN: RENDER
+  ═══════════════════════════════════════════════════════════ -->
+  <main class="app-main screen" id="screen-render" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Name Renderer</h1>
+        <div class="modal-screen-header__controls">
+          <label class="control-label" for="render-style">Style</label>
+          <select class="select" id="render-style">
+            <option value="title" selected>Title</option>
+            <option value="upper">Upper</option>
+            <option value="lower">Lower</option>
+          </select>
+          <label class="toggle-label">
+            <input type="checkbox" id="render-combine" />
+            <span class="toggle-text">Combine A + B</span>
+          </label>
+          <span class="badge badge--muted">Demo</span>
+        </div>
+      </div>
+
+      <div class="render-columns">
+        <div class="render-col panel panel--dark">
+          <h2 class="panel__heading">Patch A — Selected Names</h2>
+          <div class="names-render-list" id="render-names-a">
+            <p class="placeholder-text">(Select names in the Walk screen first)</p>
+          </div>
+        </div>
+        <div class="render-col panel panel--dark">
+          <h2 class="panel__heading">Patch B — Selected Names</h2>
+          <div class="names-render-list" id="render-names-b">
+            <p class="placeholder-text">(Select names in the Walk screen first)</p>
+          </div>
+        </div>
+        <div class="render-col panel panel--dark" id="render-combined-col" style="display:none">
+          <h2 class="panel__heading">Combined (A First · B Last)</h2>
+          <div class="names-render-list" id="render-names-combined">
+            <p class="placeholder-text">(Enable Combine to see full names)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SCREEN: PACKAGE
+  ═══════════════════════════════════════════════════════════ -->
+  <main class="app-main screen" id="screen-package" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Package</h1>
+        <span class="badge badge--muted">Demo</span>
+      </div>
+
+      <div class="package-layout">
+        <div class="package-config panel panel--dark">
+          <h2 class="panel__heading">Package Configuration</h2>
+
+          <div class="form-group">
+            <label class="control-label" for="pkg-name">Package Name</label>
+            <input class="input" id="pkg-name" type="text" placeholder="my-corpus-package" style="width:100%" />
+          </div>
+
+          <div class="form-group">
+            <label class="control-label" for="pkg-version">Version</label>
+            <input class="input" id="pkg-version" type="text" value="0.1.0" style="width:100%" />
+          </div>
+
+          <fieldset class="radio-group">
+            <legend class="control-label">Include</legend>
+            <label class="toggle-label" style="margin-bottom:var(--sp-2)">
+              <input type="checkbox" checked /> <span class="toggle-text">Patch A walks</span>
+            </label>
+            <label class="toggle-label" style="margin-bottom:var(--sp-2)">
+              <input type="checkbox" checked /> <span class="toggle-text">Patch B walks</span>
+            </label>
+            <label class="toggle-label" style="margin-bottom:var(--sp-2)">
+              <input type="checkbox" checked /> <span class="toggle-text">Candidates</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" checked /> <span class="toggle-text">Selections</span>
+            </label>
+          </fieldset>
+
+          <button class="btn btn--primary btn--full" id="build-package" style="margin-top:var(--sp-3)">Build Package</button>
+        </div>
+
+        <div class="package-output panel panel--dark">
+          <h2 class="panel__heading">Package Contents</h2>
+          <div class="output-box" id="pkg-output">
+            <span class="placeholder-text">(No package built yet)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STATUS BAR
+  ═══════════════════════════════════════════════════════════ -->
+  <footer class="status-bar" role="contentinfo">
+    <span class="status-bar__text" id="status-text">Ready</span>
+    <span class="status-bar__sep">·</span>
+    <span class="status-bar__text u-muted">Patch A: <span id="status-corpus-a">no corpus</span></span>
+    <span class="status-bar__sep">·</span>
+    <span class="status-bar__text u-muted">Patch B: <span id="status-corpus-b">no corpus</span></span>
+    <span class="status-bar__spacer"></span>
+    <span class="status-bar__text u-dim">syllable-walker · pipe-works</span>
+  </footer>
+
+  <!-- Corpus selector pseudo-modal -->
+  <div class="modal hidden" id="corpus-modal" role="dialog" aria-modal="true" aria-labelledby="corpus-modal-title">
+    <div class="modal__backdrop" id="corpus-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="corpus-modal-title">Select Corpus Directory</h2>
+        <button class="btn btn--icon" id="corpus-modal-close" aria-label="Close">✕</button>
+      </div>
+      <p style="font-size:var(--text-sm);color:var(--col-text-muted)">
+        In the live app, this opens a filesystem browser. For this demo, select a sample corpus below.
+      </p>
+      <div class="corpus-browser">
+        <div class="corpus-browser__item" data-corpus="fantasy_names">
+          <span class="u-accent u-mono">fantasy_names/</span>
+          <span class="u-muted">1,240 syllables · 3 walks</span>
+        </div>
+        <div class="corpus-browser__item" data-corpus="nordic_roots">
+          <span class="u-accent u-mono">nordic_roots/</span>
+          <span class="u-muted">892 syllables · 2 walks</span>
+        </div>
+        <div class="corpus-browser__item" data-corpus="latin_fragments">
+          <span class="u-accent u-mono">latin_fragments/</span>
+          <span class="u-muted">2,105 syllables · 5 walks</span>
+        </div>
+        <div class="corpus-browser__item" data-corpus="goblin_tongue">
+          <span class="u-accent u-mono">goblin_tongue/</span>
+          <span class="u-muted">567 syllables · 1 walk</span>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" id="corpus-modal-cancel">Cancel</button>
+        <button class="btn btn--primary" id="corpus-modal-select" disabled>Select</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="static/js/syllable-walk.js"></script>
+</body>
+</html>
