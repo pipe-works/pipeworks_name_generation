@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Syllable Walker — Pipe-Works</title>
+  <title>Pipe-Works Build Tools</title>
   <link rel="stylesheet" href="static/css/pipe-works-fonts.css" />
   <link rel="stylesheet" href="static/css/pipe-works-base.css" />
   <link rel="stylesheet" href="static/css/syllable-walk.css" />
@@ -11,34 +11,391 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════════
-       APP HEADER
+       APP HEADER — two-tier navigation
   ═══════════════════════════════════════════════════════════ -->
-  <header class="app-header">
-    <span class="app-header__title">Syllable Walker</span>
-    <span class="app-header__subtitle">pipe-works · corpus tool · v0.1.0</span>
+  <header class="app-header" role="banner">
 
-    <nav class="app-nav" role="navigation" aria-label="Screen navigation">
-      <button class="tab is-active" data-screen="main"    aria-current="page">Walk</button>
-      <button class="tab"           data-screen="blended"                    >Blended</button>
-      <button class="tab"           data-screen="analysis"                   >Analysis</button>
-      <button class="tab"           data-screen="render"                     >Render</button>
-      <button class="tab"           data-screen="package"                    >Package</button>
-    </nav>
+    <!-- Row 1: branding + tool switcher + theme toggle -->
+    <div class="app-header__row app-header__row--top">
+      <span class="app-header__title">Pipe-Works</span>
+      <span class="app-header__subtitle">build tools · v0.1.0</span>
 
-    <div class="app-header__spacer"></div>
+      <nav class="tool-nav" role="navigation" aria-label="Tool selection">
+        <button class="tool-tab is-active" data-tool="pipeline" aria-current="true">
+          <span class="tool-tab__icon">⬡</span> Pipeline
+        </button>
+        <button class="tool-tab" data-tool="walker">
+          <span class="tool-tab__icon">◈</span> Walker
+        </button>
+      </nav>
 
-    <button class="btn btn--secondary btn--sm theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-      Light Theme
-    </button>
+      <div class="app-header__spacer"></div>
+
+      <button class="btn btn--secondary btn--sm theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+        Light Theme
+      </button>
+    </div>
+
+    <!-- Row 2: sub-screen tabs (swapped by tool) -->
+    <div class="app-header__row app-header__row--sub">
+      <!-- Pipeline sub-tabs -->
+      <nav class="app-nav sub-nav" id="sub-nav-pipeline" role="navigation" aria-label="Pipeline screens">
+        <button class="tab is-active" data-screen="pipeline-configure" data-tool="pipeline">Configure</button>
+        <button class="tab"           data-screen="pipeline-monitor"   data-tool="pipeline">Monitor</button>
+        <button class="tab"           data-screen="pipeline-history"   data-tool="pipeline">History</button>
+      </nav>
+      <!-- Walker sub-tabs -->
+      <nav class="app-nav sub-nav hidden" id="sub-nav-walker" role="navigation" aria-label="Walker screens">
+        <button class="tab is-active" data-screen="walker-main"     data-tool="walker">Walk</button>
+        <button class="tab"           data-screen="walker-blended"  data-tool="walker">Blended</button>
+        <button class="tab"           data-screen="walker-analysis" data-tool="walker">Analysis</button>
+        <button class="tab"           data-screen="walker-render"   data-tool="walker">Render</button>
+        <button class="tab"           data-screen="walker-package"  data-tool="walker">Package</button>
+      </nav>
+    </div>
+
   </header>
 
+
   <!-- ═══════════════════════════════════════════════════════════
-       SCREEN: MAIN — Four-column Walk Layout
+       ██████████  PIPELINE TOOL  ██████████
   ═══════════════════════════════════════════════════════════ -->
-  <main class="app-main screen is-visible" id="screen-main" role="main">
+
+  <!-- ── PIPELINE: CONFIGURE ── -->
+  <main class="app-main screen is-visible" id="screen-pipeline-configure" role="main">
+    <div class="pipeline-layout">
+
+      <!-- Left: Directories + Extractor + Language -->
+      <section class="pipeline-col pipeline-col--config panel panel--dark" aria-label="Pipeline configuration">
+
+        <h2 class="panel__heading">Directories</h2>
+
+        <div class="dir-row">
+          <span class="dir-label control-label">Source</span>
+          <div class="dir-path-wrap">
+            <span class="dir-path u-mono u-muted" id="pipe-source-path">Not selected</span>
+          </div>
+          <button class="btn btn--secondary btn--sm" id="pipe-browse-source">Browse…</button>
+          <button class="btn btn--secondary btn--sm" id="pipe-select-files">Files…</button>
+        </div>
+
+        <div class="dir-row" style="margin-top:var(--sp-2)">
+          <span class="dir-label control-label">Output</span>
+          <div class="dir-path-wrap">
+            <span class="dir-path u-mono u-muted" id="pipe-output-path">Not selected</span>
+          </div>
+          <button class="btn btn--secondary btn--sm" id="pipe-browse-output">Browse…</button>
+        </div>
+
+        <hr class="divider" />
+
+        <h2 class="panel__heading">Extractor</h2>
+
+        <fieldset class="profile-group">
+          <legend class="u-sr-only">Extractor type</legend>
+          <label class="profile-option is-selected" data-extractor="pyphen">
+            <input type="radio" name="extractor-type" value="pyphen" checked />
+            <span class="profile-option__name">pyphen</span>
+            <span class="profile-option__desc u-muted">Multi-language typographic hyphenation</span>
+          </label>
+          <label class="profile-option" data-extractor="nltk">
+            <input type="radio" name="extractor-type" value="nltk" />
+            <span class="profile-option__name">nltk</span>
+            <span class="profile-option__desc u-muted">English-only phonetic splitting</span>
+          </label>
+        </fieldset>
+
+        <hr class="divider" />
+
+        <h2 class="panel__heading">Language <span class="u-muted" style="font-weight:400;font-size:var(--text-xs)">(pyphen only)</span></h2>
+
+        <div class="lang-grid" id="lang-grid">
+          <label class="lang-option is-selected" data-lang="auto">
+            <input type="radio" name="lang" value="auto" checked /> auto
+            <span class="u-muted">Auto-detect</span>
+          </label>
+          <label class="lang-option" data-lang="en_US">
+            <input type="radio" name="lang" value="en_US" /> en_US
+            <span class="u-muted">English (US)</span>
+          </label>
+          <label class="lang-option" data-lang="en_GB">
+            <input type="radio" name="lang" value="en_GB" /> en_GB
+            <span class="u-muted">English (UK)</span>
+          </label>
+          <label class="lang-option" data-lang="de_DE">
+            <input type="radio" name="lang" value="de_DE" /> de_DE
+            <span class="u-muted">German</span>
+          </label>
+          <label class="lang-option" data-lang="fr">
+            <input type="radio" name="lang" value="fr" /> fr
+            <span class="u-muted">French</span>
+          </label>
+          <label class="lang-option" data-lang="es">
+            <input type="radio" name="lang" value="es" /> es
+            <span class="u-muted">Spanish</span>
+          </label>
+          <label class="lang-option" data-lang="it_IT">
+            <input type="radio" name="lang" value="it_IT" /> it_IT
+            <span class="u-muted">Italian</span>
+          </label>
+          <label class="lang-option" data-lang="pt_BR">
+            <input type="radio" name="lang" value="pt_BR" /> pt_BR
+            <span class="u-muted">Portuguese (Brazil)</span>
+          </label>
+          <label class="lang-option" data-lang="nl_NL">
+            <input type="radio" name="lang" value="nl_NL" /> nl_NL
+            <span class="u-muted">Dutch</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top:var(--sp-2)">
+          <label class="control-label" for="custom-lang">Custom language code</label>
+          <input class="input" id="custom-lang" type="text" placeholder="e.g. sv_SE" style="width:100%" />
+        </div>
+
+      </section>
+
+      <!-- Right: Constraints + Stages + Run -->
+      <section class="pipeline-col pipeline-col--run panel" aria-label="Pipeline constraints and run">
+
+        <h2 class="panel__heading">Constraints</h2>
+
+        <div class="spinner-control">
+          <label class="control-label" for="pipe-min-len">Min Syllable Length</label>
+          <div class="spinner-row">
+            <button class="btn btn--icon spinner-btn" data-target="pipe-min-len" data-delta="-1" aria-label="Decrease">−</button>
+            <input class="input input--sm spinner-val" id="pipe-min-len" type="number" value="2" min="1" max="10" />
+            <button class="btn btn--icon spinner-btn" data-target="pipe-min-len" data-delta="1"  aria-label="Increase">+</button>
+            <span class="spinner-suffix u-muted">chars</span>
+          </div>
+        </div>
+
+        <div class="spinner-control">
+          <label class="control-label" for="pipe-max-len">Max Syllable Length</label>
+          <div class="spinner-row">
+            <button class="btn btn--icon spinner-btn" data-target="pipe-max-len" data-delta="-1" aria-label="Decrease">−</button>
+            <input class="input input--sm spinner-val" id="pipe-max-len" type="number" value="8" min="1" max="20" />
+            <button class="btn btn--icon spinner-btn" data-target="pipe-max-len" data-delta="1"  aria-label="Increase">+</button>
+            <span class="spinner-suffix u-muted">chars</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="control-label" for="pipe-pattern">File Pattern</label>
+          <input class="input" id="pipe-pattern" type="text" value="*.txt" style="width:100%" />
+        </div>
+
+        <hr class="divider" />
+
+        <h2 class="panel__heading">Pipeline Stages</h2>
+
+        <label class="toggle-label" style="margin-bottom:var(--sp-3)">
+          <input type="checkbox" id="stage-extract" checked disabled />
+          <span class="toggle-text">Extract syllables</span>
+          <span class="u-muted" style="font-size:var(--text-xs);margin-left:var(--sp-2)">(always runs)</span>
+        </label>
+        <label class="toggle-label" style="margin-bottom:var(--sp-3)">
+          <input type="checkbox" id="stage-normalize" checked />
+          <span class="toggle-text">Normalize</span>
+          <span class="u-muted" style="font-size:var(--text-xs);margin-left:var(--sp-2)">Clean and deduplicate syllables</span>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="stage-annotate" checked />
+          <span class="toggle-text">Annotate</span>
+          <span class="u-muted" style="font-size:var(--text-xs);margin-left:var(--sp-2)">Add phonetic features</span>
+        </label>
+
+        <hr class="divider" />
+
+        <div class="pipeline-run-status" id="pipe-run-status">
+          <p class="control-label">Status</p>
+          <p class="pipe-status-text u-muted" id="pipe-status-text">Idle — configure source and output to begin</p>
+        </div>
+
+        <div class="pipeline-actions">
+          <button class="btn btn--primary btn--full" id="pipe-run-btn" disabled>▶ Run Pipeline</button>
+          <button class="btn btn--ghost btn--full" id="pipe-cancel-btn" disabled style="margin-top:var(--sp-2)">✕ Cancel</button>
+        </div>
+
+      </section>
+
+    </div><!-- /pipeline-layout -->
+  </main>
+
+
+  <!-- ── PIPELINE: MONITOR ── -->
+  <main class="app-main screen" id="screen-pipeline-monitor" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Pipeline Monitor</h1>
+        <span class="badge badge--muted" id="monitor-status-badge">Idle</span>
+      </div>
+
+      <div class="monitor-layout">
+
+        <!-- Progress panel -->
+        <div class="monitor-progress panel panel--dark">
+          <h2 class="panel__heading">Job Progress</h2>
+
+          <div class="job-meta" id="monitor-job-meta">
+            <div class="job-meta__row">
+              <span class="control-label">Status</span>
+              <span class="u-accent u-mono" id="monitor-job-status">idle</span>
+            </div>
+            <div class="job-meta__row">
+              <span class="control-label">Stage</span>
+              <span class="u-mono u-muted" id="monitor-job-stage">—</span>
+            </div>
+            <div class="job-meta__row">
+              <span class="control-label">Progress</span>
+              <span class="u-mono u-muted" id="monitor-job-pct">0%</span>
+            </div>
+            <div class="job-meta__row">
+              <span class="control-label">Source</span>
+              <span class="u-mono u-muted" id="monitor-job-source">—</span>
+            </div>
+            <div class="job-meta__row">
+              <span class="control-label">Output</span>
+              <span class="u-mono u-muted" id="monitor-job-output">—</span>
+            </div>
+          </div>
+
+          <div class="progress-bar-wrap" style="margin-top:var(--sp-3)">
+            <div class="progress-bar">
+              <div class="progress-bar__fill" id="monitor-progress-fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="stage-indicators" style="margin-top:var(--sp-3)">
+            <div class="stage-indicator" id="stage-ind-extract">
+              <span class="stage-indicator__dot"></span>
+              <span class="stage-indicator__label">Extract</span>
+            </div>
+            <div class="stage-indicator" id="stage-ind-normalize">
+              <span class="stage-indicator__dot"></span>
+              <span class="stage-indicator__label">Normalize</span>
+            </div>
+            <div class="stage-indicator" id="stage-ind-annotate">
+              <span class="stage-indicator__dot"></span>
+              <span class="stage-indicator__label">Annotate</span>
+            </div>
+          </div>
+
+          <div class="pipeline-actions" style="margin-top:var(--sp-4)">
+            <button class="btn btn--primary btn--full" id="monitor-run-btn">▶ Run Pipeline</button>
+            <button class="btn btn--ghost btn--full" id="monitor-cancel-btn" disabled style="margin-top:var(--sp-2)">✕ Cancel</button>
+          </div>
+        </div>
+
+        <!-- Log panel -->
+        <div class="monitor-log panel panel--dark">
+          <h2 class="panel__heading">Log Output</h2>
+          <div class="log-output" id="monitor-log" aria-live="polite" aria-label="Pipeline log output">
+            <p class="placeholder-text">(No job running — log will appear here)</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ── PIPELINE: HISTORY ── -->
+  <main class="app-main screen" id="screen-pipeline-history" role="main" hidden>
+    <div class="modal-screen-layout">
+      <div class="modal-screen-header">
+        <h1 class="modal-screen-header__title">Run History</h1>
+        <span class="badge badge--muted">Demo</span>
+      </div>
+
+      <div class="history-layout">
+
+        <!-- Run list -->
+        <div class="history-list panel panel--dark">
+          <h2 class="panel__heading">Previous Runs</h2>
+          <div class="history-runs" id="history-runs">
+            <div class="history-run is-selected" data-run="run-001">
+              <span class="history-run__date u-muted">2026-02-20 09:14</span>
+              <span class="history-run__name u-accent">fantasy_corpus_v1</span>
+              <span class="badge badge--success">completed</span>
+            </div>
+            <div class="history-run" data-run="run-002">
+              <span class="history-run__date u-muted">2026-02-19 16:42</span>
+              <span class="history-run__name u-accent">nordic_source_raw</span>
+              <span class="badge badge--success">completed</span>
+            </div>
+            <div class="history-run" data-run="run-003">
+              <span class="history-run__date u-muted">2026-02-19 11:05</span>
+              <span class="history-run__name u-accent">latin_fragments_test</span>
+              <span class="badge badge--error">failed</span>
+            </div>
+            <div class="history-run" data-run="run-004">
+              <span class="history-run__date u-muted">2026-02-18 14:30</span>
+              <span class="history-run__name u-accent">goblin_dialect_raw</span>
+              <span class="badge badge--success">completed</span>
+            </div>
+            <div class="history-run" data-run="run-005">
+              <span class="history-run__date u-muted">2026-02-17 10:18</span>
+              <span class="history-run__name u-accent">elvish_source_v2</span>
+              <span class="badge badge--muted">cancelled</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run detail -->
+        <div class="history-detail panel panel--dark" id="history-detail">
+          <h2 class="panel__heading">Run Detail — <span id="history-detail-name" class="u-accent">fantasy_corpus_v1</span></h2>
+
+          <div class="history-detail__meta">
+            <div class="job-meta__row"><span class="control-label">Status</span>     <span class="u-accent u-mono" id="hd-status">completed</span></div>
+            <div class="job-meta__row"><span class="control-label">Started</span>    <span class="u-mono u-muted" id="hd-started">2026-02-20 09:14:03</span></div>
+            <div class="job-meta__row"><span class="control-label">Duration</span>   <span class="u-mono u-muted" id="hd-duration">4m 22s</span></div>
+            <div class="job-meta__row"><span class="control-label">Extractor</span>  <span class="u-mono u-muted" id="hd-extractor">pyphen · en_US</span></div>
+            <div class="job-meta__row"><span class="control-label">Source</span>     <span class="u-mono u-muted" id="hd-source">~/projects/fantasy_corpus/raw/</span></div>
+            <div class="job-meta__row"><span class="control-label">Files</span>      <span class="u-mono u-muted" id="hd-files">12 .txt files</span></div>
+            <div class="job-meta__row"><span class="control-label">Output</span>     <span class="u-mono u-muted" id="hd-output">_working/output/run_20260220_091403/</span></div>
+            <div class="job-meta__row"><span class="control-label">Syllables</span>  <span class="u-mono u-accent" id="hd-syllables">1,240 extracted · 847 unique</span></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="history-stages">
+            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Extract <span class="u-muted">(1m 14s)</span></span></div>
+            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Normalize <span class="u-muted">(0m 48s)</span></span></div>
+            <div class="stage-indicator is-done"><span class="stage-indicator__dot"></span><span class="stage-indicator__label">Annotate <span class="u-muted">(2m 20s)</span></span></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="history-outputs">
+            <p class="control-label">Output Files</p>
+            <div class="output-box" style="font-size:var(--text-xs)">
+run_20260220_091403/<br>
+├── corpus.syllables        1,240 entries<br>
+├── corpus.normalized       847 unique<br>
+├── corpus.annotated        847 annotated<br>
+├── corpus.meta             run metadata<br>
+└── corpus.db               SQLite index
+            </div>
+          </div>
+
+          <button class="btn btn--secondary" id="history-rerun-btn" style="margin-top:var(--sp-3)">↺ Re-run with same config</button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ██████████  WALKER TOOL  ██████████
+  ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ── WALKER: WALK (main four-column) ── -->
+  <main class="app-main screen" id="screen-walker-main" role="main" hidden>
     <div class="walk-layout">
 
-      <!-- ── COLUMN 1: Oscillator / Patch A ── -->
+      <!-- ── COLUMN 1: Patch A ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch A configuration">
         <h2 class="panel__heading">Patch A</h2>
 
@@ -90,7 +447,6 @@
               <span class="spinner-suffix u-muted">chars</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="max-length-a">Max Length</label>
             <div class="spinner-row">
@@ -100,7 +456,6 @@
               <span class="spinner-suffix u-muted">chars</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="walk-steps-a">Walk Steps</label>
             <div class="spinner-row">
@@ -110,7 +465,6 @@
               <span class="spinner-suffix u-muted" id="walk-steps-a-suffix">→ 6 syl</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="max-flips-a">Max Flips</label>
             <div class="spinner-row">
@@ -120,7 +474,6 @@
               <span class="spinner-suffix u-muted">per step</span>
             </div>
           </div>
-
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="temperature-a">Temperature</label>
@@ -128,7 +481,6 @@
             </div>
             <input class="range-input" id="temperature-a" type="range" min="0.1" max="5.0" step="0.1" value="0.7" />
           </div>
-
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="freq-weight-a">Freq Weight</label>
@@ -137,7 +489,6 @@
             </div>
             <input class="range-input" id="freq-weight-a" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" />
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="neighbors-a">Neighbors</label>
             <div class="spinner-row">
@@ -181,7 +532,6 @@
       <!-- ── COLUMN 2: Combiner A + Selector A ── -->
       <section class="walk-col walk-col--combiner panel" aria-label="Patch A name generation">
 
-        <!-- Combiner A -->
         <div class="sub-panel">
           <h2 class="panel__heading">Patch A — Name Combiner</h2>
 
@@ -240,7 +590,6 @@
 
         <hr class="divider" />
 
-        <!-- Selector A -->
         <div class="sub-panel">
           <h2 class="panel__heading">Patch A — Name Selector</h2>
 
@@ -318,7 +667,6 @@
       <!-- ── COLUMN 3: Combiner B + Selector B ── -->
       <section class="walk-col walk-col--combiner panel" aria-label="Patch B name generation">
 
-        <!-- Combiner B -->
         <div class="sub-panel">
           <h2 class="panel__heading">Patch B — Name Combiner</h2>
 
@@ -377,7 +725,6 @@
 
         <hr class="divider" />
 
-        <!-- Selector B -->
         <div class="sub-panel">
           <h2 class="panel__heading">Patch B — Name Selector</h2>
 
@@ -452,7 +799,7 @@
         </div>
       </section>
 
-      <!-- ── COLUMN 4: Oscillator / Patch B ── -->
+      <!-- ── COLUMN 4: Patch B ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch B configuration">
         <h2 class="panel__heading">Patch B</h2>
 
@@ -504,7 +851,6 @@
               <span class="spinner-suffix u-muted">chars</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="max-length-b">Max Length</label>
             <div class="spinner-row">
@@ -514,7 +860,6 @@
               <span class="spinner-suffix u-muted">chars</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="walk-steps-b">Walk Steps</label>
             <div class="spinner-row">
@@ -524,7 +869,6 @@
               <span class="spinner-suffix u-muted" id="walk-steps-b-suffix">→ 8 syl</span>
             </div>
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="max-flips-b">Max Flips</label>
             <div class="spinner-row">
@@ -534,7 +878,6 @@
               <span class="spinner-suffix u-muted">per step</span>
             </div>
           </div>
-
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="temperature-b">Temperature</label>
@@ -542,7 +885,6 @@
             </div>
             <input class="range-input" id="temperature-b" type="range" min="0.1" max="5.0" step="0.1" value="2.1" />
           </div>
-
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="freq-weight-b">Freq Weight</label>
@@ -551,7 +893,6 @@
             </div>
             <input class="range-input" id="freq-weight-b" type="range" min="-2.0" max="2.0" step="0.1" value="-1.2" />
           </div>
-
           <div class="spinner-control">
             <label class="control-label" for="neighbors-b">Neighbors</label>
             <div class="spinner-row">
@@ -596,16 +937,13 @@
   </main>
 
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SCREEN: BLENDED WALK
-  ═══════════════════════════════════════════════════════════ -->
-  <main class="app-main screen" id="screen-blended" role="main" hidden>
+  <!-- ── WALKER: BLENDED ── -->
+  <main class="app-main screen" id="screen-walker-blended" role="main" hidden>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Blended Walk Results</h1>
         <span class="badge badge--muted">Demo</span>
       </div>
-
       <div class="blended-columns">
         <div class="blended-col panel panel--dark">
           <h2 class="panel__heading">Patch A Walks</h2>
@@ -624,10 +962,8 @@
   </main>
 
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SCREEN: ANALYSIS
-  ═══════════════════════════════════════════════════════════ -->
-  <main class="app-main screen" id="screen-analysis" role="main" hidden>
+  <!-- ── WALKER: ANALYSIS ── -->
+  <main class="app-main screen" id="screen-walker-analysis" role="main" hidden>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Corpus Analysis</h1>
@@ -645,7 +981,7 @@
             <p class="analysis-section__heading">Inventory</p>
             <table>
               <thead><tr><th>Metric</th><th class="col-numeric">Value</th></tr></thead>
-              <tbody id="analysis-inventory-a">
+              <tbody>
                 <tr><td>Total syllables</td><td class="col-numeric u-accent" id="an-a-total">—</td></tr>
                 <tr><td>Unique syllables</td><td class="col-numeric" id="an-a-unique">—</td></tr>
                 <tr><td>Hapax (freq=1)</td><td class="col-numeric" id="an-a-hapax">—</td></tr>
@@ -658,46 +994,34 @@
             <p class="analysis-section__heading">Length Distribution</p>
             <table>
               <thead><tr><th>Length</th><th class="col-numeric">Count</th><th class="col-numeric">%</th></tr></thead>
-              <tbody id="analysis-len-a">
-                <tr><td>2 chars</td><td class="col-numeric" id="an-a-len2">—</td><td class="col-numeric" id="an-a-len2p">—</td></tr>
-                <tr><td>3 chars</td><td class="col-numeric" id="an-a-len3">—</td><td class="col-numeric" id="an-a-len3p">—</td></tr>
-                <tr><td>4 chars</td><td class="col-numeric" id="an-a-len4">—</td><td class="col-numeric" id="an-a-len4p">—</td></tr>
-                <tr><td>5+ chars</td><td class="col-numeric" id="an-a-len5">—</td><td class="col-numeric" id="an-a-len5p">—</td></tr>
+              <tbody id="an-a-len-table">
+                <tr><td>2 chars</td><td class="col-numeric" id="an-a-len2-c">—</td><td class="col-numeric" id="an-a-len2-p">—</td></tr>
+                <tr><td>3 chars</td><td class="col-numeric" id="an-a-len3-c">—</td><td class="col-numeric" id="an-a-len3-p">—</td></tr>
+                <tr><td>4 chars</td><td class="col-numeric" id="an-a-len4-c">—</td><td class="col-numeric" id="an-a-len4-p">—</td></tr>
+                <tr><td>5+ chars</td><td class="col-numeric" id="an-a-len5-c">—</td><td class="col-numeric" id="an-a-len5-p">—</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="analysis-section">
             <p class="analysis-section__heading">Terrain</p>
-            <div class="terrain-display" id="terrain-a">
+            <div class="terrain-display" id="an-a-terrain">
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Shape: Round ↔ Jagged</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-a-shape-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-a-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-a-shape-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-a-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-a-shape-ex">round: — · jagged: —</p>
               </div>
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Craft: Flowing ↔ Worked</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-a-craft-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-a-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-a-craft-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-a-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-a-craft-ex">flowing: — · worked: —</p>
               </div>
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Space: Open ↔ Dense</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-a-space-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-a-space-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-a-space-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-a-space-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-a-space-ex">open: — · dense: —</p>
               </div>
             </div>
@@ -713,7 +1037,7 @@
             <p class="analysis-section__heading">Inventory</p>
             <table>
               <thead><tr><th>Metric</th><th class="col-numeric">Value</th></tr></thead>
-              <tbody id="analysis-inventory-b">
+              <tbody>
                 <tr><td>Total syllables</td><td class="col-numeric u-accent" id="an-b-total">—</td></tr>
                 <tr><td>Unique syllables</td><td class="col-numeric" id="an-b-unique">—</td></tr>
                 <tr><td>Hapax (freq=1)</td><td class="col-numeric" id="an-b-hapax">—</td></tr>
@@ -726,61 +1050,47 @@
             <p class="analysis-section__heading">Length Distribution</p>
             <table>
               <thead><tr><th>Length</th><th class="col-numeric">Count</th><th class="col-numeric">%</th></tr></thead>
-              <tbody id="analysis-len-b">
-                <tr><td>2 chars</td><td class="col-numeric" id="an-b-len2">—</td><td class="col-numeric" id="an-b-len2p">—</td></tr>
-                <tr><td>3 chars</td><td class="col-numeric" id="an-b-len3">—</td><td class="col-numeric" id="an-b-len3p">—</td></tr>
-                <tr><td>4 chars</td><td class="col-numeric" id="an-b-len4">—</td><td class="col-numeric" id="an-b-len4p">—</td></tr>
-                <tr><td>5+ chars</td><td class="col-numeric" id="an-b-len5">—</td><td class="col-numeric" id="an-b-len5p">—</td></tr>
+              <tbody>
+                <tr><td>2 chars</td><td class="col-numeric" id="an-b-len2-c">—</td><td class="col-numeric" id="an-b-len2-p">—</td></tr>
+                <tr><td>3 chars</td><td class="col-numeric" id="an-b-len3-c">—</td><td class="col-numeric" id="an-b-len3-p">—</td></tr>
+                <tr><td>4 chars</td><td class="col-numeric" id="an-b-len4-c">—</td><td class="col-numeric" id="an-b-len4-p">—</td></tr>
+                <tr><td>5+ chars</td><td class="col-numeric" id="an-b-len5-c">—</td><td class="col-numeric" id="an-b-len5-p">—</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="analysis-section">
             <p class="analysis-section__heading">Terrain</p>
-            <div class="terrain-display" id="terrain-b">
+            <div class="terrain-display" id="an-b-terrain">
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Shape: Round ↔ Jagged</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-b-shape-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-b-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-b-shape-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-b-shape-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-b-shape-ex">round: — · jagged: —</p>
               </div>
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Craft: Flowing ↔ Worked</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-b-craft-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-b-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-b-craft-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-b-craft-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-b-craft-ex">flowing: — · worked: —</p>
               </div>
               <div class="terrain-axis">
                 <span class="terrain-axis__label u-muted">Space: Open ↔ Dense</span>
-                <div class="terrain-bar">
-                  <div class="terrain-bar__track">
-                    <div class="terrain-bar__fill" id="an-b-space-bar" style="width:48%"></div>
-                  </div>
-                  <span class="terrain-bar__label u-muted" id="an-b-space-label">NEUTRAL <span class="u-accent">+0.000</span></span>
-                </div>
+                <div class="terrain-bar"><div class="terrain-bar__track"><div class="terrain-bar__fill" id="an-b-space-bar" style="width:50%"></div></div>
+                <span class="terrain-bar__label u-muted" id="an-b-space-label">NEUTRAL <span class="u-accent">+0.000</span></span></div>
                 <p class="terrain-axis__exemplars u-muted" id="an-b-space-ex">open: — · dense: —</p>
               </div>
             </div>
           </div>
         </div>
 
-      </div><!-- /analysis-columns -->
+      </div>
     </div>
   </main>
 
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SCREEN: RENDER
-  ═══════════════════════════════════════════════════════════ -->
-  <main class="app-main screen" id="screen-render" role="main" hidden>
+  <!-- ── WALKER: RENDER ── -->
+  <main class="app-main screen" id="screen-walker-render" role="main" hidden>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Name Renderer</h1>
@@ -798,7 +1108,6 @@
           <span class="badge badge--muted">Demo</span>
         </div>
       </div>
-
       <div class="render-columns">
         <div class="render-col panel panel--dark">
           <h2 class="panel__heading">Patch A — Selected Names</h2>
@@ -823,30 +1132,24 @@
   </main>
 
 
-  <!-- ═══════════════════════════════════════════════════════════
-       SCREEN: PACKAGE
-  ═══════════════════════════════════════════════════════════ -->
-  <main class="app-main screen" id="screen-package" role="main" hidden>
+  <!-- ── WALKER: PACKAGE ── -->
+  <main class="app-main screen" id="screen-walker-package" role="main" hidden>
     <div class="modal-screen-layout">
       <div class="modal-screen-header">
         <h1 class="modal-screen-header__title">Package</h1>
         <span class="badge badge--muted">Demo</span>
       </div>
-
       <div class="package-layout">
         <div class="package-config panel panel--dark">
           <h2 class="panel__heading">Package Configuration</h2>
-
           <div class="form-group">
             <label class="control-label" for="pkg-name">Package Name</label>
             <input class="input" id="pkg-name" type="text" placeholder="my-corpus-package" style="width:100%" />
           </div>
-
           <div class="form-group">
             <label class="control-label" for="pkg-version">Version</label>
             <input class="input" id="pkg-version" type="text" value="0.1.0" style="width:100%" />
           </div>
-
           <fieldset class="radio-group">
             <legend class="control-label">Include</legend>
             <label class="toggle-label" style="margin-bottom:var(--sp-2)">
@@ -862,10 +1165,8 @@
               <input type="checkbox" checked /> <span class="toggle-text">Selections</span>
             </label>
           </fieldset>
-
           <button class="btn btn--primary btn--full" id="build-package" style="margin-top:var(--sp-3)">Build Package</button>
         </div>
-
         <div class="package-output panel panel--dark">
           <h2 class="panel__heading">Package Contents</h2>
           <div class="output-box" id="pkg-output">
@@ -881,16 +1182,41 @@
        STATUS BAR
   ═══════════════════════════════════════════════════════════ -->
   <footer class="status-bar" role="contentinfo">
+    <!-- Pipeline context (shown when Pipeline tool is active) -->
     <span class="status-bar__text" id="status-text">Ready</span>
-    <span class="status-bar__sep">·</span>
-    <span class="status-bar__text u-muted">Patch A: <span id="status-corpus-a">no corpus</span></span>
-    <span class="status-bar__sep">·</span>
-    <span class="status-bar__text u-muted">Patch B: <span id="status-corpus-b">no corpus</span></span>
+    <span class="status-bar__sep pipe-context" id="pipe-status-sep">·</span>
+    <span class="status-bar__text u-muted pipe-context" id="pipe-status-bar-text">
+      Source: <span id="sb-pipe-source">not set</span>
+    </span>
+    <span class="status-bar__sep pipe-context">·</span>
+    <span class="status-bar__text u-muted pipe-context">
+      Extractor: <span id="sb-pipe-extractor">pyphen</span>
+    </span>
+    <span class="status-bar__sep pipe-context">·</span>
+    <span class="status-bar__text u-muted pipe-context">
+      Status: <span id="sb-pipe-job-status">idle</span>
+    </span>
+
+    <!-- Walker context (shown when Walker tool is active) -->
+    <span class="status-bar__sep walker-context hidden">·</span>
+    <span class="status-bar__text u-muted walker-context hidden">
+      Patch A: <span id="status-corpus-a">no corpus</span>
+    </span>
+    <span class="status-bar__sep walker-context hidden">·</span>
+    <span class="status-bar__text u-muted walker-context hidden">
+      Patch B: <span id="status-corpus-b">no corpus</span>
+    </span>
+
     <span class="status-bar__spacer"></span>
-    <span class="status-bar__text u-dim">syllable-walker · pipe-works</span>
+    <span class="status-bar__text u-dim">pipe-works · build tools</span>
   </footer>
 
-  <!-- Corpus selector pseudo-modal -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODALS
+  ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Corpus selector modal (Walker) -->
   <div class="modal hidden" id="corpus-modal" role="dialog" aria-modal="true" aria-labelledby="corpus-modal-title">
     <div class="modal__backdrop" id="corpus-modal-backdrop"></div>
     <div class="modal__card">
@@ -922,6 +1248,42 @@
       <div class="modal__actions">
         <button class="btn btn--ghost" id="corpus-modal-cancel">Cancel</button>
         <button class="btn btn--primary" id="corpus-modal-select" disabled>Select</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Directory browser modal (Pipeline) -->
+  <div class="modal hidden" id="dir-modal" role="dialog" aria-modal="true" aria-labelledby="dir-modal-title">
+    <div class="modal__backdrop" id="dir-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="dir-modal-title">Select Directory</h2>
+        <button class="btn btn--icon" id="dir-modal-close" aria-label="Close">✕</button>
+      </div>
+      <p style="font-size:var(--text-sm);color:var(--col-text-muted)">
+        In the live app, this opens a filesystem browser. For this demo, select a sample directory below.
+      </p>
+      <div class="corpus-browser" id="dir-browser">
+        <div class="corpus-browser__item" data-dir="~/projects/fantasy_corpus/raw">
+          <span class="u-accent u-mono">~/projects/fantasy_corpus/raw/</span>
+          <span class="u-muted">12 .txt files</span>
+        </div>
+        <div class="corpus-browser__item" data-dir="~/projects/nordic_source">
+          <span class="u-accent u-mono">~/projects/nordic_source/</span>
+          <span class="u-muted">8 .txt files</span>
+        </div>
+        <div class="corpus-browser__item" data-dir="~/projects/latin_fragments/src">
+          <span class="u-accent u-mono">~/projects/latin_fragments/src/</span>
+          <span class="u-muted">31 .txt files</span>
+        </div>
+        <div class="corpus-browser__item" data-dir="~/projects/goblin_dialect/raw">
+          <span class="u-accent u-mono">~/projects/goblin_dialect/raw/</span>
+          <span class="u-muted">5 .txt files</span>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" id="dir-modal-cancel">Cancel</button>
+        <button class="btn btn--primary" id="dir-modal-select" disabled>Select</button>
       </div>
     </div>
   </div>
