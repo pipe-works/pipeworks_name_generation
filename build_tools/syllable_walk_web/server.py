@@ -1,406 +1,403 @@
-"""HTTP server for the simplified syllable walker web interface.
+"""
+HTTP server for the Pipe-Works Build Tools web application.
 
-This module provides a web-based interface for browsing name selections and
-exploring syllable walks using the standard library's http.server module.
-
-The server handles:
-- Serving the HTML interface (/)
-- Serving CSS styles (/styles.css)
-- Listing available pipeline runs (/api/runs)
-- Loading selection data (/api/runs/{id}/selections/{name_class})
-- Generating syllable walks (/api/walk)
-
-Usage::
-
-    from build_tools.syllable_walk_web.server import run_server
-    run_server(port=8000)
+Serves static frontend assets and provides a JSON API for pipeline
+and walker operations. Uses Python stdlib only (no frameworks).
 """
 
 from __future__ import annotations
 
 import json
-import socket
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import mimetypes
+import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
-from build_tools.syllable_walk.db import load_syllables
-from build_tools.syllable_walk.walker import SyllableWalker
-from build_tools.syllable_walk_web.run_discovery import (
-    RunInfo,
-    discover_runs,
-    get_run_by_id,
-    get_selection_data,
-)
-from build_tools.syllable_walk_web.web_assets import CSS_CONTENT, HTML_TEMPLATE
+from build_tools.syllable_walk_web.state import ServerState
+
+# Ensure .woff2 is recognized
+mimetypes.add_type("font/woff2", ".woff2")
 
 
-class SimplifiedWalkerHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for the simplified syllable walker web interface.
+# ── Paths ────────────────────────────────────────────────────────────────────
 
-    This handler processes HTTP requests and serves the web interface,
-    including run discovery, selection browsing, and walk generation.
+STATIC_DIR = Path(__file__).parent / "static"
 
-    Class Attributes:
-        walker: SyllableWalker instance (lazily initialized)
-        current_run: Currently active RunInfo
-        verbose: Whether to print progress messages
+
+# ── Request Handler ──────────────────────────────────────────────────────────
+
+
+class CorpusBuilderHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for the Corpus Builder web app.
+
+    Serves static files from the ``static/`` directory and routes
+    ``/api/*`` requests to the appropriate handlers.
     """
 
-    walker: SyllableWalker | None = None
-    current_run: RunInfo | None = None
+    server_version = "PipeWorksCorpusBuilder/0.1"
     verbose: bool = True
+    state: ServerState = ServerState()
 
-    def log_message(self, format: str, *args: Any) -> None:
-        """Suppress default request logging to keep console clean."""
-        pass
-
-    def _send_response(
-        self, content: str, content_type: str = "text/html", status: int = 200
-    ) -> None:
-        """Send HTTP response with specified content and headers."""
-        try:
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(content.encode("utf-8"))))
-            self.end_headers()
-            self.wfile.write(content.encode("utf-8"))
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            pass
-
-    def _send_json_response(self, data: dict[str, Any], status: int = 200) -> None:
-        """Send JSON response with appropriate headers."""
-        content = json.dumps(data)
-        self._send_response(content, content_type="application/json", status=status)
-
-    def _send_error_response(self, message: str, status: int = 400) -> None:
-        """Send JSON error response."""
-        self._send_json_response({"error": message}, status=status)
-
-    def _parse_path(self) -> tuple[str, dict[str, str]]:
-        """Parse URL path and query parameters.
-
-        Returns:
-            Tuple of (path string, query params dict)
-        """
-        parsed = urlparse(self.path)
-        query_params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
-        return parsed.path, query_params
+    # ── HTTP method dispatch ─────────────────────────────────────────────
 
     def do_GET(self) -> None:  # noqa: N802
-        """Handle GET requests for HTML, CSS, and API endpoints.
+        """Handle GET requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path
 
-        Routes:
-            /: Serve main HTML interface
-            /styles.css: Serve CSS stylesheet
-            /api/runs: List all available pipeline runs
-            /api/runs/{id}/selections/{name_class}: Get selection data
-        """
-        path, query = self._parse_path()
-
+        # Root → index.html
         if path == "/":
-            self._send_response(HTML_TEMPLATE, content_type="text/html")
-
-        elif path == "/styles.css":
-            self._send_response(CSS_CONTENT, content_type="text/css")
-
-        elif path == "/api/runs":
-            self._handle_list_runs()
-
-        elif path.startswith("/api/runs/") and "/selections/" in path:
-            self._handle_get_selection(path)
-
-        elif path == "/api/stats":
-            self._handle_get_stats()
-
-        else:
-            try:
-                self.send_error(404, "Not Found")
-            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-                pass
-
-    def do_POST(self) -> None:  # noqa: N802
-        """Handle POST requests for walk generation and run selection.
-
-        Routes:
-            /api/walk: Generate a syllable walk
-            /api/select-run: Select active run for walking
-        """
-        path, _ = self._parse_path()
-
-        if path == "/api/walk":
-            self._handle_walk()
-
-        elif path == "/api/select-run":
-            self._handle_select_run()
-
-        else:
-            try:
-                self.send_error(404, "Not Found")
-            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-                pass
-
-    def _handle_list_runs(self) -> None:
-        """Handle GET /api/runs - list all available pipeline runs."""
-        try:
-            runs = discover_runs()
-            response = {
-                "runs": [r.to_dict() for r in runs],
-                "current_run": (
-                    SimplifiedWalkerHandler.current_run.path.name
-                    if SimplifiedWalkerHandler.current_run
-                    else None
-                ),
-            }
-            self._send_json_response(response)
-        except Exception as e:
-            self._send_error_response(f"Error discovering runs: {e}", status=500)
-
-    def _handle_get_selection(self, path: str) -> None:
-        """Handle GET /api/runs/{id}/selections/{name_class}."""
-        try:
-            # Parse: /api/runs/20260121_084017_nltk/selections/first_name
-            parts = path.split("/")
-            if len(parts) < 6:
-                self._send_error_response("Invalid path format")
-                return
-
-            run_id = parts[3]
-            name_class = parts[5]
-
-            # Find the run
-            run = get_run_by_id(run_id)
-            if run is None:
-                self._send_error_response(f"Run not found: {run_id}", status=404)
-                return
-
-            # Check if selection exists
-            if name_class not in run.selections:
-                self._send_error_response(f"Selection not found: {name_class}", status=404)
-                return
-
-            # Load selection data
-            selection_path = run.selections[name_class]
-            data = get_selection_data(selection_path)
-            self._send_json_response(data)
-
-        except Exception as e:
-            self._send_error_response(f"Error loading selection: {e}", status=500)
-
-    def _handle_get_stats(self) -> None:
-        """Handle GET /api/stats - get current walker stats."""
-        run = SimplifiedWalkerHandler.current_run
-        walker = SimplifiedWalkerHandler.walker
-
-        response = {
-            "current_run": run.path.name if run else None,
-            "syllable_count": len(walker.syllables) if walker else 0,
-            "has_walker": walker is not None,
-        }
-        self._send_json_response(response)
-
-    def _handle_select_run(self) -> None:
-        """Handle POST /api/select-run - select active run for walking."""
-        try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length == 0:
-                self._send_error_response("Empty request body")
-                return
-
-            body = self.rfile.read(content_length)
-            params = json.loads(body.decode("utf-8"))
-
-            run_id = params.get("run_id")
-            if not run_id:
-                self._send_error_response("Missing 'run_id' parameter")
-                return
-
-            # Find the run
-            run = get_run_by_id(run_id)
-            if run is None:
-                self._send_error_response(f"Run not found: {run_id}", status=404)
-                return
-
-            # Check if already selected
-            if (
-                SimplifiedWalkerHandler.current_run
-                and SimplifiedWalkerHandler.current_run.path.name == run_id
-            ):
-                self._send_json_response(
-                    {
-                        "success": True,
-                        "message": "Run already selected",
-                        "syllable_count": (
-                            len(SimplifiedWalkerHandler.walker.syllables)
-                            if SimplifiedWalkerHandler.walker
-                            else 0
-                        ),
-                    }
-                )
-                return
-
-            # Load syllables for this run
-            if self.verbose:
-                print(f"\nLoading run: {run_id}")
-
-            syllables, source = load_syllables(
-                db_path=run.corpus_db_path, json_path=run.annotated_json_path
-            )
-
-            if self.verbose:
-                print(f"  Loaded from {source}")
-                print("  Building neighbor graph...")
-
-            # Initialize walker with loaded data
-            walker = SyllableWalker.from_data(syllables, max_neighbor_distance=3)
-
-            SimplifiedWalkerHandler.current_run = run
-            SimplifiedWalkerHandler.walker = walker
-
-            if self.verbose:
-                print(f"  Done! ({len(walker.syllables):,} syllables)")
-
-            self._send_json_response(
-                {
-                    "success": True,
-                    "run_id": run_id,
-                    "syllable_count": len(walker.syllables),
-                    "source": source,
-                }
-            )
-
-        except json.JSONDecodeError as e:
-            self._send_error_response(f"Invalid JSON: {e}")
-        except Exception as e:
-            self._send_error_response(f"Error selecting run: {e}", status=500)
-
-    def _handle_walk(self) -> None:
-        """Handle POST /api/walk - generate a syllable walk."""
-        walker = SimplifiedWalkerHandler.walker
-        if walker is None:
-            self._send_error_response("No run selected. Select a run first.", status=400)
+            self._serve_static("index.html")
             return
 
+        # Static files
+        if path.startswith("/static/"):
+            rel_path = path[len("/static/") :]
+            self._serve_static(rel_path)
+            return
+
+        # API routes
+        if path.startswith("/api/"):
+            self._route_get(path)
+            return
+
+        self._send_error(404, "Not found")
+
+    def do_POST(self) -> None:  # noqa: N802
+        """Handle POST requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path.startswith("/api/"):
+            self._route_post(path)
+            return
+
+        self._send_error(404, "Not found")
+
+    # ── Static file serving ──────────────────────────────────────────────
+
+    def _serve_static(self, rel_path: str) -> None:
+        """Serve a file from the static directory."""
+        # resolve() canonicalises the path, stripping ".." segments.  The
+        # startswith() check below is the actual directory-traversal guard:
+        # it ensures the resolved path stays within STATIC_DIR.
         try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length == 0:
-                self._send_error_response("Empty request body")
+            file_path = (STATIC_DIR / rel_path).resolve()
+        except (ValueError, OSError):
+            self._send_error(400, "Invalid path")
+            return
+
+        if not str(file_path).startswith(str(STATIC_DIR.resolve())):
+            self._send_error(403, "Forbidden")
+            return
+
+        if not file_path.is_file():
+            self._send_error(404, f"Not found: {rel_path}")
+            return
+
+        content_type, _ = mimetypes.guess_type(str(file_path))
+        if content_type is None:
+            content_type = "application/octet-stream"
+
+        try:
+            data = file_path.read_bytes()
+        except OSError:
+            self._send_error(500, "Read error")
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        # no-cache prevents stale static assets during development.
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
+
+    # ── API routing ─────────────────────────────────────────────────────
+
+    def _route_get(self, path: str) -> None:
+        """Route GET /api/* requests."""
+        # Lazy imports avoid circular dependencies: api modules import from
+        # state.py, and this module creates ServerState at class level.
+        from build_tools.syllable_walk_web.api.pipeline import (
+            handle_runs,
+            handle_status,
+        )
+        from build_tools.syllable_walk_web.api.walker import (
+            handle_analysis,
+            handle_stats,
+        )
+
+        # Pipeline
+        if path == "/api/pipeline/runs":
+            self._send_json(handle_runs(self.state))
+            return
+        if path == "/api/pipeline/status":
+            self._send_json(handle_status(self.state))
+            return
+
+        # Walker
+        if path == "/api/walker/stats":
+            self._send_json(handle_stats(self.state))
+            return
+        if path.startswith("/api/walker/analysis/"):
+            patch_key = path.split("/")[-1]
+            result = handle_analysis(patch_key, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/name-classes":
+            from build_tools.syllable_walk_web.services.selector_runner import (
+                list_name_classes,
+            )
+
+            self._send_json({"classes": list_name_classes()})
+            return
+
+        # Settings
+        if path == "/api/settings":
+            self._send_json(
+                {
+                    "output_base": str(self.state.output_base.resolve()),
+                }
+            )
+            return
+
+        self._send_error(404, f"Unknown API route: {path}")
+
+    def _route_post(self, path: str) -> None:
+        """Route POST /api/* requests."""
+        # Lazy imports — see _route_get comment.
+        from build_tools.syllable_walk_web.api.browse import handle_browse_directory
+        from build_tools.syllable_walk_web.api.pipeline import (
+            handle_cancel,
+            handle_start,
+        )
+        from build_tools.syllable_walk_web.api.walker import (
+            handle_combine,
+            handle_export,
+            handle_load_corpus,
+            handle_package,
+            handle_select,
+            handle_walk,
+        )
+
+        # Shared
+        if path == "/api/browse-directory":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
                 return
+            result = handle_browse_directory(body)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
 
-            body = self.rfile.read(content_length)
-            params = json.loads(body.decode("utf-8"))
-
-            # Extract parameters with defaults
-            start = params.get("start") or walker.get_random_syllable()
-            profile = params.get("profile", "dialect")
-            steps = params.get("steps", 5)
-            seed = params.get("seed")
-
-            # Validate start syllable
-            if start and start not in walker.syllable_to_idx:
-                self._send_error_response(f"Unknown syllable: {start}")
+        # Settings
+        if path == "/api/settings/output-base":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
                 return
+            new_path = body.get("path")
+            if not new_path:
+                self._send_error(400, "Missing path")
+                return
+            resolved = Path(new_path).expanduser().resolve()
+            if not resolved.is_dir():
+                self._send_json({"error": f"Not a directory: {new_path}"}, status=400)
+                return
+            self.state.output_base = resolved
+            self._send_json({"output_base": str(resolved)})
+            return
 
-            # Generate walk using profile
-            walk = walker.walk_from_profile(start=start, profile=profile, steps=steps, seed=seed)
+        # Pipeline
+        if path == "/api/pipeline/start":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_start(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/pipeline/cancel":
+            result = handle_cancel(self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
 
-            response = {"walk": walk, "profile": profile, "start": start}
-            self._send_json_response(response)
+        # Walker
+        if path == "/api/walker/load-corpus":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_load_corpus(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/walk":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_walk(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/combine":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_combine(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/select":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_select(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/export":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_export(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/package":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            zip_bytes, filename, error = handle_package(body, self.state)
+            if error:
+                self._send_json({"error": error}, status=400)
+                return
+            self._send_zip(zip_bytes, filename)
+            return
 
-        except json.JSONDecodeError as e:
-            self._send_error_response(f"Invalid JSON: {e}")
-        except ValueError as e:
-            self._send_error_response(str(e))
-        except Exception as e:
-            self._send_error_response(f"Server error: {e}", status=500)
+        self._send_error(404, f"Unknown API route: {path}")
+
+    # ── Response helpers ─────────────────────────────────────────────────
+
+    def _send_json(self, data: Any, *, status: int = 200) -> None:
+        """Send a JSON response."""
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_error(self, status: int, message: str) -> None:
+        """Send a JSON error response."""
+        self._send_json({"error": message}, status=status)
+
+    def _send_zip(self, data: bytes, filename: str) -> None:
+        """Send a ZIP file as a downloadable attachment."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _read_json_body(self) -> dict | None:
+        """Read and parse JSON request body."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            return {}
+        try:
+            raw = self.rfile.read(content_length)
+            result: dict = json.loads(raw)
+            return result
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+
+    # ── Logging ──────────────────────────────────────────────────────────
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+        """Override to respect verbose flag."""
+        if self.verbose:
+            super().log_message(format, *args)  # type: ignore[no-any-return]
 
 
-def find_available_port(start: int = 8000, max_attempts: int = 100) -> int:
-    """Find the first available port starting from `start`.
+# ── Server lifecycle ─────────────────────────────────────────────────────────
 
-    Args:
-        start: Port number to start searching from
-        max_attempts: Maximum number of ports to try
 
-    Returns:
-        First available port number
+def find_available_port(start: int = 8000, max_tries: int = 100) -> int | None:
+    """Find an available port starting from *start*.
 
-    Raises:
-        OSError: If no available ports found in range
+    Tries ports ``start`` through ``start + max_tries - 1``.
+    Returns the first available port, or ``None`` if none found.
     """
-    for port in range(start, start + max_attempts):
+    import socket
+
+    for port in range(start, start + max_tries):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(("0.0.0.0", port))  # nosec B104
+                s.bind(("", port))
                 return port
         except OSError:
             continue
-
-    raise OSError(f"No available ports in range {start}-{start + max_attempts}")
+    return None
 
 
 def run_server(
     port: int | None = None,
     verbose: bool = True,
-) -> None:
-    """Start the web server.
-
-    If no port is specified, automatically discovers an available port
-    starting from 8000. If a specific port is given, uses that port
-    (fails if unavailable).
+    output_base: Path | None = None,
+) -> int:
+    """Start the HTTP server.
 
     Args:
-        port: Port number to use. If None, auto-discovers starting at 8000.
-        verbose: Whether to print startup messages. Default: True
+        port: Port to listen on. If ``None``, auto-discovers from 8000.
+        verbose: If ``True``, log HTTP requests to stderr.
+        output_base: Base path for pipeline run discovery.
+            Defaults to ``_working/output``.
 
-    Raises:
-        OSError: If specified port is unavailable or no ports found
+    Returns:
+        Exit code: 0 for clean shutdown, 1 for error.
     """
-    if verbose:
-        print("=" * 60)
-        print("Syllable Walker - Simplified Web Interface")
-        print("=" * 60)
-
-    # Discover runs
-    runs = discover_runs()
-    if verbose:
-        print(f"\nFound {len(runs)} pipeline run(s)")
-        for run in runs[:3]:  # Show top 3
-            sel_count = len(run.selections)
-            print(f"  - {run.display_name} ({sel_count} selection files)")
-        if len(runs) > 3:
-            print(f"  ... and {len(runs) - 3} more")
-
-    # Find port
     if port is None:
-        port = find_available_port(start=8000)
-        if verbose:
-            print(f"\nAuto-selected port: {port}")
+        port = find_available_port()
+        if port is None:
+            print("Error: could not find an available port (tried 8000-8099)", file=sys.stderr)
+            return 1
+
+    # State is stored as class attributes (not instance attributes) because
+    # BaseHTTPRequestHandler creates a new handler instance per request.
+    # Shared state must therefore live on the class itself.
+    CorpusBuilderHandler.verbose = verbose
+    if output_base is not None:
+        CorpusBuilderHandler.state = ServerState(output_base=output_base)
     else:
-        # Test if specified port is available
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(("0.0.0.0", port))  # nosec B104
-        except OSError as e:
-            raise OSError(f"Port {port} is not available: {e}") from e
+        CorpusBuilderHandler.state = ServerState()
 
-    # Set handler configuration
-    SimplifiedWalkerHandler.verbose = verbose
-    SimplifiedWalkerHandler.walker = None
-    SimplifiedWalkerHandler.current_run = None
-
-    # Create and start server
-    server = HTTPServer(("0.0.0.0", port), SimplifiedWalkerHandler)  # nosec B104
+    # ThreadingHTTPServer (not plain HTTPServer) handles requests
+    # concurrently — needed because the browser may have multiple pending
+    # XHR requests (e.g. polling pipeline status while loading analysis).
+    server = ThreadingHTTPServer(("", port), CorpusBuilderHandler)
 
     if verbose:
-        print(f"\nServer running at http://localhost:{port}")
-        print("Press Ctrl+C to stop\n")
+        print(f"Pipe-Works Build Tools — serving on http://localhost:{port}")
+        print("Press Ctrl+C to stop.")
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         if verbose:
-            print("\n\nShutting down server...")
+            print("\nShutting down.")
         server.shutdown()
-        if verbose:
-            print("Server stopped.")
+    return 0

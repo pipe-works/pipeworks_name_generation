@@ -1,22 +1,7 @@
-"""Command-line interface for syllable walker web interface.
+"""
+Command-line interface for the Pipe-Works Build Tools web application.
 
-This module provides the CLI for starting the web-based syllable walker
-interface that allows browsing name selections and generating walks.
-
-Usage::
-
-    python -m build_tools.syllable_walk_web [options]
-
-Examples::
-
-    # Start web interface (auto-discovers port starting at 8000)
-    python -m build_tools.syllable_walk_web
-
-    # Start on specific port
-    python -m build_tools.syllable_walk_web --port 9000
-
-    # Quiet mode (suppress startup messages)
-    python -m build_tools.syllable_walk_web --quiet
+Provides ``python -m build_tools.syllable_walk_web`` entry point.
 """
 
 from __future__ import annotations
@@ -24,64 +9,32 @@ from __future__ import annotations
 import argparse
 import sys
 
-from build_tools.syllable_walk_web.server import run_server
-
 
 def create_argument_parser() -> argparse.ArgumentParser:
-    """
-    Create and return the argument parser for syllable walker web interface.
-
-    This function creates the ArgumentParser with all CLI options but does not
-    parse arguments. This separation allows Sphinx documentation tools to
-    introspect the parser and auto-generate CLI documentation.
+    """Create and return the argument parser for the web server.
 
     Returns:
-        Configured ArgumentParser ready to parse command-line arguments
-
-    Examples:
-        Create parser and inspect options::
-
-            >>> parser = create_argument_parser()
-            >>> parser.prog
-            'cli.py'
-
-        Use parser to parse arguments::
-
-            >>> parser = create_argument_parser()
-            >>> args = parser.parse_args(["--port", "9000"])
-            >>> args.port
-            9000
-
-    Notes:
-        - This function is used by both the CLI and documentation generation
-        - For normal CLI usage, use main() which calls this internally
-        - Sphinx-argparse can introspect this function to generate docs
+        Configured ArgumentParser ready to parse command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Start the syllable walker web interface for browsing name selections "
-        "and exploring syllable walks interactively.",
+        description=(
+            "Launch the Pipe-Works Build Tools web application. "
+            "Combines Pipeline (extraction/normalization/annotation) and "
+            "Walker (dual-patch syllable walking, name generation) tools "
+            "in a browser-based interface."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples
-========
+Examples::
 
-.. code-block:: bash
+  # Launch on auto-detected port (default)
+  python -m build_tools.syllable_walk_web
 
-   # Start web interface (auto-discovers port starting at 8000)
-   python -m build_tools.syllable_walk_web
+  # Launch on a specific port
+  python -m build_tools.syllable_walk_web --port 9000
 
-   # Start on specific port
-   python -m build_tools.syllable_walk_web --port 9000
-
-   # Quiet mode (suppress startup messages)
-   python -m build_tools.syllable_walk_web --quiet
-
-The web interface provides:
-  - Run selection dropdown to browse available pipeline runs
-  - Tabbed selections browser (first_name, last_name, place_name)
-  - Quick walk generator with profile presets (clerical, dialect, goblin, ritual)
-
-For detailed documentation, see: claude/build_tools/syllable_walk.md
+  # Launch in quiet mode (suppress HTTP request logs)
+  python -m build_tools.syllable_walk_web --quiet
         """,
     )
 
@@ -89,89 +42,66 @@ For detailed documentation, see: claude/build_tools/syllable_walk.md
         "--port",
         type=int,
         default=None,
-        metavar="PORT",
         help=(
-            "Port number for the web server. "
-            "If not specified, auto-discovers an available port starting at 8000. "
-            "If specified, uses that exact port (fails if unavailable). "
-            "Valid range: 1024-65535 (ports below 1024 require root/admin). "
-            "Default: auto-discover starting at 8000"
+            "Port to serve on. If not specified, automatically finds an "
+            "available port starting from 8000. Default: auto-detect"
         ),
     )
 
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help=(
-            "Suppress startup messages and verbose output. Only prints "
-            "the server URL and errors. Useful for scripting or when "
-            "running in automated environments."
-        ),
+        default=False,
+        help="Suppress HTTP request logging. Default: False",
+    )
+
+    parser.add_argument(
+        "--output-base",
+        type=str,
+        default=None,
+        help=("Base directory for pipeline run discovery. " "Default: _working/output"),
     )
 
     return parser
 
 
 def parse_arguments(args: list[str] | None = None) -> argparse.Namespace:
-    """
-    Parse command-line arguments.
+    """Parse command-line arguments.
 
     Args:
-        args: List of argument strings to parse. If None, uses sys.argv[1:].
-              This parameter is useful for testing.
+        args: Argument list (defaults to sys.argv[1:]).
 
     Returns:
-        Parsed arguments as argparse.Namespace object
-
-    Example:
-        >>> args = parse_arguments(["--port", "9000"])
-        >>> args.port
-        9000
+        Parsed arguments namespace.
     """
     parser = create_argument_parser()
     return parser.parse_args(args)
 
 
 def main(args: list[str] | None = None) -> int:
-    """
-    Main entry point for syllable walker web interface CLI.
-
-    Parses arguments and starts the web server.
-
-    Args:
-        args: Command-line arguments. If None, uses sys.argv.
+    """CLI entry point.
 
     Returns:
-        Exit code:
-        - 0: Success (server stopped normally)
-        - 1: Error (port unavailable, etc.)
-        - 130: Keyboard interrupt (Ctrl+C)
-
-    Notes:
-        - Errors are printed to stderr
-        - The server runs until stopped with Ctrl+C
+        Exit code: 0 for success, 1 for error, 130 for keyboard interrupt.
     """
     parsed = parse_arguments(args)
 
     try:
-        run_server(
+        from pathlib import Path
+
+        from build_tools.syllable_walk_web.server import run_server
+
+        output_base = Path(parsed.output_base) if parsed.output_base else None
+
+        return run_server(
             port=parsed.port,
             verbose=not parsed.quiet,
+            output_base=output_base,
         )
-        return 0
-    except OSError as e:
-        print(f"Error starting server: {e}", file=sys.stderr)
-        if parsed.port:
-            print(f"\nPort {parsed.port} may already be in use.", file=sys.stderr)
-            print("Try using a different port with --port option.", file=sys.stderr)
-        else:
-            print("\nCould not find an available port.", file=sys.stderr)
-        return 1
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user", file=sys.stderr)
         return 130
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
 
