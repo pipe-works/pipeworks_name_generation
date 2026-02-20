@@ -34,7 +34,7 @@ Tool Overview
    * - :doc:`syllable_walk`
      - Explore phonetic feature space via cost-based random walks (CLI)
    * - :doc:`syllable_walk_web`
-     - Browser-based interface for browsing selections and generating walks
+     - Combined Pipeline + Walker web interface with dual-patch corpus comparison
    * - :doc:`syllable_walk_tui`
      - Interactive TUI for exploring phonetic space with side-by-side patch configuration
    * - :doc:`corpus_db`

@@ -226,7 +226,7 @@ The project provides a comprehensive suite of command-line tools:
 - **NLTK Syllable Normaliser** - NLTK-specific normalization with fragment cleaning
 - **Syllable Feature Annotator** - Phonetic feature detection (onsets, codas, clusters, vowels)
 - **Syllable Walk TUI** - Interactive terminal UI for exploring phonetic feature space (Textual)
-- **Syllable Walk Web** - Web-based syllable explorer with interactive visualization
+- **Syllable Walk Web** - Combined Pipeline + Walker web interface with dual-patch corpus comparison
 - **Pipeline TUI** - Interactive terminal UI for running the full extraction pipeline
 - **Name Combiner** - Generate name candidates from syllable pools
 - **Name Selector** - Policy-based filtering (first_name, last_name, place_name, etc.)
@@ -276,6 +276,52 @@ python -m pipeworks_name_generation.webapp.api --config server.ini
 ```bash
 pytest -q tests/test_pipeworks_webapp_api_contracts.py
 pytest -q tests/test_pipeworks_webapp_generation_cache.py
+```
+
+---
+
+## Build Tools Web App (Developers)
+
+![Syllable Walk Web](docs/source/_static/syllable_walk_web_preview.png)
+
+The **Syllable Walk Web** app is a browser-based alternative to the Pipeline TUI and Syllable Walk
+TUI, combining both tools into a single interface.
+
+### Launch
+
+```bash
+python -m build_tools.syllable_walk_web
+python -m build_tools.syllable_walk_web --port 9000
+python -m build_tools.syllable_walk_web --output-base /path/to/corpus/output
+```
+
+### Features
+
+- **Pipeline tab**: Run the full extraction pipeline (extract, normalize, annotate, build database)
+  with a filesystem browser for source selection and live log monitoring.
+- **Walker tab**: Load corpora into dual patches (A/B) for side-by-side comparison. Generate
+  syllable walks, combine into name candidates, select by policy, and export or package results.
+- **16 API endpoints** across Pipeline, Walker, Browse, and Settings groups.
+- Uses Python's standard library `http.server` with no external framework dependencies.
+
+### Module Structure
+
+```text
+build_tools/syllable_walk_web/
+    api/            # Request handlers (browse, pipeline, walker)
+    services/       # Business logic (corpus_loader, combiner_runner,
+                    #   selector_runner, walk_generator, metrics,
+                    #   packager, pipeline_runner)
+    state.py        # Dataclasses (PatchState, PipelineJobState, ServerState)
+    server.py       # HTTP server, routing, static file serving
+    static/         # HTML, CSS, JS, fonts
+```
+
+### Build Tools Web Tests
+
+```bash
+# All build tools web app tests (214 tests)
+pytest tests/test_syllable_walk_web*.py tests/test_syllable_walk_server.py -v
 ```
 
 ---
