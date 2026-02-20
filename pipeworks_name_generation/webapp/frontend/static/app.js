@@ -65,7 +65,7 @@
 
     function applyTheme(theme) {
       const toggle = document.getElementById('theme-toggle');
-      document.body.dataset.theme = theme;
+      document.documentElement.dataset.theme = theme;
       if (toggle) {
         toggle.textContent = theme === 'dark' ? 'Light Theme' : 'Dark Theme';
       }
@@ -89,7 +89,7 @@
         return;
       }
       toggle.addEventListener('click', () => {
-        const current = document.body.dataset.theme || 'light';
+        const current = document.documentElement.dataset.theme || 'light';
         applyTheme(current === 'light' ? 'dark' : 'light');
       });
     }
@@ -877,13 +877,15 @@
 
       for (const entry of entries) {
         const card = document.createElement('div');
-        card.className = 'help-entry';
+        card.className = 'card help-entry';
 
         const question = document.createElement('h3');
+        question.className = 'help-entry__question';
         question.textContent = entry.question || 'Untitled';
         card.appendChild(question);
 
         const answer = document.createElement('p');
+        answer.className = 'help-entry__answer';
         answer.textContent = entry.answer || '';
         card.appendChild(answer);
 

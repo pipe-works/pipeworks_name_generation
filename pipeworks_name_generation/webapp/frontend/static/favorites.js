@@ -288,10 +288,12 @@
       const actionsCell = document.createElement('td');
       const editButton = document.createElement('button');
       editButton.type = 'button';
+      editButton.className = 'btn btn--primary';
       editButton.textContent = 'Edit';
       editButton.addEventListener('click', () => openEditModal(favorite));
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
+      deleteButton.className = 'btn btn--primary';
       deleteButton.textContent = 'Delete';
       deleteButton.addEventListener('click', async () => {
         const confirmed = window.confirm(
