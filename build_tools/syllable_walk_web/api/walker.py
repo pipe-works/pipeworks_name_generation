@@ -37,10 +37,18 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
 
     patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
 
-    # Discover the run
+    # Discover the run from the patch's corpus directory (if configured),
+    # falling back to the global output_base.
     from build_tools.syllable_walk_web.run_discovery import get_run_by_id
 
-    run = get_run_by_id(run_id, base_path=state.output_base)
+    if patch_key == "a" and state.corpus_dir_a:
+        base_path = state.corpus_dir_a
+    elif patch_key == "b" and state.corpus_dir_b:
+        base_path = state.corpus_dir_b
+    else:
+        base_path = state.output_base
+
+    run = get_run_by_id(run_id, base_path=base_path)
     if run is None:
         return {"error": f"Run not found: {run_id}"}
 
@@ -199,14 +207,27 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
 
     from build_tools.syllable_walk_web.services.combiner_runner import run_combiner
 
+    # Accept either a single int or a list of syllable counts.
+    raw_syllables = body.get("syllables", 2)
+    syllable_counts: list[int] = (
+        raw_syllables if isinstance(raw_syllables, list) else [raw_syllables]
+    )
+    count = body.get("count", 10000)
+    seed = body.get("seed")
+    frequency_weight = body.get("frequency_weight", 1.0)
+
     try:
-        candidates = run_combiner(
-            patch.annotated_data,
-            syllable_count=body.get("syllables", 2),
-            count=body.get("count", 10000),
-            seed=body.get("seed"),
-            frequency_weight=body.get("frequency_weight", 1.0),
-        )
+        candidates: list[dict[str, Any]] = []
+        for sc in syllable_counts:
+            candidates.extend(
+                run_combiner(
+                    patch.annotated_data,
+                    syllable_count=sc,
+                    count=count,
+                    seed=seed,
+                    frequency_weight=frequency_weight,
+                )
+            )
     except Exception as e:
         return {"error": f"Combiner failed: {e}"}
 

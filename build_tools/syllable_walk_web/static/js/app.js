@@ -332,7 +332,7 @@ function initSeedButtons() {
    automatically repopulated so the new corpus appears immediately.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-let _corpusRuns = [];             /* cached run list from the /api/pipeline/runs endpoint */
+let _corpusRunsByPatch = { a: [], b: [] }; /* per-patch run lists from /api/pipeline/runs */
 let _walkerReadyPollers = {};     /* { a: intervalId, b: intervalId } — per-patch polling timers */
 
 /**
@@ -362,7 +362,7 @@ function initCorpusDropdowns() {
       if (!runId) return;                /* placeholder selected — nothing to do */
 
       /* Look up the full run object for metadata (syllable count, etc.) */
-      const run = _corpusRuns.find(r => r.path.split('/').pop() === runId);
+      const run = (_corpusRunsByPatch[patch] || []).find(r => r.path.split('/').pop() === runId);
       if (!run) return;
 
       loadCorpus(patch, runId, run);
@@ -385,13 +385,16 @@ function initCorpusDropdowns() {
  * context when the list refreshes (e.g. after a pipeline run completes).
  */
 function populateCorpusDropdowns() {
-  fetch('/api/pipeline/runs')
-    .then(r => r.json())
-    .then(data => {
-      _corpusRuns = data.runs || [];
+  /* Fetch runs separately for each patch so per-patch corpus directories
+   * (configured via INI) are respected.  The ?patch= query parameter
+   * tells the server which directory to discover from. */
+  ['a', 'b'].forEach(patch => {
+    fetch(`/api/pipeline/runs?patch=${patch}`)
+      .then(r => r.json())
+      .then(data => {
+        const runs = data.runs || [];
+        _corpusRunsByPatch[patch] = runs;
 
-      /* Update both Patch A and Patch B dropdowns with the same run list */
-      ['a', 'b'].forEach(patch => {
         const select = document.getElementById(`corpus-select-${patch}`);
         if (!select) return;
 
@@ -403,11 +406,8 @@ function populateCorpusDropdowns() {
           select.remove(1);
         }
 
-        /* Build an <option> for each discovered run.
-         * Display format: "20260121_084017_nltk (1,234 syllables · 3 selections)"
-         * Value: the run folder name (runId), which is the last path segment.
-         */
-        _corpusRuns.forEach(run => {
+        /* Build an <option> for each discovered run. */
+        runs.forEach(run => {
           const runId = run.path.split('/').pop();
           const syllables = run.syllable_count.toLocaleString();
           const selections = run.selection_count
@@ -425,12 +425,11 @@ function populateCorpusDropdowns() {
         if (previousValue && Array.from(select.options).some(o => o.value === previousValue)) {
           select.value = previousValue;
         }
+      })
+      .catch(err => {
+        console.warn(`Failed to fetch runs for patch ${patch}:`, err.message);
       });
-    })
-    .catch(err => {
-      /* Silently degrade — the dropdowns just stay empty with the placeholder */
-      console.warn('Failed to fetch pipeline runs:', err.message);
-    });
+  });
 }
 
 /** Load a corpus into a patch via the API, then poll for walker readiness. */
@@ -766,9 +765,14 @@ function initGenerateCandidates() {
       }
 
       const count = parseInt(document.getElementById(`comb-count-${patch}`).value) || 10000;
-      const sylls = parseInt(document.getElementById(`comb-syllables-${patch}`).value) || 2;
+      const syllsExact = parseInt(document.getElementById(`comb-syllables-${patch}`).value) || 2;
       const seedStr = document.getElementById(`comb-seed-${patch}`)?.value;
       const seed = seedStr ? parseInt(seedStr, 16) : null;
+      const freqWeight = parseFloat(document.getElementById(`comb-freq-${patch}`)?.value) || 1.0;
+
+      /* Read syllable mode: "exact" uses the spinner value, "all" generates 2-4 */
+      const combMode = document.querySelector(`input[name="comb-mode-${patch}"]:checked`)?.value || 'exact';
+      const sylls = combMode === 'all' ? [2, 3, 4] : syllsExact;
 
       const out = document.getElementById(`comb-output-${patch}`);
       out.innerHTML = '<span class="placeholder-text">Generating candidates…</span>';
@@ -782,6 +786,7 @@ function initGenerateCandidates() {
           count: count,
           syllables: sylls,
           seed: seed,
+          frequency_weight: freqWeight,
         }),
       })
         .then(r => r.json())
@@ -793,11 +798,14 @@ function initGenerateCandidates() {
             return;
           }
 
+          /* Store unique count so the selector can use it in "unique" count mode */
+          state[`uniqueCandidates${P}`] = data.unique || 0;
+
           out.innerHTML = [
             `<span class="meta-key">generated  </span><span class="meta-val">${(data.generated || 0).toLocaleString()}</span>`,
             `<span class="meta-key">unique     </span><span class="meta-val">${(data.unique || 0).toLocaleString()}</span>`,
             `<span class="meta-key">duplicates </span><span class="meta-val">${(data.duplicates || 0).toLocaleString()}</span>`,
-            `<span class="meta-key">syllables  </span><span class="meta-val">${data.syllables || sylls}</span>`,
+            `<span class="meta-key">syllables  </span><span class="meta-val">${Array.isArray(data.syllables) ? data.syllables.join(', ') : (data.syllables || sylls)}</span>`,
             `<span class="meta-key">source     </span><span class="meta-path">${data.source || state[`corpus${P}`]}</span>`,
           ].join('<br/>');
 
@@ -823,10 +831,23 @@ function initSelectNames() {
     if (!btn) return;
     btn.addEventListener('click', () => {
       const P     = patch.toUpperCase();
-      const count = parseInt(document.getElementById(`sel-count-${patch}`).value) || 100;
       const cls   = document.getElementById(`sel-class-${patch}`)?.value || 'first_name';
       const seedStr = document.getElementById(`sel-seed-${patch}`)?.value;
       const seed = seedStr ? parseInt(seedStr, 16) : null;
+
+      /* Read radio selections */
+      const countMode = document.querySelector(`input[name="sel-count-mode-${patch}"]:checked`)?.value || 'manual';
+      const mode      = document.querySelector(`input[name="sel-mode-${patch}"]:checked`)?.value || 'hard';
+      const order     = document.querySelector(`input[name="sel-order-${patch}"]:checked`)?.value || 'alphabetical';
+
+      /* Resolve count: "unique" uses the unique candidate count from the
+       * last combiner run; "manual" uses the spinner value. */
+      let count;
+      if (countMode === 'unique') {
+        count = state[`uniqueCandidates${P}`] || parseInt(document.getElementById(`sel-count-${patch}`).value) || 100;
+      } else {
+        count = parseInt(document.getElementById(`sel-count-${patch}`).value) || 100;
+      }
 
       const metaEl = document.querySelector(`#sel-output-${patch} .selector-output__meta`);
       const listEl = document.getElementById(`sel-names-${patch}`);
@@ -842,6 +863,8 @@ function initSelectNames() {
           patch: patch,
           name_class: cls,
           count: count,
+          mode: mode,
+          order: order,
           seed: seed,
         }),
       })

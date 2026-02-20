@@ -54,3 +54,5 @@ class ServerState:
     patch_b: PatchState = field(default_factory=PatchState)
     pipeline_job: PipelineJobState = field(default_factory=PipelineJobState)
     output_base: Path = field(default_factory=lambda: Path("_working/output"))
+    corpus_dir_a: Path | None = None
+    corpus_dir_b: Path | None = None

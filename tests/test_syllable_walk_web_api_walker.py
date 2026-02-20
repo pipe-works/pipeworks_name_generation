@@ -213,6 +213,41 @@ class TestHandleLoadCorpus:
         assert loaded_state.patch_a.walks == []
         assert loaded_state.patch_a.selected_names == []
 
+    def test_uses_corpus_dir_a_for_patch_a(self, state, tmp_path):
+        """Test patch a discovers from corpus_dir_a when set."""
+
+        state.corpus_dir_a = tmp_path
+
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+            return_value=None,
+        ) as mock_get_run:
+            handle_load_corpus({"patch": "a", "run_id": "some_run"}, state)
+
+        mock_get_run.assert_called_once_with("some_run", base_path=tmp_path)
+
+    def test_uses_corpus_dir_b_for_patch_b(self, state, tmp_path):
+        """Test patch b discovers from corpus_dir_b when set."""
+        state.corpus_dir_b = tmp_path
+
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+            return_value=None,
+        ) as mock_get_run:
+            handle_load_corpus({"patch": "b", "run_id": "some_run"}, state)
+
+        mock_get_run.assert_called_once_with("some_run", base_path=tmp_path)
+
+    def test_falls_back_to_output_base(self, state):
+        """Test uses output_base when no corpus_dir configured."""
+        with patch(
+            "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+            return_value=None,
+        ) as mock_get_run:
+            handle_load_corpus({"patch": "a", "run_id": "some_run"}, state)
+
+        mock_get_run.assert_called_once_with("some_run", base_path=state.output_base)
+
 
 # ============================================================
 # handle_walk

@@ -215,6 +215,7 @@ class TestRouteGet:
 
     def test_pipeline_runs(self, handler):
         """Test GET /api/pipeline/runs returns runs list."""
+        handler.path = "/api/pipeline/runs"
         handler._route_get("/api/pipeline/runs")
         handler.send_response.assert_called_once_with(200)
         body = json.loads(handler.wfile.getvalue())
@@ -413,3 +414,46 @@ class TestRunServer:
             # Verify class attributes were set
             assert CorpusBuilderHandler.verbose is False
             assert CorpusBuilderHandler.state.output_base == output_base
+
+
+# ============================================================
+# run_server corpus_dir
+# ============================================================
+
+
+class TestRunServerCorpusDirs:
+    """Test run_server stores per-patch corpus directories in state."""
+
+    def test_stores_corpus_dir_a(self, tmp_path):
+        """Test corpus_dir_a is stored in state."""
+        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+            mock_server = MagicMock()
+            mock_server.serve_forever.side_effect = KeyboardInterrupt()
+            mock_cls.return_value = mock_server
+
+            run_server(port=8765, verbose=False, corpus_dir_a=str(tmp_path))
+
+            assert CorpusBuilderHandler.state.corpus_dir_a == tmp_path
+
+    def test_stores_corpus_dir_b(self, tmp_path):
+        """Test corpus_dir_b is stored in state."""
+        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+            mock_server = MagicMock()
+            mock_server.serve_forever.side_effect = KeyboardInterrupt()
+            mock_cls.return_value = mock_server
+
+            run_server(port=8765, verbose=False, corpus_dir_b=str(tmp_path))
+
+            assert CorpusBuilderHandler.state.corpus_dir_b == tmp_path
+
+    def test_corpus_dirs_default_to_none(self):
+        """Test corpus_dirs are None when not configured."""
+        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+            mock_server = MagicMock()
+            mock_server.serve_forever.side_effect = KeyboardInterrupt()
+            mock_cls.return_value = mock_server
+
+            run_server(port=8765, verbose=False)
+
+            assert CorpusBuilderHandler.state.corpus_dir_a is None
+            assert CorpusBuilderHandler.state.corpus_dir_b is None

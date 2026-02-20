@@ -132,7 +132,12 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
 
         # Pipeline
         if path == "/api/pipeline/runs":
-            self._send_json(handle_runs(self.state))
+            from urllib.parse import parse_qs
+            from urllib.parse import urlparse as _urlparse
+
+            qs = parse_qs(_urlparse(self.path).query)
+            patch = qs.get("patch", [None])[0]
+            self._send_json(handle_runs(self.state, patch=patch))
             return
         if path == "/api/pipeline/status":
             self._send_json(handle_status(self.state))
@@ -358,6 +363,8 @@ def run_server(
     port: int | None = None,
     verbose: bool = True,
     output_base: Path | None = None,
+    corpus_dir_a: str | None = None,
+    corpus_dir_b: str | None = None,
 ) -> int:
     """Start the HTTP server.
 
@@ -366,6 +373,8 @@ def run_server(
         verbose: If ``True``, log HTTP requests to stderr.
         output_base: Base path for pipeline run discovery.
             Defaults to ``_working/output``.
+        corpus_dir_a: Run discovery directory for Patch A.
+        corpus_dir_b: Run discovery directory for Patch B.
 
     Returns:
         Exit code: 0 for clean shutdown, 1 for error.
@@ -384,6 +393,12 @@ def run_server(
         CorpusBuilderHandler.state = ServerState(output_base=output_base)
     else:
         CorpusBuilderHandler.state = ServerState()
+
+    # Per-patch corpus directories from INI config.
+    if corpus_dir_a:
+        CorpusBuilderHandler.state.corpus_dir_a = Path(corpus_dir_a)
+    if corpus_dir_b:
+        CorpusBuilderHandler.state.corpus_dir_b = Path(corpus_dir_b)
 
     # ThreadingHTTPServer (not plain HTTPServer) handles requests
     # concurrently — needed because the browser may have multiple pending

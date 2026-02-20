@@ -8,6 +8,87 @@ from __future__ import annotations
 
 import argparse
 import sys
+from configparser import ConfigParser
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class BuildToolsSettings:
+    """Settings loaded from the ``[build_tools]`` INI section.
+
+    Attributes:
+        output_base: Base directory for pipeline run discovery.
+        corpus_dir_a: Directory containing runs to auto-load into Patch A.
+        corpus_dir_b: Directory containing runs to auto-load into Patch B.
+        port: Optional explicit port. ``None`` means auto-select.
+        verbose: Print startup/runtime messages when True.
+    """
+
+    output_base: Path | None = None
+    corpus_dir_a: str | None = None
+    corpus_dir_b: str | None = None
+    port: int | None = None
+    verbose: bool = True
+
+
+def load_build_tools_settings(config_path: Path | None) -> BuildToolsSettings:
+    """Load build-tools settings from the ``[build_tools]`` INI section.
+
+    Args:
+        config_path: Path to INI file. If missing/None, defaults are used.
+
+    Returns:
+        Parsed ``BuildToolsSettings`` instance.
+    """
+    settings = BuildToolsSettings()
+
+    if config_path is None or not config_path.exists():
+        return settings
+
+    parser = ConfigParser()
+    parser.read(config_path, encoding="utf-8")
+
+    if not parser.has_section("build_tools"):
+        return settings
+
+    raw_output = parser.get("build_tools", "output_base", fallback=None)
+    output_base: Path | None = None
+    if raw_output is not None:
+        stripped = raw_output.strip()
+        if stripped:
+            output_base = Path(stripped).expanduser()
+
+    raw_corpus_a = parser.get("build_tools", "corpus_dir_a", fallback=None)
+    corpus_dir_a: str | None = None
+    if raw_corpus_a is not None:
+        stripped = raw_corpus_a.strip()
+        if stripped:
+            corpus_dir_a = stripped
+
+    raw_corpus_b = parser.get("build_tools", "corpus_dir_b", fallback=None)
+    corpus_dir_b: str | None = None
+    if raw_corpus_b is not None:
+        stripped = raw_corpus_b.strip()
+        if stripped:
+            corpus_dir_b = stripped
+
+    raw_port = parser.get("build_tools", "port", fallback=None)
+    port: int | None = None
+    if raw_port is not None:
+        stripped = raw_port.strip()
+        if stripped:
+            port = int(stripped)
+
+    verbose = parser.getboolean("build_tools", "verbose", fallback=settings.verbose)
+
+    return BuildToolsSettings(
+        output_base=output_base,
+        corpus_dir_a=corpus_dir_a,
+        corpus_dir_b=corpus_dir_b,
+        port=port,
+        verbose=verbose,
+    )
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
@@ -35,6 +116,9 @@ Examples::
 
   # Launch in quiet mode (suppress HTTP request logs)
   python -m build_tools.syllable_walk_web --quiet
+
+  # Use a custom config file
+  python -m build_tools.syllable_walk_web --config server.ini
         """,
     )
 
@@ -62,6 +146,17 @@ Examples::
         help=("Base directory for pipeline run discovery. " "Default: _working/output"),
     )
 
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="server.ini",
+        help=(
+            "Path to INI config file. Reads the [build_tools] section for "
+            "output_base, port, and verbose. CLI arguments override INI "
+            "values. Default: server.ini"
+        ),
+    )
+
     return parser
 
 
@@ -87,16 +182,31 @@ def main(args: list[str] | None = None) -> int:
     parsed = parse_arguments(args)
 
     try:
-        from pathlib import Path
-
         from build_tools.syllable_walk_web.server import run_server
 
-        output_base = Path(parsed.output_base) if parsed.output_base else None
+        # Load INI settings, then let CLI args override.
+        ini_settings = load_build_tools_settings(Path(parsed.config))
+
+        # Resolve output_base: CLI > INI > None
+        if parsed.output_base is not None:
+            output_base = Path(parsed.output_base)
+        elif ini_settings.output_base is not None:
+            output_base = ini_settings.output_base
+        else:
+            output_base = None
+
+        # Resolve port: CLI > INI > None
+        port = parsed.port if parsed.port is not None else ini_settings.port
+
+        # Resolve verbose: --quiet CLI flag overrides INI
+        verbose = not parsed.quiet if parsed.quiet else ini_settings.verbose
 
         return run_server(
-            port=parsed.port,
-            verbose=not parsed.quiet,
+            port=port,
+            verbose=verbose,
             output_base=output_base,
+            corpus_dir_a=ini_settings.corpus_dir_a,
+            corpus_dir_b=ini_settings.corpus_dir_b,
         )
     except KeyboardInterrupt:
         return 130
