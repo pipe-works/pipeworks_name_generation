@@ -11,14 +11,25 @@ Features:
     - Pipeline tool: extraction, normalization, annotation with live monitoring
     - Walker tool: dual-patch syllable walking, name combiner, name selector
     - Corpus analysis with terrain visualization
-    - Name rendering and package export
+    - Name rendering and package export (ZIP with manifest)
     - Dark/light theme support
+    - 16 API endpoints across Pipeline, Walker, Browse, and Settings groups
+
+Architecture:
+    - ``api/``: Request handlers (``browse``, ``pipeline``, ``walker``)
+    - ``services/``: Business logic (``corpus_loader``, ``combiner_runner``,
+      ``selector_runner``, ``walk_generator``, ``metrics``, ``packager``,
+      ``pipeline_runner``)
+    - ``state.py``: Dataclasses (``PatchState``, ``PipelineJobState``,
+      ``ServerState``)
+    - ``server.py``: stdlib ``http.server`` with routing and static file serving
 
 Usage:
     Launch the web server from the command line::
 
         python -m build_tools.syllable_walk_web
         python -m build_tools.syllable_walk_web --port 9000
+        python -m build_tools.syllable_walk_web --output-base /path/to/output
 
     Or programmatically::
 
