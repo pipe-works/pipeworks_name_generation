@@ -89,6 +89,24 @@ def get_root(handler: Any, _query: dict[str, list[str]]) -> None:
     static_routes.get_root(handler, get_index_html())
 
 
+def get_static_pipe_works_fonts_css(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Serve shared Pipe-Works font-face declarations."""
+    try:
+        content, content_type = get_static_text_asset("pipe-works-fonts.css")
+        static_routes.get_text_asset(handler, content=content, content_type=content_type)
+    except FileNotFoundError:
+        handler.send_error(404, "Not Found")
+
+
+def get_static_pipe_works_base_css(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Serve shared Pipe-Works base design-system stylesheet."""
+    try:
+        content, content_type = get_static_text_asset("pipe-works-base.css")
+        static_routes.get_text_asset(handler, content=content, content_type=content_type)
+    except FileNotFoundError:
+        handler.send_error(404, "Not Found")
+
+
 def get_static_app_css(handler: Any, _query: dict[str, list[str]]) -> None:
     """Serve main webapp stylesheet."""
     try:
@@ -362,6 +380,8 @@ def post_database_import(handler: Any) -> None:
 
 __all__ = [
     "get_root",
+    "get_static_pipe_works_fonts_css",
+    "get_static_pipe_works_base_css",
     "get_static_app_css",
     "get_static_app_js",
     "get_static_api_builder_preview_js",

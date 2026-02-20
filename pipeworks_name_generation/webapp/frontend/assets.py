@@ -14,6 +14,8 @@ _TEMPLATES_DIR = _FRONTEND_ROOT / "templates"
 _STATIC_DIR = _FRONTEND_ROOT / "static"
 
 _STATIC_CONTENT_TYPES: dict[str, str] = {
+    "pipe-works-fonts.css": "text/css; charset=utf-8",
+    "pipe-works-base.css": "text/css; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "app.js": "application/javascript; charset=utf-8",
     "api_builder_preview.js": "application/javascript; charset=utf-8",

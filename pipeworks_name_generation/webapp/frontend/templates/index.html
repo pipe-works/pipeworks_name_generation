@@ -4,7 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pipeworks Name Generator</title>
-    <link rel="stylesheet" href="/static/app.css" />
+  <link rel="stylesheet" href="/static/pipe-works-fonts.css" />
+  <link rel="stylesheet" href="/static/pipe-works-base.css" />
+  <link rel="stylesheet" href="/static/app.css" />
 </head>
 <body>
   <header class="app-header">
@@ -16,20 +18,20 @@
       <button type="button" class="tab" data-tab="favorites">Favorites</button>
       <button type="button" class="tab" data-tab="help">Help</button>
     </nav>
-    <button type="button" id="theme-toggle" class="theme-toggle">Light Theme</button>
+    <button type="button" id="theme-toggle" class="btn btn--secondary btn--sm theme-toggle">Light Theme</button>
   </header>
   <main class="app-main">
     <section class="panel active" id="panel-generation">
         <section class="generation-class-wrapper generation-card-full-width">
           <div class="row-buttons">
-            <button type="button" id="generation-toggle-btn">Show Name Class Cards</button>
+            <button type="button" id="generation-toggle-btn" class="btn btn--primary">Show Name Class Cards</button>
           </div>
           <div id="generation-class-card-section" class="generation-class-grid generation-class-grid-collapsed">
             <article class="generation-card generation-class-card" data-class-key="first_name">
               <h3>First Name</h3>
-              <select id="generation-package-first_name" class="generation-package-select"></select>
-              <select id="generation-syllables-first_name" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-first_name" class="generation-send-btn">
+              <select id="generation-package-first_name" class="select generation-package-select"></select>
+              <select id="generation-syllables-first_name" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-first_name" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-first_name" class="muted">Loading package options...</p>
@@ -37,9 +39,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="last_name">
               <h3>Last Name</h3>
-              <select id="generation-package-last_name" class="generation-package-select"></select>
-              <select id="generation-syllables-last_name" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-last_name" class="generation-send-btn">
+              <select id="generation-package-last_name" class="select generation-package-select"></select>
+              <select id="generation-syllables-last_name" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-last_name" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-last_name" class="muted">Loading package options...</p>
@@ -47,9 +49,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="place_name">
               <h3>Place Name</h3>
-              <select id="generation-package-place_name" class="generation-package-select"></select>
-              <select id="generation-syllables-place_name" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-place_name" class="generation-send-btn">
+              <select id="generation-package-place_name" class="select generation-package-select"></select>
+              <select id="generation-syllables-place_name" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-place_name" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-place_name" class="muted">Loading package options...</p>
@@ -57,9 +59,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="location_name">
               <h3>Location Name</h3>
-              <select id="generation-package-location_name" class="generation-package-select"></select>
-              <select id="generation-syllables-location_name" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-location_name" class="generation-send-btn">
+              <select id="generation-package-location_name" class="select generation-package-select"></select>
+              <select id="generation-syllables-location_name" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-location_name" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-location_name" class="muted">Loading package options...</p>
@@ -67,9 +69,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="object_item">
               <h3>Object Item</h3>
-              <select id="generation-package-object_item" class="generation-package-select"></select>
-              <select id="generation-syllables-object_item" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-object_item" class="generation-send-btn">
+              <select id="generation-package-object_item" class="select generation-package-select"></select>
+              <select id="generation-syllables-object_item" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-object_item" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-object_item" class="muted">Loading package options...</p>
@@ -77,9 +79,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="organisation">
               <h3>Organisation</h3>
-              <select id="generation-package-organisation" class="generation-package-select"></select>
-              <select id="generation-syllables-organisation" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-organisation" class="generation-send-btn">
+              <select id="generation-package-organisation" class="select generation-package-select"></select>
+              <select id="generation-syllables-organisation" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-organisation" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-organisation" class="muted">Loading package options...</p>
@@ -87,9 +89,9 @@
 
             <article class="generation-card generation-class-card" data-class-key="title_epithet">
               <h3>Title Epithet</h3>
-              <select id="generation-package-title_epithet" class="generation-package-select"></select>
-              <select id="generation-syllables-title_epithet" class="generation-syllable-select"></select>
-              <button type="button" id="generation-send-title_epithet" class="generation-send-btn">
+              <select id="generation-package-title_epithet" class="select generation-package-select"></select>
+              <select id="generation-syllables-title_epithet" class="select generation-syllable-select"></select>
+              <button type="button" id="generation-send-title_epithet" class="btn btn--primary generation-send-btn">
                 Send to API Builder
               </button>
               <p id="generation-note-title_epithet" class="muted">Loading package options...</p>
@@ -104,7 +106,7 @@
               <section class="api-builder-pane api-builder-selection-pane">
                 <div class="api-builder-selection-header">
                   <h4>Selected Inputs</h4>
-                  <button type="button" id="api-builder-selection-toggle-btn" class="api-builder-selection-toggle-btn" title="Collapse / expand">
+                  <button type="button" id="api-builder-selection-toggle-btn" class="btn btn--icon api-builder-selection-toggle-btn" title="Collapse / expand">
                     <span id="api-builder-selection-toggle-icon" class="live-nav-icon live-nav-icon--collapse" aria-hidden="true"></span>
                   </button>
                 </div>
@@ -124,7 +126,7 @@
                     </table>
                   </div>
                   <div class="row-buttons">
-                    <button type="button" id="api-builder-clear-btn">Clear Builder</button>
+                    <button type="button" id="api-builder-clear-btn" class="btn btn--primary">Clear Builder</button>
                   </div>
                 </div>
                 <p id="api-builder-combined">Combined unique combinations: 0</p>
@@ -135,6 +137,7 @@
                   <label for="api-builder-param-count">Number of Generations</label>
                   <input
                     id="api-builder-param-count"
+                    class="input"
                     type="number"
                     min="1"
                     max="100000"
@@ -143,11 +146,11 @@
                 </div>
                 <div class="api-builder-param-grid">
                   <label for="api-builder-param-seed">Seed (optional)</label>
-                  <input id="api-builder-param-seed" type="number" placeholder="blank = random" />
+                  <input id="api-builder-param-seed" class="input" type="number" placeholder="blank = random" />
                 </div>
                 <div class="api-builder-param-grid">
                   <label for="api-builder-param-format">Output Format</label>
-                  <select id="api-builder-param-format">
+                  <select id="api-builder-param-format" class="select">
                     <option value="json">json</option>
                     <option value="txt">txt</option>
                   </select>
@@ -158,18 +161,18 @@
                   <input id="api-builder-preview-cap-enabled" type="checkbox" checked />
                   <label for="api-builder-preview-cap-enabled">Cap preview at 20</label>
                 </div>
-                <button type="button" id="api-builder-generate-preview-btn">Generate Preview</button>
+                <button type="button" id="api-builder-generate-preview-btn" class="btn btn--primary">Generate Preview</button>
                 <div class="api-builder-inline-preview-grid">
                   <section class="api-builder-inline-preview-card">
                     <h5>Generated Names Preview</h5>
                     <div class="api-builder-preview-actions">
-                      <button type="button" id="api-builder-inline-fav-btn" class="api-builder-preview-copy-btn" title="Favorite all generated names">
+                      <button type="button" id="api-builder-inline-fav-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Favorite all generated names">
                         <span class="favorite-icon" aria-hidden="true"></span> Favorite All
                       </button>
-                      <button type="button" id="api-builder-inline-copy-btn" class="api-builder-preview-copy-btn" title="Copy generated names">
+                      <button type="button" id="api-builder-inline-copy-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Copy generated names">
                         <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
                       </button>
-                      <button type="button" id="api-builder-inline-export-btn" class="api-builder-preview-copy-btn" title="Export generated names as a .txt file">
+                      <button type="button" id="api-builder-inline-export-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Export generated names as a .txt file">
                         <span class="builder-preview-export-icon" aria-hidden="true"></span> Export TXT
                       </button>
                     </div>
@@ -180,13 +183,13 @@
                   <section class="api-builder-inline-preview-card">
                     <h5>First + Last Combinations</h5>
                     <div class="api-builder-preview-actions">
-                      <button type="button" id="api-builder-combo-fav-btn" class="api-builder-preview-copy-btn" title="Favorite all combinations">
+                      <button type="button" id="api-builder-combo-fav-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Favorite all combinations">
                         <span class="favorite-icon" aria-hidden="true"></span> Favorite All
                       </button>
-                      <button type="button" id="api-builder-combo-copy-btn" class="api-builder-preview-copy-btn" title="Copy combinations">
+                      <button type="button" id="api-builder-combo-copy-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Copy combinations">
                         <span class="builder-preview-copy-icon" aria-hidden="true"></span> Copy
                       </button>
-                      <button type="button" id="api-builder-combo-export-btn" class="api-builder-preview-copy-btn" title="Export combinations as a .txt file">
+                      <button type="button" id="api-builder-combo-export-btn" class="btn btn--primary btn--sm api-builder-preview-copy-btn" title="Export combinations as a .txt file">
                         <span class="builder-preview-export-icon" aria-hidden="true"></span> Export TXT
                       </button>
                     </div>
@@ -195,7 +198,7 @@
                     </div>
                   </section>
                 </div>
-                <hr class="section-divider" />
+                <hr class="divider" />
                 <section class="api-builder-live-preview">
                   <div class="api-builder-live-header">
                     <div>
@@ -205,7 +208,7 @@
                     <button
                       type="button"
                       id="api-builder-live-fav-btn"
-                      class="api-builder-preview-copy-btn"
+                      class="btn btn--primary btn--sm api-builder-preview-copy-btn"
                     >
                       <span class="favorite-icon" aria-hidden="true"></span>
                       <span>Favorite</span>
@@ -214,7 +217,7 @@
                   <div class="api-builder-live-controls">
                     <div class="api-builder-live-control">
                       <label for="preview-font-family">Font</label>
-                      <select id="preview-font-family">
+                      <select id="preview-font-family" class="select">
                         <option value="Crimson Text" data-fallback="serif">Crimson Text</option>
                         <option value="Libre Baskerville" data-fallback="serif">Libre Baskerville</option>
                         <option value="IM Fell English" data-fallback="serif">IM Fell English</option>
@@ -225,7 +228,7 @@
                     </div>
                     <div class="api-builder-live-control">
                       <label for="preview-render-style">Render</label>
-                      <select id="preview-render-style">
+                      <select id="preview-render-style" class="select">
                         <option value="raw" selected>Raw</option>
                         <option value="lower">lower</option>
                         <option value="upper">UPPER</option>
@@ -236,14 +239,14 @@
                     <div class="api-builder-live-control">
                       <label for="preview-font-size">Size</label>
                       <div class="api-builder-live-range">
-                        <input id="preview-font-size" type="range" min="12" max="42" value="22" />
+                        <input id="preview-font-size" class="range-input" type="range" min="12" max="42" value="22" />
                         <span id="preview-font-size-value">22px</span>
                       </div>
                     </div>
                     <div class="api-builder-live-control">
                       <label for="preview-font-weight">Weight</label>
                       <div class="api-builder-live-range">
-                        <input id="preview-font-weight" type="range" min="300" max="900" step="100" value="500" />
+                        <input id="preview-font-weight" class="range-input" type="range" min="300" max="900" step="100" value="500" />
                         <span id="preview-font-weight-value">500</span>
                       </div>
                     </div>
@@ -258,11 +261,11 @@
                     No selection focused yet.
                   </div>
                   <div class="api-builder-live-nav">
-                    <button type="button" id="api-builder-live-prev-btn" class="api-builder-live-nav-btn" title="Previous (h)" disabled>
+                    <button type="button" id="api-builder-live-prev-btn" class="btn btn--icon api-builder-live-nav-btn" title="Previous (h)" disabled>
                       <span class="live-nav-icon live-nav-icon--prev" aria-hidden="true"></span>
                     </button>
                     <span id="api-builder-live-nav-pos" class="api-builder-live-nav-pos muted"></span>
-                    <button type="button" id="api-builder-live-next-btn" class="api-builder-live-nav-btn" title="Next (l)" disabled>
+                    <button type="button" id="api-builder-live-next-btn" class="btn btn--icon api-builder-live-nav-btn" title="Next (l)" disabled>
                       <span class="live-nav-icon live-nav-icon--next" aria-hidden="true"></span>
                     </button>
                   </div>
@@ -274,7 +277,7 @@
               <div class="builder-preview-section">
                 <div class="builder-preview-header">
                   <span>cURL</span>
-                  <button type="button" id="api-builder-copy-curl-btn" class="builder-preview-copy-btn">
+                  <button type="button" id="api-builder-copy-curl-btn" class="btn btn--primary btn--sm builder-preview-copy-btn">
                     <span class="builder-preview-copy-icon" aria-hidden="true"></span>
                     <span>Copy</span>
                   </button>
@@ -284,7 +287,7 @@
               <div class="builder-preview-section">
                 <div class="builder-preview-header">
                   <span>POST Payload</span>
-                  <button type="button" id="api-builder-copy-post-btn" class="builder-preview-copy-btn">
+                  <button type="button" id="api-builder-copy-post-btn" class="btn btn--primary btn--sm builder-preview-copy-btn">
                     <span class="builder-preview-copy-icon" aria-hidden="true"></span>
                     <span>Copy</span>
                   </button>
@@ -302,9 +305,9 @@
             <section class="db-card">
               <h3>Tools</h3>
               <div class="row-buttons">
-                <button type="button" id="db-refresh-packages">Refresh Packages</button>
-                <button type="button" id="db-export-btn">Export DB</button>
-                <button type="button" id="db-backup-btn">Write Backup</button>
+                <button type="button" id="db-refresh-packages" class="btn btn--primary">Refresh Packages</button>
+                <button type="button" id="db-export-btn" class="btn btn--primary">Export DB</button>
+                <button type="button" id="db-backup-btn" class="btn btn--primary">Write Backup</button>
               </div>
               <p class="muted">
                 Export and backup paths are configured in <code>server.ini</code>.
@@ -316,11 +319,11 @@
               <h3>Selection</h3>
               <div class="grid">
                 <label for="db-package-select">Package</label>
-                <select id="db-package-select"></select>
+                <select id="db-package-select" class="select"></select>
               </div>
               <div class="grid">
                 <label for="db-table-select">Table</label>
-                <select id="db-table-select"></select>
+                <select id="db-table-select" class="select"></select>
               </div>
               <p class="muted" id="db-status">Load packages to begin browsing.</p>
               <ul id="db-table-list"></ul>
@@ -328,8 +331,8 @@
           </div>
           <div class="db-main">
             <div class="row-buttons">
-              <button type="button" id="db-prev-btn">Previous</button>
-              <button type="button" id="db-next-btn">Next</button>
+              <button type="button" id="db-prev-btn" class="btn btn--primary">Previous</button>
+              <button type="button" id="db-next-btn" class="btn btn--primary">Next</button>
               <span id="db-page-status" class="muted">Rows 0-0</span>
             </div>
             <table>
@@ -348,14 +351,14 @@
       <section class="panel" id="panel-import">
         <div class="grid">
           <label for="metadata-path">Metadata JSON Path</label>
-          <input id="metadata-path" type="text" placeholder="/path/to/package_metadata.json" />
+          <input id="metadata-path" class="input" type="text" placeholder="/path/to/package_metadata.json" />
         </div>
         <div class="grid">
           <label for="zip-path">Package ZIP Path</label>
-          <input id="zip-path" type="text" placeholder="/path/to/package.zip" />
+          <input id="zip-path" class="input" type="text" placeholder="/path/to/package.zip" />
         </div>
         <div class="row-buttons">
-          <button type="button" id="import-btn">Import Pair</button>
+          <button type="button" id="import-btn" class="btn btn--primary">Import Pair</button>
         </div>
         <p id="import-status" class="muted">Waiting for input.</p>
       </section>
@@ -366,15 +369,15 @@
             <section class="favorites-card">
               <h3>Export & Backup</h3>
               <div class="row-buttons">
-                <button type="button" id="favorites-refresh-btn">Refresh Favorites</button>
-                <button type="button" id="favorites-export-btn">Export JSON</button>
+                <button type="button" id="favorites-refresh-btn" class="btn btn--primary">Refresh Favorites</button>
+                <button type="button" id="favorites-export-btn" class="btn btn--primary">Export JSON</button>
               </div>
               <div class="grid favorites-path-grid">
                 <label for="favorites-export-path">Backup Path</label>
-                <input id="favorites-export-path" type="text" placeholder="/path/to/favorites_backup.json" />
+                <input id="favorites-export-path" class="input" type="text" placeholder="/path/to/favorites_backup.json" />
               </div>
               <div class="row-buttons">
-                <button type="button" id="favorites-backup-btn">Write Backup</button>
+                <button type="button" id="favorites-backup-btn" class="btn btn--primary">Write Backup</button>
               </div>
             </section>
 
@@ -382,10 +385,10 @@
               <h3>Import</h3>
               <div class="grid favorites-path-grid">
                 <label for="favorites-import-path">Import JSON Path</label>
-                <input id="favorites-import-path" type="text" placeholder="/path/to/favorites_export.json" />
+                <input id="favorites-import-path" class="input" type="text" placeholder="/path/to/favorites_export.json" />
               </div>
               <div class="row-buttons">
-                <button type="button" id="favorites-import-btn">Import Favorites</button>
+                <button type="button" id="favorites-import-btn" class="btn btn--primary">Import Favorites</button>
               </div>
             </section>
 
@@ -393,11 +396,11 @@
               <h3>Filters</h3>
               <div class="grid">
                 <label for="favorites-search">Search</label>
-                <input id="favorites-search" type="text" placeholder="Search names or notes" />
+                <input id="favorites-search" class="input" type="text" placeholder="Search names or notes" />
               </div>
               <div class="grid">
                 <label for="favorites-tag-filter">Tag</label>
-                <select id="favorites-tag-filter"></select>
+                <select id="favorites-tag-filter" class="select"></select>
               </div>
             </section>
           </div>
@@ -424,8 +427,8 @@
             </div>
 
             <div class="row-buttons favorites-pagination">
-              <button type="button" id="favorites-prev-btn">Previous</button>
-              <button type="button" id="favorites-next-btn">Next</button>
+              <button type="button" id="favorites-prev-btn" class="btn btn--primary">Previous</button>
+              <button type="button" id="favorites-next-btn" class="btn btn--primary">Next</button>
               <span id="favorites-page-status" class="muted">Rows 0-0</span>
             </div>
           </div>
@@ -447,7 +450,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="favorites-modal-title">
       <div class="modal-header">
         <h3 id="favorites-modal-title">Save Favorites</h3>
-        <button type="button" id="favorites-modal-close" class="icon-btn" aria-label="Close">
+        <button type="button" id="favorites-modal-close" class="btn btn--icon icon-btn" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -455,7 +458,7 @@
       <div id="favorites-modal-names" class="favorites-modal-names"></div>
       <div class="grid">
         <label for="favorites-modal-gender">Gender (optional)</label>
-        <select id="favorites-modal-gender">
+        <select id="favorites-modal-gender" class="select">
           <option value="">Unspecified</option>
           <option value="male">Male</option>
           <option value="female">Female</option>
@@ -463,15 +466,15 @@
       </div>
       <div class="grid">
         <label for="favorites-modal-tags">Tags (comma-separated)</label>
-        <input id="favorites-modal-tags" type="text" placeholder="goblin, latin, flora" />
+        <input id="favorites-modal-tags" class="input" type="text" placeholder="goblin, latin, flora" />
       </div>
       <div class="grid">
         <label for="favorites-modal-note">Note (Markdown)</label>
-        <textarea id="favorites-modal-note" rows="4" placeholder="Optional notes..."></textarea>
+        <textarea id="favorites-modal-note" class="input" rows="4" placeholder="Optional notes..."></textarea>
       </div>
       <div class="row-buttons modal-actions">
-        <button type="button" id="favorites-modal-cancel">Cancel</button>
-        <button type="button" id="favorites-modal-save">Save Favorites</button>
+        <button type="button" id="favorites-modal-cancel" class="btn btn--secondary">Cancel</button>
+        <button type="button" id="favorites-modal-save" class="btn btn--primary">Save Favorites</button>
       </div>
       <input id="favorites-modal-id" type="hidden" />
     </div>

@@ -9,6 +9,8 @@ from __future__ import annotations
 # Map HTTP GET path -> endpoint adapter function name.
 GET_ROUTE_METHODS: dict[str, str] = {
     "/": "get_root",
+    "/static/pipe-works-fonts.css": "get_static_pipe_works_fonts_css",
+    "/static/pipe-works-base.css": "get_static_pipe_works_base_css",
     "/static/app.css": "get_static_app_css",
     "/static/app.js": "get_static_app_js",
     "/static/api_builder_preview.js": "get_static_api_builder_preview_js",

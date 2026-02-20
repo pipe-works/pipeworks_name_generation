@@ -504,6 +504,18 @@ def test_get_misc_routes_and_unknown(tmp_path: Path) -> None:
     assert 'id="panel-help"' in root_html
     assert 'id="panel-favorites"' in root_html
 
+    fonts_css = _HandlerHarness(path="/static/pipe-works-fonts.css", db_path=db_path)
+    fonts_css.do_GET()
+    assert fonts_css.response_status == 200
+    assert fonts_css.response_headers.get("Content-Type") == "text/css; charset=utf-8"
+    assert "@font-face" in fonts_css.wfile.getvalue().decode("utf-8")
+
+    base_css = _HandlerHarness(path="/static/pipe-works-base.css", db_path=db_path)
+    base_css.do_GET()
+    assert base_css.response_status == 200
+    assert base_css.response_headers.get("Content-Type") == "text/css; charset=utf-8"
+    assert "--col-bg" in base_css.wfile.getvalue().decode("utf-8")
+
     app_css = _HandlerHarness(path="/static/app.css", db_path=db_path)
     app_css.do_GET()
     assert app_css.response_status == 200
@@ -589,6 +601,16 @@ def test_static_text_asset_missing_returns_404(
 
     monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
 
+    endpoint_adapters_module.get_static_pipe_works_fonts_css(handler, {})
+    assert handler.error_status == 404
+
+    handler = _HandlerHarness(
+        path="/static/pipe-works-base.css", db_path=tmp_path / "webapp.sqlite3"
+    )
+    endpoint_adapters_module.get_static_pipe_works_base_css(handler, {})
+    assert handler.error_status == 404
+
+    handler = _HandlerHarness(path="/static/app.css", db_path=tmp_path / "webapp.sqlite3")
     endpoint_adapters_module.get_static_app_css(handler, {})
     assert handler.error_status == 404
 
@@ -1566,6 +1588,36 @@ def test_static_css_missing_returns_404(tmp_path: Path, monkeypatch: pytest.Monk
 
     monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
     endpoint_adapters_module.get_static_app_css(handler, {})
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
+def test_static_pipe_works_fonts_css_missing_returns_404(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing pipe-works-fonts.css should result in a 404 response."""
+    handler = _HandlerHarness(path="/static/pipe-works-fonts.css", db_path=tmp_path / "db.sqlite3")
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing fonts css")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+    endpoint_adapters_module.get_static_pipe_works_fonts_css(handler, {})
+    assert handler.error_status == 404
+    assert handler.error_message == "Not Found"
+
+
+def test_static_pipe_works_base_css_missing_returns_404(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing pipe-works-base.css should result in a 404 response."""
+    handler = _HandlerHarness(path="/static/pipe-works-base.css", db_path=tmp_path / "db.sqlite3")
+
+    def _raise_missing(*_args: Any, **_kwargs: Any) -> Any:
+        raise FileNotFoundError("missing base css")
+
+    monkeypatch.setattr(endpoint_adapters_module, "get_static_text_asset", _raise_missing)
+    endpoint_adapters_module.get_static_pipe_works_base_css(handler, {})
     assert handler.error_status == 404
     assert handler.error_message == "Not Found"
 
