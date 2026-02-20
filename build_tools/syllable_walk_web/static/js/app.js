@@ -317,130 +317,119 @@ function initSeedButtons() {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   10. CORPUS BROWSER MODAL (Walker)
+   10. CORPUS DROPDOWN SELECTORS (Walker)
+   ═══════════════════════════════════════════════════════════════════════════
+   One-step corpus loading: selecting a run from the <select> dropdown
+   immediately loads the corpus into the corresponding patch — no modal,
+   no extra confirmation click required.
+
+   Each patch (A / B) has:
+     - A <select> dropdown populated with discovered pipeline runs
+     - A refresh button (⟳) to re-fetch the run list on demand
+     - A status label showing load progress and walker readiness
+
+   Auto-refresh: After a pipeline run completes, the dropdowns are
+   automatically repopulated so the new corpus appears immediately.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-let _corpusModalPatch = 'a';
-let _corpusRuns = [];             /* cached run list from API */
-let _walkerReadyPollers = {};     /* { a: intervalId, b: intervalId } */
+let _corpusRuns = [];             /* cached run list from the /api/pipeline/runs endpoint */
+let _walkerReadyPollers = {};     /* { a: intervalId, b: intervalId } — per-patch polling timers */
 
-function initCorpusModal() {
-  const modal     = document.getElementById('corpus-modal');
-  const backdrop  = document.getElementById('corpus-modal-backdrop');
-  const closeBtn  = document.getElementById('corpus-modal-close');
-  const cancelBtn = document.getElementById('corpus-modal-cancel');
-  const selectBtn = document.getElementById('corpus-modal-select');
+/**
+ * Initialise the one-step corpus dropdown selectors for Patch A and Patch B.
+ *
+ * Wires up:
+ *   1. Initial fetch — populates both dropdowns on page load
+ *   2. Change listeners — selecting a run triggers loadCorpus() immediately
+ *   3. Refresh buttons — re-fetch the run list without reloading the page
+ */
+function initCorpusDropdowns() {
+  /* ── 1. Populate dropdowns on page load ─────────────────────────────── */
+  populateCorpusDropdowns();
 
-  /* Open — fetch runs every time */
-  ['select-corpus-a', 'select-corpus-b'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      _corpusModalPatch = id.endsWith('-a') ? 'a' : 'b';
-      selectBtn.disabled = true;
-      modal.classList.remove('hidden');
-      refreshOutputBase();
-      fetchCorpusRuns();
+  /* ── 2. Wire up change events for both patches ─────────────────────── */
+  ['a', 'b'].forEach(patch => {
+    const select = document.getElementById(`corpus-select-${patch}`);
+    if (!select) return;
+
+    /*
+     * When the user picks a run from the dropdown, immediately load the
+     * corpus into the patch.  The empty-string sentinel ("-- Select corpus --")
+     * is ignored so re-selecting the placeholder is a no-op.
+     */
+    select.addEventListener('change', () => {
+      const runId = select.value;
+      if (!runId) return;                /* placeholder selected — nothing to do */
+
+      /* Look up the full run object for metadata (syllable count, etc.) */
+      const run = _corpusRuns.find(r => r.path.split('/').pop() === runId);
+      if (!run) return;
+
+      loadCorpus(patch, runId, run);
     });
-  });
 
-  /* Change output base — reuse the directory browser modal */
-  document.getElementById('corpus-change-base')?.addEventListener('click', () => {
-    /* Temporarily hide the corpus modal, open the dir modal to pick a folder */
-    modal.classList.add('hidden');
-    _changeOutputBaseActive = true;
-    _dirModalTarget = 'output-base';
-    _dirModalMode = 'directory';
-    _dirModalSelectedFile = null;
-    const dirModal = document.getElementById('dir-modal');
-    const titleEl  = document.getElementById('dir-modal-title');
-    titleEl.textContent = 'Select Run Discovery Directory';
-    document.getElementById('dir-modal-select').disabled = true;
-    dirModal.classList.remove('hidden');
-    browseTo(_dirModalCurrentPath);
-  });
-
-  /* Confirm */
-  selectBtn.addEventListener('click', () => {
-    const selected = modal.querySelector('.corpus-browser__item.is-selected');
-    if (!selected) return;
-    const runId = selected.dataset.runId;
-    const run   = _corpusRuns.find(r => r.path.split('/').pop() === runId);
-    if (!run) return;
-
-    modal.classList.add('hidden');
-    loadCorpus(_corpusModalPatch, runId, run);
-  });
-
-  /* Close */
-  [closeBtn, cancelBtn, backdrop].forEach(el => {
-    el?.addEventListener('click', () => modal.classList.add('hidden'));
+    /* ── 3. Refresh button ──────────────────────────────────────────── */
+    const refreshBtn = document.getElementById(`corpus-refresh-${patch}`);
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => populateCorpusDropdowns());
+    }
   });
 }
 
-let _changeOutputBaseActive = false;
-
-/** Fetch the current output_base from the server and update the display. */
-function refreshOutputBase() {
-  fetch('/api/settings')
-    .then(r => r.json())
-    .then(data => {
-      const el = document.getElementById('corpus-output-base');
-      if (el) el.textContent = data.output_base || '?';
-    })
-    .catch(() => {});
-}
-
-/** Fetch discovered runs from the API and populate the modal list. */
-function fetchCorpusRuns() {
-  const list    = document.getElementById('corpus-browser-list');
-  const loading = document.getElementById('corpus-browser-loading');
-  if (loading) loading.style.display = '';
-
-  /* Also refresh the path display */
-  refreshOutputBase();
-
+/**
+ * Fetch discovered runs from the API and populate both Patch A and Patch B
+ * <select> dropdowns.
+ *
+ * If either dropdown already has a selected run that still exists in the
+ * refreshed list, that selection is preserved so the user doesn't lose
+ * context when the list refreshes (e.g. after a pipeline run completes).
+ */
+function populateCorpusDropdowns() {
   fetch('/api/pipeline/runs')
     .then(r => r.json())
     .then(data => {
       _corpusRuns = data.runs || [];
-      if (loading) loading.style.display = 'none';
-      list.querySelectorAll('.corpus-browser__item').forEach(el => el.remove());
 
-      if (_corpusRuns.length === 0) {
-        if (loading) {
-          loading.style.display = '';
-          loading.textContent = 'No pipeline runs found.';
+      /* Update both Patch A and Patch B dropdowns with the same run list */
+      ['a', 'b'].forEach(patch => {
+        const select = document.getElementById(`corpus-select-${patch}`);
+        if (!select) return;
+
+        /* Remember the current selection so we can restore it after rebuild */
+        const previousValue = select.value;
+
+        /* Clear all options except the placeholder */
+        while (select.options.length > 1) {
+          select.remove(1);
         }
-        return;
-      }
 
-      const selectBtn = document.getElementById('corpus-modal-select');
+        /* Build an <option> for each discovered run.
+         * Display format: "20260121_084017_nltk (1,234 syllables · 3 selections)"
+         * Value: the run folder name (runId), which is the last path segment.
+         */
+        _corpusRuns.forEach(run => {
+          const runId = run.path.split('/').pop();
+          const syllables = run.syllable_count.toLocaleString();
+          const selections = run.selection_count
+            ? ` · ${run.selection_count} selections`
+            : '';
+          const label = `${runId} (${syllables} syl${selections} · ${run.extractor_type})`;
 
-      _corpusRuns.forEach(run => {
-        const runId = run.path.split('/').pop();
-        const el = document.createElement('div');
-        el.className = 'corpus-browser__item';
-        el.dataset.runId = runId;
-        el.innerHTML = `<span class="u-accent u-mono">${runId}/</span>`
-          + `<span class="u-muted">${run.syllable_count.toLocaleString()} syllables`
-          + `${run.selection_count ? ' · ' + run.selection_count + ' selections' : ''}`
-          + ` · ${run.extractor_type}</span>`;
-
-        el.addEventListener('click', () => {
-          list.querySelectorAll('.corpus-browser__item').forEach(i => i.classList.remove('is-selected'));
-          el.classList.add('is-selected');
-          selectBtn.disabled = false;
+          const option = document.createElement('option');
+          option.value = runId;
+          option.textContent = label;
+          select.appendChild(option);
         });
 
-        list.appendChild(el);
+        /* Restore previous selection if the run still exists in the new list */
+        if (previousValue && Array.from(select.options).some(o => o.value === previousValue)) {
+          select.value = previousValue;
+        }
       });
     })
     .catch(err => {
-      if (loading) {
-        loading.style.display = '';
-        loading.textContent = `Error fetching runs: ${err.message}`;
-      }
+      /* Silently degrade — the dropdowns just stay empty with the placeholder */
+      console.warn('Failed to fetch pipeline runs:', err.message);
     });
 }
 
@@ -551,7 +540,9 @@ function initDirModal() {
     const selected = _dirModalMode === 'file' ? _dirModalSelectedFile : _dirModalCurrentPath;
     if (!selected) return;
 
-    /* Special case: changing the output base for corpus discovery */
+    /* Special case: changing the output base for corpus discovery.
+     * After the base path is updated on the server, refresh the corpus
+     * dropdowns so runs from the new location appear immediately. */
     if (_dirModalTarget === 'output-base') {
       modal.classList.add('hidden');
       fetch('/api/settings/output-base', {
@@ -566,13 +557,10 @@ function initDirModal() {
             return;
           }
           setStatus(`Output base changed to ${data.output_base}`);
-          /* Re-open the corpus modal with refreshed runs */
-          const corpusModal = document.getElementById('corpus-modal');
-          corpusModal.classList.remove('hidden');
-          fetchCorpusRuns();
+          /* Repopulate corpus dropdowns with runs from the new base */
+          populateCorpusDropdowns();
         })
         .catch(err => setStatus(`Error: ${err.message}`));
-      _changeOutputBaseActive = false;
       return;
     }
 
@@ -593,14 +581,11 @@ function initDirModal() {
     modal.classList.add('hidden');
   });
 
+  /* Close / Cancel / Backdrop — just hide the directory browser modal.
+   * No special handling needed; the corpus dropdowns remain in place. */
   [closeBtn, cancelBtn, backdrop].forEach(el => {
     el?.addEventListener('click', () => {
       modal.classList.add('hidden');
-      /* If we were changing output base, re-open the corpus modal */
-      if (_changeOutputBaseActive) {
-        _changeOutputBaseActive = false;
-        document.getElementById('corpus-modal')?.classList.remove('hidden');
-      }
     });
   });
 }
@@ -1294,6 +1279,9 @@ function pollPipelineStatus() {
           badge.textContent = 'Completed';
           badge.className = 'badge is-done';
           setStatus('Pipeline: run complete');
+          /* Auto-refresh corpus dropdowns so the new run appears immediately
+           * in the Walker tab without requiring a manual refresh click. */
+          populateCorpusDropdowns();
         } else if (data.status === 'failed') {
           statusEl.style.color = 'var(--col-error, red)';
           badge.textContent = 'Failed';
@@ -1490,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLangOptions();
   initRadioOptions();
   initSeedButtons();
-  initCorpusModal();
+  initCorpusDropdowns();
   initDirModal();
   initGenerateWalks();
   initGenerateCandidates();
