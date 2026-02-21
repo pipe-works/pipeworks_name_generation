@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.21](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.20...pipeworks-name-generation-v0.5.21) (2026-02-21)
+
+
+### Features
+
+* **_working:** add syllable-walk-web demo app ([0603b3f](https://github.com/pipe-works/pipeworks_name_generation/commit/0603b3f6c90f2ec24d428587a92b2cc8b67f3397))
+* **_working:** add syllable-walk-web demo app ([8d1aef9](https://github.com/pipe-works/pipeworks_name_generation/commit/8d1aef90305e7e504c84f8b43b7e9bd63224dfd3))
+* **build_tools:** consolidated syllable-walk-web with full test coverage ([1784e55](https://github.com/pipe-works/pipeworks_name_generation/commit/1784e55550f5a7e476310e7eb244c82c02991dbe))
+* **build_tools:** consolidated syllable-walk-web with full test coverage ([6e1022f](https://github.com/pipe-works/pipeworks_name_generation/commit/6e1022fd40a914efe312f9ec026b7bca7d4ddef4))
+* **build_tools:** one-step corpus loading with per-patch config ([b22ba5d](https://github.com/pipe-works/pipeworks_name_generation/commit/b22ba5db2df7b92bc76413ea5c64cbe5515671b4))
+* **build_tools:** per-patch corpus dirs, INI config, UI fixes and layout ([e046ecb](https://github.com/pipe-works/pipeworks_name_generation/commit/e046ecb97a8cc904ffe06428d75e30e401085e1f))
+* **build_tools:** replace two-step corpus modal with one-step dropdown ([358355a](https://github.com/pipe-works/pipeworks_name_generation/commit/358355a850a87f176b9e5eafa49bc588645574a3))
+* consolidated Pipeline + Walker web demo ([d4fb136](https://github.com/pipe-works/pipeworks_name_generation/commit/d4fb136f01c1699b5dd84a53e9d8ecd7e0f9c118))
+* consolidated Pipeline + Walker web demo ([9de6648](https://github.com/pipe-works/pipeworks_name_generation/commit/9de6648606b18995a1951677a02b266fe0d22fe5))
+* one-step corpus loading and webapp import improvements ([5e8e63c](https://github.com/pipe-works/pipeworks_name_generation/commit/5e8e63c0f483c997e28d4584dda15ab6b333e2d5))
+* one-step corpus loading for Walker patches ([81b5c30](https://github.com/pipe-works/pipeworks_name_generation/commit/81b5c30846e8e4495a4e9ea9218702a2d4ed2963))
+* **webapp:** file browser import, delete package, importer fixes ([a3d4adf](https://github.com/pipe-works/pipeworks_name_generation/commit/a3d4adf1b272b9715b8d22787a809ddd3fa75219))
+* **webapp:** migrate to shared pipe-works design system CSS ([2775f45](https://github.com/pipe-works/pipeworks_name_generation/commit/2775f456784527f6fdf35586cbc03744d6f25fa6))
+* **webapp:** migrate to shared pipe-works design system CSS ([4aae3ed](https://github.com/pipe-works/pipeworks_name_generation/commit/4aae3eda8a25d4ebff5f641016860369fae04b51))
+
+
+### Documentation
+
+* update README and Sphinx docs for consolidated syllable-walk-web ([4c08408](https://github.com/pipe-works/pipeworks_name_generation/commit/4c08408a5d16b9ca2e025be77296fb127de7001a))
+* update README and Sphinx docs for syllable-walk-web ([72ff552](https://github.com/pipe-works/pipeworks_name_generation/commit/72ff552d0df46c3197d22de27fe32484748d1e28))
+
 ## [0.5.20](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.19...pipeworks-name-generation-v0.5.20) (2026-02-20)
 
 ### Features
