@@ -241,6 +241,15 @@ class TestRouteGet:
         body = json.loads(handler.wfile.getvalue())
         assert "output_base" in body
 
+    def test_version(self, handler):
+        """Test GET /api/version returns package version."""
+        handler._route_get("/api/version")
+        handler.send_response.assert_called_once_with(200)
+        body = json.loads(handler.wfile.getvalue())
+        from pipeworks_name_generation import __version__
+
+        assert body == {"version": __version__}
+
 
 # ============================================================
 # POST Route Dispatch

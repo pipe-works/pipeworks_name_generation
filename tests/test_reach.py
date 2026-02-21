@@ -696,3 +696,43 @@ class TestSerialisation:
         assert deserialised["reach"] == result.reach
         assert deserialised["total"] == result.total
         assert deserialised["unique_reachable"] == result.unique_reachable
+
+
+# ============================================================
+# Progress Callback Tests
+# ============================================================
+
+
+class TestProgressCallback:
+    """Verify progress callback is invoked during reach computation."""
+
+    def test_compute_all_reaches_invokes_callback(self, walker):
+        """progress_callback should be called once per profile during compute_all_reaches."""
+        messages: list[str] = []
+        compute_all_reaches(walker, progress_callback=messages.append)
+
+        # Four profiles → four callback invocations.
+        assert len(messages) == 4
+
+    def test_callback_messages_are_incremental(self, walker):
+        """Each callback message should include all profiles computed so far."""
+        messages: list[str] = []
+        compute_all_reaches(walker, progress_callback=messages.append)
+
+        # First message: only first profile.
+        assert messages[0].count("~") == 1
+        # Last message: all four profiles.
+        assert messages[-1].count("~") == 4
+
+    def test_callback_message_format(self, walker):
+        """Callback messages should follow 'Computing reaches: name ~N ...' format."""
+        messages: list[str] = []
+        compute_all_reaches(walker, progress_callback=messages.append)
+
+        for msg in messages:
+            assert msg.startswith("Computing reaches:")
+
+    def test_no_callback_does_not_raise(self, walker):
+        """Passing progress_callback=None must not raise."""
+        results = compute_all_reaches(walker, progress_callback=None)
+        assert len(results) == 4

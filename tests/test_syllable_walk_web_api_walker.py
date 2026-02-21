@@ -331,6 +331,7 @@ class TestHandleStats:
                 temperature=0.3,
                 frequency_weight=1.0,
                 computation_ms=5.0,
+                unique_reachable=42,
             ),
             "dialect": ReachResult(
                 profile_name="dialect",
@@ -341,6 +342,7 @@ class TestHandleStats:
                 temperature=0.7,
                 frequency_weight=0.0,
                 computation_ms=6.0,
+                unique_reachable=75,
             ),
         }
 
@@ -354,6 +356,8 @@ class TestHandleStats:
         assert patch_a["reaches"]["clerical"]["total"] == 100
         assert patch_a["reaches"]["clerical"]["threshold"] == 0.001
         assert patch_a["reaches"]["clerical"]["computation_ms"] == 5.0
+        assert patch_a["reaches"]["clerical"]["unique_reachable"] == 42
+        assert patch_a["reaches"]["dialect"]["unique_reachable"] == 75
 
     def test_stats_no_reaches_before_computed(self, state):
         """Stats response should not include reaches when profile_reaches is None.
