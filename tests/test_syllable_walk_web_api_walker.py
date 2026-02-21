@@ -312,6 +312,80 @@ class TestHandleStats:
         assert result["patch_a"]["walker_ready"] is True
         assert result["patch_a"]["syllable_count"] == 2
 
+    def test_stats_include_reaches_when_computed(self, loaded_state):
+        """Stats response includes reaches once profile_reaches is populated.
+
+        After the background walker init computes reaches, the stats
+        endpoint should include a 'reaches' dict with all four profiles.
+        """
+        from build_tools.syllable_walk.reach import ReachResult
+
+        # Simulate what _init_walker does after computing reaches.
+        loaded_state.patch_a.profile_reaches = {
+            "clerical": ReachResult(
+                profile_name="clerical",
+                reach=10,
+                total=100,
+                threshold=0.001,
+                max_flips=1,
+                temperature=0.3,
+                frequency_weight=1.0,
+                computation_ms=5.0,
+            ),
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=25,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=6.0,
+            ),
+        }
+
+        result = handle_stats(loaded_state)
+        patch_a = result["patch_a"]
+
+        assert "reaches" in patch_a
+        assert "clerical" in patch_a["reaches"]
+        assert "dialect" in patch_a["reaches"]
+        assert patch_a["reaches"]["clerical"]["reach"] == 10
+        assert patch_a["reaches"]["clerical"]["total"] == 100
+        assert patch_a["reaches"]["clerical"]["threshold"] == 0.001
+        assert patch_a["reaches"]["clerical"]["computation_ms"] == 5.0
+
+    def test_stats_no_reaches_before_computed(self, state):
+        """Stats response should not include reaches when profile_reaches is None.
+
+        Before the walker finishes loading, profile_reaches is None,
+        and the stats response should not contain a 'reaches' key.
+        """
+        result = handle_stats(state)
+        assert "reaches" not in result["patch_a"]
+        assert "reaches" not in result["patch_b"]
+
+    def test_stats_reaches_absent_for_unloaded_patch(self, loaded_state):
+        """Patch B should have no reaches when only Patch A is loaded."""
+        from build_tools.syllable_walk.reach import ReachResult
+
+        loaded_state.patch_a.profile_reaches = {
+            "ritual": ReachResult(
+                profile_name="ritual",
+                reach=80,
+                total=100,
+                threshold=0.001,
+                max_flips=3,
+                temperature=2.5,
+                frequency_weight=-1.0,
+                computation_ms=8.0,
+            ),
+        }
+
+        result = handle_stats(loaded_state)
+        assert "reaches" in result["patch_a"]
+        assert "reaches" not in result["patch_b"]
+
 
 # ============================================================
 # handle_combine

@@ -27,6 +27,7 @@ import json
 import math
 import random
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -245,7 +246,10 @@ class SyllableWalker:
             print(f"Feature matrix shape: {self.feature_matrix.shape}")
             print(f"Memory usage: ~{self.feature_matrix.nbytes / 1024 / 1024:.1f} MB")
 
-    def _build_neighbor_graph(self) -> None:
+    def _build_neighbor_graph(
+        self,
+        progress_callback: "Callable[[str], None] | None" = None,
+    ) -> None:
         """Pre-compute neighbor relationships for O(1) lookup during walks.
 
         This is the expensive one-time computation that enables fast walks.
@@ -257,6 +261,12 @@ class SyllableWalker:
         2. For each batch, compute vectorized Hamming distances vs all syllables
         3. Find neighbors within max_neighbor_distance (excluding self)
         4. Store neighbor indices in neighbor_graph dict
+
+        Args:
+            progress_callback: Optional callable invoked with a progress message
+                string after each batch. Used by the web UI to show live loading
+                progress. The callback receives messages like
+                ``"Building neighbour graph (3,000 / 6,837)"``.
 
         Time Complexity:
         - O(N^2 * F) where N = syllables, F = features
@@ -309,14 +319,20 @@ class SyllableWalker:
                 # Store neighbor indices (where mask is True)
                 self.neighbor_graph[global_idx] = np.where(neighbor_mask)[0].tolist()
 
-            # Progress reporting
+            # Progress reporting (verbose prints + callback)
             if self.verbose and (end_idx % 50000 == 0 or end_idx == n_syllables):
                 print(f"  Processed {end_idx:,} / {n_syllables:,} syllables")
+
+            if progress_callback is not None:
+                progress_callback(f"Building neighbour graph ({end_idx:,} / {n_syllables:,})")
 
         # Compute and report average neighbors per syllable
         avg_neighbors = np.mean([len(neighbors) for neighbors in self.neighbor_graph.values()])
         if self.verbose:
             print(f"✓ Neighbor graph built: avg {avg_neighbors:.1f} neighbors per syllable")
+
+        if progress_callback is not None:
+            progress_callback(f"Neighbour graph complete (avg {avg_neighbors:.0f} neighbours)")
 
     def _hamming_distance(self, idx_a: int, idx_b: int) -> int:
         """Compute Hamming distance between two syllable feature vectors.
@@ -700,6 +716,7 @@ class SyllableWalker:
         feature_costs: dict[str, float] | None = None,
         inertia_cost: float = DEFAULT_INERTIA_COST,
         verbose: bool = False,
+        progress_callback: "Callable[[str], None] | None" = None,
     ) -> "SyllableWalker":
         """Create a SyllableWalker from in-memory data.
 
@@ -713,6 +730,9 @@ class SyllableWalker:
             feature_costs: Custom feature cost dictionary
             inertia_cost: Cost of staying at current syllable
             verbose: If True, print progress during initialization
+            progress_callback: Optional callable invoked with a progress message
+                string during neighbor graph construction. Used by the web UI
+                to show live loading progress to the user.
 
         Returns:
             Initialized SyllableWalker instance
@@ -773,7 +793,7 @@ class SyllableWalker:
         # Initialize neighbor graph
         instance.neighbor_graph = defaultdict(list)
 
-        # Build neighbor graph
-        instance._build_neighbor_graph()
+        # Build neighbor graph (pass progress_callback for web UI)
+        instance._build_neighbor_graph(progress_callback=progress_callback)
 
         return instance
