@@ -28,7 +28,8 @@
    20. Pipeline Monitor — API Polling
    21. Pipeline History — API
    22. Status Bar
-   23. Init
+   23. Parameter Info (3-Tier Progressive Disclosure)
+   24. Init
    ═══════════════════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -165,7 +166,6 @@ function navigateToScreen(screenId) {
   });
 
   /* Populate screens that need it */
-  if (screenId === 'walker-blended') populateBlended();
   if (screenId === 'walker-render')   populateRender();
   if (screenId === 'walker-analysis') populateAnalysis();
 }
@@ -226,6 +226,41 @@ function initSliders() {
    6. PROFILE SELECTION
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Profile presets mirroring WALK_PROFILES from profiles.py */
+const PROFILE_PRESETS = {
+  clerical: { max_flips: 1, temperature: 0.3, frequency_weight: 1.0 },
+  dialect:  { max_flips: 2, temperature: 0.7, frequency_weight: 0.0 },
+  goblin:   { max_flips: 2, temperature: 1.5, frequency_weight: -0.5 },
+  ritual:   { max_flips: 3, temperature: 2.5, frequency_weight: -1.0 },
+};
+
+function applyProfileToSliders(patch, profileName) {
+  const preset = PROFILE_PRESETS[profileName];
+  if (!preset) return;  /* custom — leave sliders as-is */
+
+  /* Temperature slider */
+  const tempEl = document.getElementById(`temperature-${patch}`);
+  if (tempEl) {
+    tempEl.value = preset.temperature;
+    const tempVal = document.getElementById(`temperature-${patch}-val`);
+    if (tempVal) tempVal.textContent = preset.temperature.toFixed(1);
+  }
+
+  /* Frequency weight slider */
+  const freqEl = document.getElementById(`freq-weight-${patch}`);
+  if (freqEl) {
+    freqEl.value = preset.frequency_weight;
+    const freqVal = document.getElementById(`freq-weight-${patch}-val`);
+    if (freqVal) freqVal.textContent = preset.frequency_weight.toFixed(1);
+  }
+
+  /* Max flips spinner */
+  const flipsEl = document.getElementById(`max-flips-${patch}`);
+  if (flipsEl) {
+    flipsEl.value = preset.max_flips;
+  }
+}
+
 function initProfiles() {
   document.querySelectorAll('.profile-option').forEach(opt => {
     opt.addEventListener('click', () => {
@@ -234,6 +269,9 @@ function initProfiles() {
         .forEach(o => o.classList.remove('is-selected'));
       opt.classList.add('is-selected');
       opt.querySelector('input[type="radio"]').checked = true;
+
+      const profileName = opt.querySelector('input[type="radio"]').value;
+      applyProfileToSliders(patch, profileName);
     });
   });
 }
@@ -483,18 +521,204 @@ function pollWalkerReady(patch) {
       .then(r => r.json())
       .then(data => {
         const info = data[patchKey];
-        if (info && info.walker_ready) {
+        if (!info) return;
+
+        if (info.walker_ready) {
           clearInterval(_walkerReadyPollers[patch]);
           _walkerReadyPollers[patch] = null;
           const runId = state[`corpus${P}`];
           const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
           document.getElementById(`corpus-status-${patch}`).textContent =
-            `${runId} · ${count} syllables · walker ready ✓`;
+            `${runId} · ${count} syllables · walker ready \u2713`;
           setStatus(`Patch ${P}: walker ready`);
+
+          /* Update profile reach values once available in the stats response. */
+          if (info.reaches) {
+            updateReachValues(patch, info.reaches);
+          }
+        } else if (info.loading_stage) {
+          /* Show loading stage progress while walker is building. */
+          const runId = state[`corpus${P}`];
+          const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
+          document.getElementById(`corpus-status-${patch}`).textContent =
+            `${runId} \u00b7 ${count} syllables \u00b7 ${info.loading_stage}\u2026`;
+          setStatus(`Patch ${P}: ${info.loading_stage}\u2026`);
         }
       })
       .catch(() => { /* ignore polling errors */ });
   }, 1000);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10b. REACH DISPLAY — Profile Field Micro Signal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Per-profile reach data cache for tooltips. Keyed by "a-dialect", "b-goblin", etc.
+   Populated by updateReachValues() and read by the tooltip on hover. */
+const _reachData = {};
+
+/**
+ * Update the reach value spans for a given patch with data from the stats API.
+ *
+ * For each profile in the reaches dict, finds the corresponding
+ * ``reach-{patch}-{profile}`` span and sets its text content to
+ * ``reach ≈N``. Also wires up the Level 2 tooltip (JS-positioned)
+ * and the Level 3 info button that opens the modal.
+ *
+ * @param {string} patch - "a" or "b"
+ * @param {Object} reaches - Dict mapping profile name to {reach, total, threshold, computation_ms}
+ */
+function updateReachValues(patch, reaches) {
+  for (const [name, info] of Object.entries(reaches)) {
+    const el = document.getElementById(`reach-${patch}-${name}`);
+    if (!el) continue;
+
+    /* Cache per-profile reach data for tooltip display. */
+    _reachData[`${patch}-${name}`] = info;
+
+    /* Level 1: inline micro signal — muted, monospace, right-aligned */
+    el.textContent = `reach \u2248${info.reach.toLocaleString()}`;
+
+    /* Level 2: tooltip on hover (JS-positioned floating panel).
+       Only wire up once — check for marker attribute. */
+    if (!el.dataset.reachWired) {
+      el.dataset.reachWired = '1';
+      el.addEventListener('mouseenter', () => showReachTooltip(el, `${patch}-${name}`));
+      el.addEventListener('mouseleave', hideReachTooltip);
+    }
+
+    /* Level 3: info button to open the deep-dive modal */
+    if (!el.querySelector('.reach-info-btn')) {
+      const btn = document.createElement('span');
+      btn.className = 'reach-info-btn';
+      btn.textContent = '?';
+      btn.setAttribute('aria-label', 'Traversal reach details');
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openReachModal();
+      });
+      el.appendChild(btn);
+    }
+  }
+
+  /* Update combine tab placeholder with a summary of all reaches. */
+  updateCombineReachBar(patch, reaches);
+}
+
+/**
+ * Show the reach tooltip anchored to the given element.
+ *
+ * Populates the shared ``#reach-tooltip`` element with the profile name,
+ * a description, and a parameter grid (max_flips, temperature, etc.),
+ * then positions it above the target element.
+ *
+ * @param {HTMLElement} anchor - The .profile-reach span being hovered
+ * @param {string} key - Cache key like "a-dialect"
+ */
+function showReachTooltip(anchor, key) {
+  const info = _reachData[key];
+  if (!info) return;
+
+  const tooltip = document.getElementById('reach-tooltip');
+  const titleEl = document.getElementById('reach-tooltip-title');
+  const bodyEl = document.getElementById('reach-tooltip-body');
+  const paramsEl = document.getElementById('reach-tooltip-params');
+
+  /* Extract profile name from the key ("a-dialect" → "dialect") */
+  const profileName = key.split('-').slice(1).join('-');
+
+  titleEl.textContent = `${profileName} profile`;
+  bodyEl.textContent =
+    'Mean effective vocabulary per step \u2014 the average number of ' +
+    'syllables reachable from any starting position. Deterministic ' +
+    'and seed-independent.';
+
+  /* Parameter grid */
+  paramsEl.innerHTML =
+    `<dt>reach</dt><dd>\u2248${info.reach.toLocaleString()} / ${info.total.toLocaleString()}</dd>` +
+    `<dt>threshold</dt><dd>${info.threshold}</dd>` +
+    `<dt>computed in</dt><dd>${info.computation_ms.toFixed(0)} ms</dd>`;
+
+  /* Position above the anchor element */
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.left = `${Math.max(8, rect.left - 160)}px`;
+  tooltip.style.top = `${rect.top - 8}px`;
+  tooltip.style.transform = 'translateY(-100%)';
+
+  tooltip.classList.add('is-visible');
+}
+
+/** Hide the reach tooltip. */
+function hideReachTooltip() {
+  const tooltip = document.getElementById('reach-tooltip');
+  tooltip.classList.remove('is-visible');
+}
+
+/* Cached per-patch reach summary lines for the combine bar.
+   Both lines are displayed when both patches have data. */
+const _combineReachLines = { a: null, b: null };
+
+/**
+ * Update the combine tab reach placeholder bar with a summary.
+ *
+ * Stores each patch's reach line and renders both when available:
+ *   "Patch A — clerical ≈4 · dialect ≈32 · goblin ≈58 · ritual ≈147
+ *    Patch B — clerical ≈100 · dialect ≈364 · goblin ≈370 · ritual ≈80"
+ *
+ * @param {string} patch - "a" or "b"
+ * @param {Object} reaches - Dict mapping profile name to {reach, total}
+ */
+function updateCombineReachBar(patch, reaches) {
+  const textEl = document.getElementById('combine-reach-text');
+  if (!textEl) return;
+
+  const P = patch.toUpperCase();
+  const parts = Object.entries(reaches)
+    .map(([name, info]) => `${name} \u2248${info.reach.toLocaleString()}`)
+    .join(' \u00b7 ');
+
+  _combineReachLines[patch] = `Patch ${P} \u2014 ${parts}`;
+
+  /* Render all available patch lines. */
+  const lines = [];
+  if (_combineReachLines.a) lines.push(_combineReachLines.a);
+  if (_combineReachLines.b) lines.push(_combineReachLines.b);
+  textEl.textContent = lines.join('  \u2502  ');
+}
+
+/**
+ * Open the reach deep-dive modal (Level 3).
+ *
+ * Follows the same open/close pattern as the directory browser modal.
+ */
+function openReachModal() {
+  const modal = document.getElementById('reach-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+/** Initialise reach modal close handlers. */
+function initReachModal() {
+  const modal    = document.getElementById('reach-modal');
+  const backdrop = document.getElementById('reach-modal-backdrop');
+  const closeBtn = document.getElementById('reach-modal-close');
+
+  if (!modal) return;
+
+  /* Close via backdrop click or close button. */
+  [backdrop, closeBtn].forEach(el => {
+    el?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+  });
+
+  /* Close on Escape key. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+    }
+  });
 }
 
 
@@ -697,9 +921,9 @@ function initGenerateWalks() {
       const profile = profileEl ? profileEl.value : 'custom';
 
       /* Read custom params */
-      const temperature    = parseFloat(document.getElementById(`temp-${patch}`)?.value) || 0.7;
-      const frequencyWeight = parseFloat(document.getElementById(`freq-${patch}`)?.value) || 0.0;
-      const maxFlips       = parseInt(document.getElementById(`flips-${patch}`)?.value) || 2;
+      const temperature    = parseFloat(document.getElementById(`temperature-${patch}`)?.value) || 0.7;
+      const frequencyWeight = parseFloat(document.getElementById(`freq-weight-${patch}`)?.value) || 0.0;
+      const maxFlips       = parseInt(document.getElementById(`max-flips-${patch}`)?.value) || 2;
 
       /* Read seed */
       const seedStr = document.getElementById(`seed-${patch}`)?.value;
@@ -732,10 +956,12 @@ function initGenerateWalks() {
             return;
           }
 
-          const walks = (data.walks || []).map(w => w.formatted);
+          const walkData = data.walks || [];
+          const walks = walkData.map(w => w.formatted);
           state[`walks${P}`] = walks;
+          state[`walkData${P}`] = walkData;
 
-          out.innerHTML = walks.map(w => `<span class="walk-item">${w}</span>`).join('');
+          out.innerHTML = renderWalksTable(walkData);
           setStatus(`Patch ${P}: ${walks.length} walk${walks.length !== 1 ? 's' : ''} generated`);
         })
         .catch(err => {
@@ -743,6 +969,100 @@ function initGenerateWalks() {
           out.innerHTML = `<span class="placeholder-text">Error: ${err.message}</span>`;
           setStatus(`Patch ${P}: walk generation failed`);
         });
+    });
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12b. WALKS TABLE RENDERER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderWalksTable(walkData) {
+  if (!walkData || !walkData.length) return '';
+  const rows = walkData.map((w, i) => {
+    const sylCount = w.syllables ? w.syllables.length : 0;
+    return `<tr><td>${i + 1}</td><td>${w.formatted}</td><td>${sylCount}</td></tr>`;
+  }).join('');
+  return `<table><thead><tr><th>#</th><th>Walk</th><th>Syl</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12c. WALKS EXPORT / COPY (TXT / MD)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function walksToTxt(walks) {
+  return walks.map((w, i) => `${i + 1}\t${w}`).join('\n') + '\n';
+}
+
+function walksToMd(walkData) {
+  const header = '| # | Walk | Syl |\n| ---: | --- | ---: |';
+  const rows = walkData.map((w, i) => {
+    const sylCount = w.syllables ? w.syllables.length : 0;
+    return `| ${i + 1} | ${w.formatted} | ${sylCount} |`;
+  });
+  return [header, ...rows].join('\n') + '\n';
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function initExportWalks() {
+  ['a', 'b'].forEach(patch => {
+    const P = patch.toUpperCase();
+
+    /* Copy TXT to clipboard */
+    document.getElementById(`copy-walks-txt-${patch}`)?.addEventListener('click', () => {
+      const walks = state[`walks${P}`];
+      if (!walks || !walks.length) {
+        setStatus(`Patch ${P}: no walks to copy — generate walks first`);
+        return;
+      }
+      navigator.clipboard.writeText(walksToTxt(walks)).then(() => {
+        setStatus(`Patch ${P}: copied ${walks.length} walks as TXT`);
+      });
+    });
+
+    /* Copy MD to clipboard */
+    document.getElementById(`copy-walks-md-${patch}`)?.addEventListener('click', () => {
+      const walkData = state[`walkData${P}`];
+      if (!walkData || !walkData.length) {
+        setStatus(`Patch ${P}: no walks to copy — generate walks first`);
+        return;
+      }
+      navigator.clipboard.writeText(walksToMd(walkData)).then(() => {
+        setStatus(`Patch ${P}: copied ${walkData.length} walks as Markdown`);
+      });
+    });
+
+    /* Export TXT file */
+    document.getElementById(`export-walks-txt-${patch}`)?.addEventListener('click', () => {
+      const walks = state[`walks${P}`];
+      if (!walks || !walks.length) {
+        setStatus(`Patch ${P}: no walks to export — generate walks first`);
+        return;
+      }
+      downloadBlob(walksToTxt(walks), `patch_${patch}_walks.txt`, 'text/plain');
+      setStatus(`Patch ${P}: exported ${walks.length} walks as TXT`);
+    });
+
+    /* Export MD file */
+    document.getElementById(`export-walks-md-${patch}`)?.addEventListener('click', () => {
+      const walkData = state[`walkData${P}`];
+      if (!walkData || !walkData.length) {
+        setStatus(`Patch ${P}: no walks to export — generate walks first`);
+        return;
+      }
+      downloadBlob(walksToMd(walkData), `patch_${patch}_walks.md`, 'text/markdown');
+      setStatus(`Patch ${P}: exported ${walkData.length} walks as Markdown`);
     });
   });
 }
@@ -1452,23 +1772,381 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-function populateBlended() {
-  ['a', 'b'].forEach(patch => {
-    const P   = patch.toUpperCase();
-    const out = document.getElementById(`blended-${patch}-output`);
-    if (!out) return;
-    const walks = state[`walks${P}`];
-    if (!walks || !walks.length) {
-      out.innerHTML = '<p class="placeholder-text">(Generate walks in the Walk screen first)</p>';
-      return;
-    }
-    out.innerHTML = walks.map(w => `<span class="walk-item">${w}</span>`).join('');
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   23. PARAMETER INFO — 3-Tier Progressive Disclosure
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Static content for the 3-tier information layer on each walker parameter.
+ *
+ * Keyed by parameter ID prefix (e.g. "min-length" matches both
+ * "min-length-a" and "min-length-b" in the DOM).
+ *
+ * Each entry contains:
+ *   - signal:  Level 1 inline micro label (structural role)
+ *   - tooltip: Level 2 one-sentence explanation
+ *   - modal:   Level 3 deep-dive { title, rows: [[heading, html], ...] }
+ *
+ * Content source: _working/syllable_walker_three_tier_information_model.md
+ */
+const PARAM_INFO = {
+  'min-length': {
+    signal: 'min chars',
+    tooltip: 'Minimum syllable length included in traversal. Filters input terrain before walking.',
+    modal: {
+      title: 'Min Length (chars)',
+      rows: [
+        ['Definition',
+         'Minimum character length for syllables included in the active field.'],
+        ['Effect on Structure',
+         '<ul>' +
+         '<li>Removes shorter syllables from the graph.</li>' +
+         '<li>Can reduce graph connectivity.</li>' +
+         '<li>May increase compression and reduce drift.</li>' +
+         '</ul>'],
+        ['Interpretation',
+         '<ul>' +
+         '<li>Lower min length \u2192 more connective \u201cglue\u201d syllables.</li>' +
+         '<li>Higher min length \u2192 more fragmented terrain.</li>' +
+         '</ul>'],
+        ['Not a Quality Control',
+         'This does not improve syllable \u201cquality.\u201d It reshapes terrain topology.'],
+      ],
+    },
+  },
+  'max-length': {
+    signal: 'max chars',
+    tooltip: 'Maximum syllable length included in traversal. Trims longer structural units.',
+    modal: {
+      title: 'Max Length (chars)',
+      rows: [
+        ['Definition',
+         'Upper bound on syllable character length for inclusion in the field.'],
+        ['Effect on Structure',
+         '<ul>' +
+         '<li>Removes long structural anchors.</li>' +
+         '<li>Can reduce morphological stability.</li>' +
+         '<li>May increase uniformity.</li>' +
+         '</ul>'],
+        ['Interpretation',
+         '<ul>' +
+         '<li>Lower max length \u2192 tighter rhythmic control.</li>' +
+         '<li>Higher max length \u2192 broader morphological variation.</li>' +
+         '</ul>'],
+        ['Structural Role',
+         'Acts as terrain pruning, not aesthetic tuning.'],
+      ],
+    },
+  },
+  'walk-steps': {
+    signal: 'path depth',
+    tooltip: 'Number of transitions per walk. Controls name length via traversal depth.',
+    modal: {
+      title: 'Walk Steps',
+      rows: [
+        ['Definition',
+         'Number of graph transitions performed per generated walk.'],
+        ['Effect on Behaviour',
+         '<ul>' +
+         '<li>Higher steps \u2192 longer constructions.</li>' +
+         '<li>Increases cumulative drift.</li>' +
+         '<li>Amplifies temperature effects.</li>' +
+         '</ul>'],
+        ['Not Influencing Reach',
+         'Does not change traversal reach. Only affects how far within reach the walker travels.'],
+      ],
+    },
+  },
+  'max-flips': {
+    signal: 'edge tolerance',
+    tooltip: 'Maximum allowed feature deviations per transition.',
+    modal: {
+      title: 'Max Flips (per step)',
+      rows: [
+        ['Definition',
+         'Maximum number of feature mismatches allowed between connected syllables.'],
+        ['Effect on Structure',
+         '<ul>' +
+         '<li>Higher flips increase structural connectivity.</li>' +
+         '<li>Lower flips compress traversal field.</li>' +
+         '<li>Strongly influences reach.</li>' +
+         '</ul>'],
+        ['Graph Impact',
+         'Changes edge existence, not probability weighting.'],
+        ['Interpretation',
+         'Flips alter topology, not randomness.'],
+      ],
+    },
+  },
+  'temperature': {
+    signal: 'entropy',
+    tooltip: 'Controls probability distribution shape across neighbours. Higher values increase exploration.',
+    modal: {
+      title: 'Temperature',
+      rows: [
+        ['Definition',
+         'Softmax scaling factor applied to neighbour transition probabilities.'],
+        ['Effect on Behaviour',
+         '<ul>' +
+         '<li>Higher temperature \u2192 flatter probability distribution.</li>' +
+         '<li>Lower temperature \u2192 sharper preference for high-similarity edges.</li>' +
+         '</ul>'],
+        ['Does Not Change Structural Connectivity',
+         'Temperature reshapes probability mass, not graph edges.'],
+        ['Thermodynamic Role',
+         'Influences effective reach (probability thresholded), not pure graph reach.'],
+      ],
+    },
+  },
+  'freq-weight': {
+    signal: 'rarity bias',
+    tooltip: 'Biases transition probability by syllable frequency. Positive favours common, negative favours rare.',
+    modal: {
+      title: 'Frequency Weight (bias)',
+      rows: [
+        ['Definition',
+         'Bias applied to syllable frequency distribution.'],
+        ['Effect on Behaviour',
+         '<ul>' +
+         '<li>Positive \u2192 favours common syllables.</li>' +
+         '<li>Negative \u2192 favours rare syllables.</li>' +
+         '</ul>'],
+        ['When Hapax Rate = 100%',
+         'Frequency weighting has minimal effect.'],
+        ['Structural Role',
+         'Alters probability weighting, not graph connectivity.'],
+      ],
+    },
+  },
+  'neighbors': {
+    signal: 'branch cap',
+    tooltip: 'Maximum number of adjacent syllables considered at each step.',
+    modal: {
+      title: 'Neighbors (max)',
+      rows: [
+        ['Definition',
+         'Caps the number of outgoing edges evaluated per node.'],
+        ['Effect on Structure',
+         '<ul>' +
+         '<li>Lower cap reduces traversal branching.</li>' +
+         '<li>Can significantly reduce reach.</li>' +
+         '<li>Alters effective topology under constraint.</li>' +
+         '</ul>'],
+        ['Interpretation',
+         'Acts as local pruning of the adjacency graph.'],
+      ],
+    },
+  },
+  'seed': {
+    signal: 'rng seed',
+    tooltip: 'Controls reproducibility of stochastic transitions.',
+    modal: {
+      title: 'Seed',
+      rows: [
+        ['Definition',
+         'Initial value for pseudo-random number generator.'],
+        ['Effect',
+         '<ul>' +
+         '<li>Same seed + same parameters \u2192 identical walks.</li>' +
+         '<li>Does not influence reach calculation.</li>' +
+         '<li>Does not alter structural field.</li>' +
+         '</ul>'],
+        ['Philosophical Note',
+         'Seed enables determinism within stochastic systems.'],
+      ],
+    },
+  },
+  'walk-count': {
+    signal: 'sample size',
+    tooltip: 'Number of walks generated in this batch.',
+    modal: {
+      title: 'Walk Count',
+      rows: [
+        ['Definition',
+         'Number of independent traversal executions.'],
+        ['Effect',
+         '<ul>' +
+         '<li>Does not alter reach.</li>' +
+         '<li>Does not alter topology.</li>' +
+         '<li>Increases empirical coverage.</li>' +
+         '</ul>'],
+        ['Interpretation',
+         'Sample size influences observed diversity, not structural possibility.'],
+      ],
+    },
+  },
+};
+
+/**
+ * Show the parameter tooltip anchored to the given element.
+ *
+ * Populates the shared ``#param-tooltip`` element with the parameter
+ * title and a one-sentence tooltip, then positions it above the anchor.
+ *
+ * @param {HTMLElement} anchor - The element being hovered
+ * @param {string} key - Parameter key (e.g. "min-length")
+ */
+function showParamTooltip(anchor, key) {
+  const info = PARAM_INFO[key];
+  if (!info) return;
+
+  const tooltip = document.getElementById('param-tooltip');
+  const titleEl = document.getElementById('param-tooltip-title');
+  const bodyEl  = document.getElementById('param-tooltip-body');
+
+  titleEl.textContent = info.modal.title;
+  bodyEl.textContent  = info.tooltip;
+
+  /* Position above the anchor element. */
+  const rect = anchor.getBoundingClientRect();
+  tooltip.style.left = `${Math.max(8, rect.left)}px`;
+  tooltip.style.top  = `${rect.top - 8}px`;
+  tooltip.style.transform = 'translateY(-100%)';
+
+  tooltip.classList.add('is-visible');
+}
+
+/** Hide the parameter tooltip. */
+function hideParamTooltip() {
+  const tooltip = document.getElementById('param-tooltip');
+  tooltip.classList.remove('is-visible');
+}
+
+/**
+ * Open the parameter deep-dive modal with content for the given key.
+ *
+ * Dynamically populates ``#param-modal-tbody`` with rows from
+ * ``PARAM_INFO[key].modal.rows``.
+ *
+ * @param {string} key - Parameter key (e.g. "temperature")
+ */
+function openParamModal(key) {
+  const info = PARAM_INFO[key];
+  if (!info) return;
+
+  const modal   = document.getElementById('param-modal');
+  const titleEl = document.getElementById('param-modal-title');
+  const tbody   = document.getElementById('param-modal-tbody');
+
+  titleEl.textContent = info.modal.title;
+
+  /* Build table rows from the modal data. */
+  tbody.innerHTML = info.modal.rows.map(([heading, content]) =>
+    `<tr><th>${heading}</th><td>${content}</td></tr>`
+  ).join('');
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Initialise the parameter info 3-tier progressive disclosure system.
+ *
+ * Wires up:
+ *   1. Tooltip hover on .param-signal and .control-label elements (Level 2)
+ *   2. Click on .param-info-btn elements to open modal (Level 3)
+ *   3. Modal close handlers (backdrop, close button, Escape key)
+ */
+function initParamInfo() {
+  /* ── Level 2: Tooltip on hover of signal spans ── */
+  document.querySelectorAll('.param-signal').forEach(el => {
+    const key = el.dataset.param;
+    if (!key || !PARAM_INFO[key]) return;
+
+    el.style.cursor = 'help';
+    el.addEventListener('mouseenter', () => showParamTooltip(el, key));
+    el.addEventListener('mouseleave', hideParamTooltip);
   });
+
+  /* Also wire tooltips on the control-label text inside .control-label-row
+     wrappers, so hovering the label name shows the tooltip too. */
+  document.querySelectorAll('.control-label-row .control-label').forEach(label => {
+    const row = label.closest('.control-label-row');
+    const signal = row?.querySelector('.param-signal');
+    if (!signal) return;
+    const key = signal.dataset.param;
+    if (!key || !PARAM_INFO[key]) return;
+
+    label.style.cursor = 'help';
+    label.addEventListener('mouseenter', () => showParamTooltip(label, key));
+    label.addEventListener('mouseleave', hideParamTooltip);
+  });
+
+  /* For slider headers (Temperature, Freq Weight), the label lives inside
+     .slider-control__header alongside a sibling .param-signal. Wire tooltip
+     on the label there too. */
+  document.querySelectorAll('.slider-control__header .param-signal').forEach(signal => {
+    const key = signal.dataset.param;
+    if (!key || !PARAM_INFO[key]) return;
+
+    const header = signal.closest('.slider-control__header');
+    const label  = header?.querySelector('.control-label');
+    if (!label) return;
+
+    label.style.cursor = 'help';
+    label.addEventListener('mouseenter', () => showParamTooltip(label, key));
+    label.addEventListener('mouseleave', hideParamTooltip);
+  });
+
+  /* ── Level 3: Info button click opens modal ── */
+  document.querySelectorAll('.param-info-btn').forEach(btn => {
+    const key = btn.dataset.param;
+    if (!key || !PARAM_INFO[key]) return;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openParamModal(key);
+    });
+  });
+
+  /* ── Modal close handlers ── */
+  const modal    = document.getElementById('param-modal');
+  const backdrop = document.getElementById('param-modal-backdrop');
+  const closeBtn = document.getElementById('param-modal-close');
+
+  if (modal) {
+    [backdrop, closeBtn].forEach(el => {
+      el?.addEventListener('click', () => modal.classList.add('hidden'));
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        modal.classList.add('hidden');
+      }
+    });
+  }
+
+  /* ── Structural Summary modal ── */
+  const summaryModal    = document.getElementById('summary-modal');
+  const summaryBackdrop = document.getElementById('summary-modal-backdrop');
+  const summaryClose    = document.getElementById('summary-modal-close');
+
+  document.querySelectorAll('.summary-info-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (summaryModal) summaryModal.classList.remove('hidden');
+    });
+  });
+
+  if (summaryModal) {
+    [summaryBackdrop, summaryClose].forEach(el => {
+      el?.addEventListener('click', () => summaryModal.classList.add('hidden'));
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !summaryModal.classList.contains('hidden')) {
+        summaryModal.classList.add('hidden');
+      }
+    });
+  }
 }
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   23. INIT
+   24. INIT
    ═══════════════════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1483,7 +2161,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initSeedButtons();
   initCorpusDropdowns();
   initDirModal();
+  initReachModal();
+  initParamInfo();
   initGenerateWalks();
+  initExportWalks();
   initGenerateCandidates();
   initSelectNames();
   initExportTxt();
@@ -1496,14 +2177,45 @@ document.addEventListener('DOMContentLoaded', () => {
   navigateToScreen('pipeline-configure');
   updateStatusBarContext('pipeline');
 
-  /* Fetch initial walker stats from API */
+  /* Populate header version from the package's __version__. */
+  fetch('/api/version')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('app-version');
+      if (el && data.version) {
+        el.textContent = `build tools \u00b7 v${data.version}`;
+      }
+    })
+    .catch(() => { /* keep fallback text */ });
+
+  /* Fetch initial walker stats from API.
+     If the server already has a walker ready (e.g. after a page refresh),
+     we need to populate the corpus status, reach values, and combine bar
+     immediately rather than waiting for a new corpus load to trigger
+     pollWalkerReady(). */
   fetch('/api/walker/stats')
     .then(r => r.json())
     .then(data => {
       ['a', 'b'].forEach(patch => {
+        const P = patch.toUpperCase();
         const info = data[`patch_${patch}`];
-        if (info && info.corpus) {
-          document.getElementById(`status-corpus-${patch}`).textContent = info.corpus;
+        if (!info || !info.corpus) return;
+
+        document.getElementById(`status-corpus-${patch}`).textContent = info.corpus;
+
+        /* If the walker is already ready, update the full status line
+           and populate reach values (same logic as pollWalkerReady). */
+        if (info.walker_ready) {
+          const count = info.syllable_count
+            ? info.syllable_count.toLocaleString() : '?';
+          const statusEl = document.getElementById(`corpus-status-${patch}`);
+          if (statusEl) {
+            statusEl.textContent =
+              `${info.corpus} \u00b7 ${count} syllables \u00b7 walker ready \u2713`;
+          }
+          if (info.reaches) {
+            updateReachValues(patch, info.reaches);
+          }
         }
       });
     })
