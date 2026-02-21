@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.21...pipeworks-name-generation-v0.6.0) (2026-02-21)
+
+
+### Features
+
+* **build_tools:** add 3-tier progressive disclosure UI for walker ([b9246e8](https://github.com/pipe-works/pipeworks_name_generation/commit/b9246e860647dbce6322f311c32cd4ce46319102))
+* **build_tools:** add traversal reach computation for walker profiles ([b1aa6c8](https://github.com/pipe-works/pipeworks_name_generation/commit/b1aa6c84a2e54d3eb8929a4e5870fe7d3fe37d8a))
+* webapp info layers, reach computation, and UI enhancements ([95c3636](https://github.com/pipe-works/pipeworks_name_generation/commit/95c3636028301baea8e7575b8d654102d8047d3b))
+* **webapp:** add profile reach syllable tabs with copy/export ([91459c6](https://github.com/pipe-works/pipeworks_name_generation/commit/91459c6136f6b523674e7ddb061254136663fe41))
+* **webapp:** add profile reach syllable tabs with copy/export ([617a38a](https://github.com/pipe-works/pipeworks_name_generation/commit/617a38a07eaf148a44b6932498c8cfc4c8205bb7))
+* **webapp:** add version display, header icon, and package manifest ([41eb73e](https://github.com/pipe-works/pipeworks_name_generation/commit/41eb73ee2d32cf50f2452f326af5703e8a0b663c))
+
+
+### Fixes
+
+* allow feat commits to bump minor version in 0.x ([3c2f818](https://github.com/pipe-works/pipeworks_name_generation/commit/3c2f818c2036120da1f195cedad1ab789f45e646))
+* allow feat commits to bump minor version in 0.x ([3aa0692](https://github.com/pipe-works/pipeworks_name_generation/commit/3aa0692b5f8c09ad71437b6cf49538a0161d30f9))
+* **tests:** relax reach timing assertion for Windows clock resolution ([f483e97](https://github.com/pipe-works/pipeworks_name_generation/commit/f483e97fe839d3a7428a79ffe7f3dd477a0413ed))
+* **tui:** guard late browser events during modal teardown ([2797ef3](https://github.com/pipe-works/pipeworks_name_generation/commit/2797ef3c858154aa91a15b0df305a4236b4ea743))
+
+
+### Internal Changes
+
+* **build-tools:** modularize syllable walk web app frontend ([871978b](https://github.com/pipe-works/pipeworks_name_generation/commit/871978bcee08322a31703517135aa8a337330b73))
+* **build-tools:** modularize syllable walk web app frontend ([f3f8bbb](https://github.com/pipe-works/pipeworks_name_generation/commit/f3f8bbb58f1b5ea432605a7e98f48b02ceb94aac))
+
 ## [0.5.21](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.20...pipeworks-name-generation-v0.5.21) (2026-02-21)
 
 
