@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 from textual.app import App
 from textual.binding import Binding
+from textual.css.query import NoMatches
 from textual.widgets import Button, DirectoryTree, Label, Static
 
 from build_tools.tui_common.controls import (
@@ -857,6 +858,102 @@ class TestDirectoryBrowserScreen:
 
             select_button = screen.query_one("#select-button", Button)
             assert select_button.disabled is False
+
+    def test_get_validation_widgets_returns_none_on_no_matches(self, tmp_path: Path) -> None:
+        """Test helper returns None when widgets are unavailable during teardown."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        screen.query_one = Mock(side_effect=NoMatches("#select-button"))  # type: ignore[method-assign]
+        assert screen._get_validation_widgets() is None
+
+    def test_get_validation_widgets_returns_tuple_when_present(self, tmp_path: Path) -> None:
+        """Test helper returns all validation widgets when mounted."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        status_container = Mock(spec=Static)
+        status_text = Mock(spec=Label)
+        select_button = Mock(spec=Button)
+
+        def fake_query_one(selector: str, _widget_type: object) -> object:
+            if selector == "#validation-status":
+                return status_container
+            if selector == "#status-text":
+                return status_text
+            if selector == "#select-button":
+                return select_button
+            raise AssertionError(f"Unexpected selector: {selector}")
+
+        screen.query_one = Mock(side_effect=fake_query_one)  # type: ignore[method-assign]
+        result = screen._get_validation_widgets()
+        assert result == (status_container, status_text, select_button)
+
+    def test_get_select_button_returns_none_on_no_matches(self, tmp_path: Path) -> None:
+        """Test select-button helper returns None when button is absent."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        screen.query_one = Mock(side_effect=NoMatches("#select-button"))  # type: ignore[method-assign]
+        assert screen._get_select_button() is None
+
+    def test_validate_status_returns_early_when_widgets_missing(self, tmp_path: Path) -> None:
+        """Test validation silently returns when late events arrive after teardown."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        screen._get_validation_widgets = Mock(return_value=None)  # type: ignore[method-assign]
+        screen._validate_and_update_status(tmp_path)
+        assert screen.selected_path == tmp_path
+
+    def test_file_selected_returns_early_when_widgets_missing(self, tmp_path: Path) -> None:
+        """Test file-selection handler tolerates missing widgets during teardown."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        file_path = tmp_path / "child.txt"
+        file_path.write_text("x")
+
+        event = Mock()
+        event.path = file_path
+
+        # Cover branch where selected parent is being reused.
+        screen.selected_path = tmp_path
+        screen._get_validation_widgets = Mock(return_value=None)  # type: ignore[method-assign]
+        screen.file_selected(event)
+        assert screen.selected_path == tmp_path
+
+        # Cover branch where no selected parent exists.
+        screen.selected_path = None
+        screen._get_validation_widgets = Mock(return_value=None)  # type: ignore[method-assign]
+        screen.file_selected(event)
+        assert screen.selected_path is None
+
+    def test_action_select_node_handles_missing_select_button(self, tmp_path: Path) -> None:
+        """Test Enter-selection path does not crash when select button is unavailable."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        tree = Mock(spec=DirectoryTree)
+        node_data = Mock()
+        node_data.path = str(tmp_path)
+        tree.cursor_node = Mock(data=node_data)
+        screen.query_one = Mock(return_value=tree)  # type: ignore[method-assign]
+        screen._validate_and_update_status = Mock(  # type: ignore[method-assign]
+            side_effect=lambda path: setattr(screen, "selected_path", path)
+        )
+        screen._get_select_button = Mock(return_value=None)  # type: ignore[method-assign]
+        screen.dismiss = Mock()  # type: ignore[method-assign]
+
+        screen.action_select_node()
+        screen.dismiss.assert_not_called()
+
+    def test_action_select_node_dismisses_when_button_enabled(self, tmp_path: Path) -> None:
+        """Test Enter-selection dismisses when the selected directory is valid."""
+        screen = DirectoryBrowserScreen(initial_dir=tmp_path)
+        tree = Mock(spec=DirectoryTree)
+        node_data = Mock()
+        node_data.path = str(tmp_path)
+        tree.cursor_node = Mock(data=node_data)
+        screen.query_one = Mock(return_value=tree)  # type: ignore[method-assign]
+        screen._validate_and_update_status = Mock(  # type: ignore[method-assign]
+            side_effect=lambda path: setattr(screen, "selected_path", path)
+        )
+        select_button = Mock(spec=Button)
+        select_button.disabled = False
+        screen._get_select_button = Mock(return_value=select_button)  # type: ignore[method-assign]
+        screen.dismiss = Mock()  # type: ignore[method-assign]
+
+        screen.action_select_node()
+        screen.dismiss.assert_called_once_with(tmp_path)
 
 
 # =============================================================================
