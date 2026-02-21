@@ -595,3 +595,36 @@ class TestUtilityMethods:
         assert "dialect" in profiles
         assert "goblin" in profiles
         assert "ritual" in profiles
+
+
+# ============================================================
+# from_data Progress Callback Tests
+# ============================================================
+
+
+class TestFromDataProgressCallback:
+    """Verify progress_callback is invoked during from_data neighbor graph build."""
+
+    def test_callback_invoked_during_graph_build(self, sample_syllables):
+        """from_data should invoke progress_callback during neighbor graph construction."""
+        messages: list[str] = []
+        SyllableWalker.from_data(sample_syllables, verbose=False, progress_callback=messages.append)
+
+        # At minimum: one batch message + one completion message.
+        assert len(messages) >= 2
+        assert any("Neighbour graph complete" in m for m in messages)
+
+    def test_callback_batch_message_format(self, sample_syllables):
+        """Batch progress messages should contain syllable counts."""
+        messages: list[str] = []
+        SyllableWalker.from_data(sample_syllables, verbose=False, progress_callback=messages.append)
+
+        batch_msgs = [m for m in messages if "Building neighbour graph" in m]
+        assert len(batch_msgs) >= 1
+        # Should contain formatted count like "(5 / 5)"
+        assert "/" in batch_msgs[0]
+
+    def test_no_callback_does_not_raise(self, sample_syllables):
+        """from_data with progress_callback=None must not raise."""
+        walker = SyllableWalker.from_data(sample_syllables, verbose=False, progress_callback=None)
+        assert len(walker.syllables) == len(sample_syllables)

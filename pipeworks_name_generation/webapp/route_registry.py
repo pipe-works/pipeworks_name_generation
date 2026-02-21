@@ -16,6 +16,7 @@ GET_ROUTE_METHODS: dict[str, str] = {
     "/static/api_builder_preview.js": "get_static_api_builder_preview_js",
     "/static/favorites.js": "get_static_favorites_js",
     "/api/health": "get_health",
+    "/api/version": "get_version",
     "/api/generation/package-options": "get_generation_package_options",
     "/api/generation/package-syllables": "get_generation_package_syllables",
     "/api/generation/selection-stats": "get_generation_selection_stats",

@@ -17,8 +17,8 @@
 
     <!-- Row 1: branding + tool switcher + theme toggle -->
     <div class="app-header__row app-header__row--top">
-      <span class="app-header__title">Pipe-Works</span>
-      <span class="app-header__subtitle">build tools · v0.1.0</span>
+      <span class="app-header__title"><span class="app-header__icon">&#x2699;</span> Pipe-Works</span>
+      <span class="app-header__subtitle" id="app-version">build tools</span>
 
       <nav class="tool-nav" role="navigation" aria-label="Tool selection">
         <button class="tool-tab is-active" data-tool="pipeline" aria-current="true">
@@ -46,7 +46,7 @@
       <!-- Walker sub-tabs -->
       <nav class="app-nav sub-nav hidden" id="sub-nav-walker" role="navigation" aria-label="Walker screens">
         <button class="tab is-active" data-screen="walker-main"     data-tool="walker">Walk</button>
-        <button class="tab"           data-screen="walker-blended"  data-tool="walker">Blended</button>
+        <button class="tab"           data-screen="walker-combine"  data-tool="walker">Combine</button>
         <button class="tab"           data-screen="walker-analysis" data-tool="walker">Analysis</button>
         <button class="tab"           data-screen="walker-render"   data-tool="walker">Render</button>
         <button class="tab"           data-screen="walker-package"  data-tool="walker">Package</button>
@@ -336,7 +336,7 @@
 
       <!-- ── ROW 1, COL 1: Patch A ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch A configuration">
-        <h2 class="panel__heading">Patch A</h2>
+        <h2 class="panel__heading">Patch A <span class="param-info-btn summary-info-btn" aria-label="Structural Summary">?</span></h2>
 
         <!-- Corpus selector: one-step dropdown.  Selecting a run immediately
              loads the corpus — no modal, no extra confirm click needed. -->
@@ -358,21 +358,25 @@
             <input type="radio" name="profile-a" value="clerical" />
             <span class="profile-option__name">clerical</span>
             <span class="profile-option__desc u-muted">Conservative, favors common</span>
+            <span class="profile-reach" id="reach-a-clerical"></span>
           </label>
           <label class="profile-option is-selected" data-patch="a" data-profile="dialect">
             <input type="radio" name="profile-a" value="dialect" checked />
             <span class="profile-option__name">dialect</span>
             <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+            <span class="profile-reach" id="reach-a-dialect"></span>
           </label>
           <label class="profile-option" data-patch="a" data-profile="goblin">
             <input type="radio" name="profile-a" value="goblin" />
             <span class="profile-option__name">goblin</span>
             <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+            <span class="profile-reach" id="reach-a-goblin"></span>
           </label>
           <label class="profile-option" data-patch="a" data-profile="ritual">
             <input type="radio" name="profile-a" value="ritual" />
             <span class="profile-option__name">ritual</span>
             <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+            <span class="profile-reach" id="reach-a-ritual"></span>
           </label>
           <label class="profile-option" data-patch="a" data-profile="custom">
             <input type="radio" name="profile-a" value="custom" />
@@ -385,7 +389,11 @@
 
         <div class="param-group">
           <div class="spinner-control">
-            <label class="control-label" for="min-length-a">Min Length</label>
+            <div class="control-label-row">
+              <label class="control-label" for="min-length-a">Min Length</label>
+              <span class="param-signal" data-param="min-length">min chars</span>
+              <span class="param-info-btn" data-param="min-length" aria-label="Min Length details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="min-length-a" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="min-length-a" type="number" value="2" min="1" max="10" />
@@ -394,7 +402,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="max-length-a">Max Length</label>
+            <div class="control-label-row">
+              <label class="control-label" for="max-length-a">Max Length</label>
+              <span class="param-signal" data-param="max-length">max chars</span>
+              <span class="param-info-btn" data-param="max-length" aria-label="Max Length details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="max-length-a" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="max-length-a" type="number" value="5" min="1" max="10" />
@@ -403,7 +415,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="walk-steps-a">Walk Steps</label>
+            <div class="control-label-row">
+              <label class="control-label" for="walk-steps-a">Walk Steps</label>
+              <span class="param-signal" data-param="walk-steps">path depth</span>
+              <span class="param-info-btn" data-param="walk-steps" aria-label="Walk Steps details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="walk-steps-a" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="walk-steps-a" type="number" value="5" min="0" max="20" />
@@ -412,7 +428,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="max-flips-a">Max Flips</label>
+            <div class="control-label-row">
+              <label class="control-label" for="max-flips-a">Max Flips</label>
+              <span class="param-signal" data-param="max-flips">edge tolerance</span>
+              <span class="param-info-btn" data-param="max-flips" aria-label="Max Flips details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="max-flips-a" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="max-flips-a" type="number" value="2" min="1" max="3" />
@@ -423,6 +443,8 @@
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="temperature-a">Temperature</label>
+              <span class="param-signal" data-param="temperature">entropy</span>
+              <span class="param-info-btn" data-param="temperature" aria-label="Temperature details">?</span>
               <span class="slider-val u-accent" id="temperature-a-val">0.7</span>
             </div>
             <input class="range-input" id="temperature-a" type="range" min="0.1" max="5.0" step="0.1" value="0.7" />
@@ -430,13 +452,18 @@
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="freq-weight-a">Freq Weight</label>
+              <span class="param-signal" data-param="freq-weight">rarity bias</span>
+              <span class="param-info-btn" data-param="freq-weight" aria-label="Frequency Weight details">?</span>
               <span class="slider-val u-accent" id="freq-weight-a-val">0.0</span>
-              <span class="u-muted" style="font-size:var(--text-xs)">bias</span>
             </div>
             <input class="range-input" id="freq-weight-a" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" />
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="neighbors-a">Neighbors</label>
+            <div class="control-label-row">
+              <label class="control-label" for="neighbors-a">Neighbors</label>
+              <span class="param-signal" data-param="neighbors">branch cap</span>
+              <span class="param-info-btn" data-param="neighbors" aria-label="Neighbors details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="neighbors-a" data-delta="-5" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="neighbors-a" type="number" value="10" min="5" max="50" />
@@ -449,7 +476,11 @@
         <hr class="divider" />
 
         <div class="seed-control">
-          <label class="control-label" for="seed-a">Seed</label>
+          <div class="control-label-row">
+            <label class="control-label" for="seed-a">Seed</label>
+            <span class="param-signal" data-param="seed">rng seed</span>
+            <span class="param-info-btn" data-param="seed" aria-label="Seed details">?</span>
+          </div>
           <div class="spinner-row">
             <input class="input seed-input" id="seed-a" type="text" placeholder="random" />
             <button class="btn btn--icon" id="seed-random-a" title="Randomise seed" aria-label="Randomise seed">⟳</button>
@@ -459,7 +490,11 @@
         <hr class="divider" />
 
         <div class="spinner-control">
-          <label class="control-label" for="walk-count-a">Walk Count</label>
+          <div class="control-label-row">
+            <label class="control-label" for="walk-count-a">Walk Count</label>
+            <span class="param-signal" data-param="walk-count">sample size</span>
+            <span class="param-info-btn" data-param="walk-count" aria-label="Walk Count details">?</span>
+          </div>
           <div class="spinner-row">
             <button class="btn btn--icon spinner-btn" data-target="walk-count-a" data-delta="-1" aria-label="Decrease">−</button>
             <input class="input input--sm spinner-val" id="walk-count-a" type="number" value="2" min="1" max="20" />
@@ -470,6 +505,13 @@
 
         <button class="btn btn--primary btn--full" id="generate-a">Generate Walks</button>
 
+        <div class="walks-export-bar">
+          <button class="btn btn--secondary btn--sm" id="copy-walks-txt-a">Copy TXT</button>
+          <button class="btn btn--secondary btn--sm" id="copy-walks-md-a">Copy MD</button>
+          <button class="btn btn--secondary btn--sm" id="export-walks-txt-a">Export TXT</button>
+          <button class="btn btn--secondary btn--sm" id="export-walks-md-a">Export MD</button>
+        </div>
+
         <div class="walks-output" id="walks-output-a" aria-live="polite">
           <p class="placeholder-text">(Press Generate to create walks)</p>
         </div>
@@ -477,7 +519,7 @@
 
       <!-- ── ROW 1, COL 2: Patch B ── -->
       <section class="walk-col walk-col--patch panel panel--dark" aria-label="Patch B configuration">
-        <h2 class="panel__heading">Patch B</h2>
+        <h2 class="panel__heading">Patch B <span class="param-info-btn summary-info-btn" aria-label="Structural Summary">?</span></h2>
 
         <!-- Corpus selector: mirrors Patch A's one-step dropdown pattern. -->
         <div class="corpus-selector">
@@ -498,21 +540,25 @@
             <input type="radio" name="profile-b" value="clerical" />
             <span class="profile-option__name">clerical</span>
             <span class="profile-option__desc u-muted">Conservative, favors common</span>
+            <span class="profile-reach" id="reach-b-clerical"></span>
           </label>
           <label class="profile-option" data-patch="b" data-profile="dialect">
             <input type="radio" name="profile-b" value="dialect" />
             <span class="profile-option__name">dialect</span>
             <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+            <span class="profile-reach" id="reach-b-dialect"></span>
           </label>
           <label class="profile-option" data-patch="b" data-profile="goblin">
             <input type="radio" name="profile-b" value="goblin" />
             <span class="profile-option__name">goblin</span>
             <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+            <span class="profile-reach" id="reach-b-goblin"></span>
           </label>
           <label class="profile-option is-selected" data-patch="b" data-profile="ritual">
             <input type="radio" name="profile-b" value="ritual" checked />
             <span class="profile-option__name">ritual</span>
             <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+            <span class="profile-reach" id="reach-b-ritual"></span>
           </label>
           <label class="profile-option" data-patch="b" data-profile="custom">
             <input type="radio" name="profile-b" value="custom" />
@@ -525,7 +571,11 @@
 
         <div class="param-group">
           <div class="spinner-control">
-            <label class="control-label" for="min-length-b">Min Length</label>
+            <div class="control-label-row">
+              <label class="control-label" for="min-length-b">Min Length</label>
+              <span class="param-signal" data-param="min-length">min chars</span>
+              <span class="param-info-btn" data-param="min-length" aria-label="Min Length details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="min-length-b" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="min-length-b" type="number" value="2" min="1" max="10" />
@@ -534,7 +584,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="max-length-b">Max Length</label>
+            <div class="control-label-row">
+              <label class="control-label" for="max-length-b">Max Length</label>
+              <span class="param-signal" data-param="max-length">max chars</span>
+              <span class="param-info-btn" data-param="max-length" aria-label="Max Length details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="max-length-b" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="max-length-b" type="number" value="5" min="1" max="10" />
@@ -543,7 +597,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="walk-steps-b">Walk Steps</label>
+            <div class="control-label-row">
+              <label class="control-label" for="walk-steps-b">Walk Steps</label>
+              <span class="param-signal" data-param="walk-steps">path depth</span>
+              <span class="param-info-btn" data-param="walk-steps" aria-label="Walk Steps details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="walk-steps-b" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="walk-steps-b" type="number" value="7" min="0" max="20" />
@@ -552,7 +610,11 @@
             </div>
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="max-flips-b">Max Flips</label>
+            <div class="control-label-row">
+              <label class="control-label" for="max-flips-b">Max Flips</label>
+              <span class="param-signal" data-param="max-flips">edge tolerance</span>
+              <span class="param-info-btn" data-param="max-flips" aria-label="Max Flips details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="max-flips-b" data-delta="-1" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="max-flips-b" type="number" value="3" min="1" max="3" />
@@ -563,6 +625,8 @@
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="temperature-b">Temperature</label>
+              <span class="param-signal" data-param="temperature">entropy</span>
+              <span class="param-info-btn" data-param="temperature" aria-label="Temperature details">?</span>
               <span class="slider-val u-accent" id="temperature-b-val">2.1</span>
             </div>
             <input class="range-input" id="temperature-b" type="range" min="0.1" max="5.0" step="0.1" value="2.1" />
@@ -570,13 +634,18 @@
           <div class="slider-control">
             <div class="slider-control__header">
               <label class="control-label" for="freq-weight-b">Freq Weight</label>
+              <span class="param-signal" data-param="freq-weight">rarity bias</span>
+              <span class="param-info-btn" data-param="freq-weight" aria-label="Frequency Weight details">?</span>
               <span class="slider-val u-accent" id="freq-weight-b-val">-1.2</span>
-              <span class="u-muted" style="font-size:var(--text-xs)">bias</span>
             </div>
             <input class="range-input" id="freq-weight-b" type="range" min="-2.0" max="2.0" step="0.1" value="-1.2" />
           </div>
           <div class="spinner-control">
-            <label class="control-label" for="neighbors-b">Neighbors</label>
+            <div class="control-label-row">
+              <label class="control-label" for="neighbors-b">Neighbors</label>
+              <span class="param-signal" data-param="neighbors">branch cap</span>
+              <span class="param-info-btn" data-param="neighbors" aria-label="Neighbors details">?</span>
+            </div>
             <div class="spinner-row">
               <button class="btn btn--icon spinner-btn" data-target="neighbors-b" data-delta="-5" aria-label="Decrease">−</button>
               <input class="input input--sm spinner-val" id="neighbors-b" type="number" value="25" min="5" max="50" />
@@ -589,7 +658,11 @@
         <hr class="divider" />
 
         <div class="seed-control">
-          <label class="control-label" for="seed-b">Seed</label>
+          <div class="control-label-row">
+            <label class="control-label" for="seed-b">Seed</label>
+            <span class="param-signal" data-param="seed">rng seed</span>
+            <span class="param-info-btn" data-param="seed" aria-label="Seed details">?</span>
+          </div>
           <div class="spinner-row">
             <input class="input seed-input" id="seed-b" type="text" placeholder="random" />
             <button class="btn btn--icon" id="seed-random-b" title="Randomise seed" aria-label="Randomise seed">⟳</button>
@@ -599,7 +672,11 @@
         <hr class="divider" />
 
         <div class="spinner-control">
-          <label class="control-label" for="walk-count-b">Walk Count</label>
+          <div class="control-label-row">
+            <label class="control-label" for="walk-count-b">Walk Count</label>
+            <span class="param-signal" data-param="walk-count">sample size</span>
+            <span class="param-info-btn" data-param="walk-count" aria-label="Walk Count details">?</span>
+          </div>
           <div class="spinner-row">
             <button class="btn btn--icon spinner-btn" data-target="walk-count-b" data-delta="-1" aria-label="Decrease">−</button>
             <input class="input input--sm spinner-val" id="walk-count-b" type="number" value="2" min="1" max="20" />
@@ -610,13 +687,34 @@
 
         <button class="btn btn--primary btn--full" id="generate-b">Generate Walks</button>
 
+        <div class="walks-export-bar">
+          <button class="btn btn--secondary btn--sm" id="copy-walks-txt-b">Copy TXT</button>
+          <button class="btn btn--secondary btn--sm" id="copy-walks-md-b">Copy MD</button>
+          <button class="btn btn--secondary btn--sm" id="export-walks-txt-b">Export TXT</button>
+          <button class="btn btn--secondary btn--sm" id="export-walks-md-b">Export MD</button>
+        </div>
+
         <div class="walks-output" id="walks-output-b" aria-live="polite">
           <p class="placeholder-text">(Press Generate to create walks)</p>
         </div>
       </section>
 
-      <!-- ── ROW 2, COL 1: Combiner A + Selector A ── -->
-      <section class="walk-col walk-col--combiner panel" aria-label="Patch A name generation">
+    </div><!-- /walk-layout -->
+  </main>
+
+
+  <!-- ── WALKER: COMBINE ── -->
+  <main class="app-main screen" id="screen-walker-combine" role="main" hidden>
+
+    <!-- Reach placeholder — shows summary of Walk tab reaches for context -->
+    <div class="combine-reach-bar" id="combine-reach-bar">
+      <span class="u-muted" id="combine-reach-text">Load a corpus in the Walk tab to see profile reach values.</span>
+    </div>
+
+    <div class="combine-layout">
+
+      <!-- ── Combiner A + Selector A ── -->
+      <section class="combine-col panel" aria-label="Patch A name generation">
 
         <div class="sub-panel">
           <h2 class="panel__heading">Patch A — Name Combiner</h2>
@@ -750,8 +848,8 @@
         </div>
       </section>
 
-      <!-- ── ROW 2, COL 2: Combiner B + Selector B ── -->
-      <section class="walk-col walk-col--combiner panel" aria-label="Patch B name generation">
+      <!-- ── Combiner B + Selector B ── -->
+      <section class="combine-col panel" aria-label="Patch B name generation">
 
         <div class="sub-panel">
           <h2 class="panel__heading">Patch B — Name Combiner</h2>
@@ -885,32 +983,7 @@
         </div>
       </section>
 
-    </div><!-- /walk-layout -->
-  </main>
-
-
-  <!-- ── WALKER: BLENDED ── -->
-  <main class="app-main screen" id="screen-walker-blended" role="main" hidden>
-    <div class="modal-screen-layout">
-      <div class="modal-screen-header">
-        <h1 class="modal-screen-header__title">Blended Walk Results</h1>
-        <span class="badge badge--muted">Demo</span>
-      </div>
-      <div class="blended-columns">
-        <div class="blended-col panel panel--dark">
-          <h2 class="panel__heading">Patch A Walks</h2>
-          <div class="walks-output" id="blended-a-output">
-            <p class="placeholder-text">(Generate walks in the Walk screen first)</p>
-          </div>
-        </div>
-        <div class="blended-col panel panel--dark">
-          <h2 class="panel__heading">Patch B Walks</h2>
-          <div class="walks-output" id="blended-b-output">
-            <p class="placeholder-text">(Generate walks in the Walk screen first)</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </div><!-- /combine-layout -->
   </main>
 
 
@@ -1183,6 +1256,139 @@
         <button class="btn btn--primary" id="dir-modal-select" disabled>Select</button>
       </div>
     </div>
+  </div>
+
+  <!-- Reach deep-dive modal (Level 3 progressive disclosure) -->
+  <div class="modal hidden" id="reach-modal" role="dialog" aria-modal="true" aria-labelledby="reach-modal-title">
+    <div class="modal__backdrop" id="reach-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="reach-modal-title">Traversal Reach</h2>
+        <button class="btn btn--icon" id="reach-modal-close" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal__content" id="reach-modal-content">
+        <table class="reach-modal__table">
+          <tr>
+            <th>Definition</th>
+            <td>Mean effective vocabulary per step — the average number of syllables
+              with non-negligible transition probability from any given starting
+              position, under the selected profile's parameter set. Excludes
+              self-transitions (inertia).</td>
+          </tr>
+          <tr>
+            <th>Calculated Using</th>
+            <td>
+              <ul>
+                <li>Max flips (edge existence)</li>
+                <li>Temperature (probability distribution shape)</li>
+                <li>Frequency weight (rarity bias)</li>
+                <li>Neighbour graph adjacency</li>
+                <li>Softmax transition probabilities</li>
+                <li>Reachability threshold (p &gt; 0.001 per starting node)</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <th>Not Influenced By</th>
+            <td>
+              <ul>
+                <li>Seed</li>
+                <li>Walk count or walk steps</li>
+                <li>Sample size</li>
+                <li>Runtime randomness</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <th>Interpretation</th>
+            <td>
+              <ul>
+                <li>Smaller reach — at each step, fewer effective choices, higher cohesion</li>
+                <li>Larger reach — at each step, more choices, broader exploration</li>
+                <li>Neither is "better" — both are stylistic regimes</li>
+              </ul>
+            </td>
+          </tr>
+          <tr>
+            <th>Graph vs Thermodynamic</th>
+            <td>Pure graph reachability (BFS with max_flips) counts all structurally
+              connected nodes. Thermodynamic reach applies the profile's temperature
+              and frequency weight to compute actual transition probabilities per
+              starting node, then averages across all positions. This is why dialect
+              and goblin — both max_flips=2 — show different reach values.</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Parameter deep-dive modal (Level 3 progressive disclosure).
+       Single shared modal — content populated dynamically by JS from PARAM_INFO. -->
+  <div class="modal hidden" id="param-modal" role="dialog" aria-modal="true" aria-labelledby="param-modal-title">
+    <div class="modal__backdrop" id="param-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="param-modal-title"></h2>
+        <button class="btn btn--icon" id="param-modal-close" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal__content">
+        <table class="param-modal__table">
+          <tbody id="param-modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Structural Summary modal — shared between Patch A and Patch B.
+       Shows the parameter → structural-role matrix from the information model. -->
+  <div class="modal hidden" id="summary-modal" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
+    <div class="modal__backdrop" id="summary-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="summary-modal-title">Structural Summary</h2>
+        <button class="btn btn--icon" id="summary-modal-close" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal__content">
+        <table class="summary-modal__table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Changes Topology</th>
+              <th>Changes Probability</th>
+              <th>Changes Behaviour</th>
+              <th>Changes Reach</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Min/Max Length</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td><td class="u-indirect">Indirect</td><td class="u-check">&#x2714;</td></tr>
+            <tr><td>Max Flips</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-check">&#x2714;</td></tr>
+            <tr><td>Neighbors</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-check">&#x2714;</td></tr>
+            <tr><td>Temperature</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-check">&#x2714;</td><td class="u-indirect">Thermo</td></tr>
+            <tr><td>Freq Weight</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-check">&#x2714;</td><td class="u-indirect">Thermo</td></tr>
+            <tr><td>Walk Steps</td><td class="u-cross">&#x2716;</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td></tr>
+            <tr><td>Seed</td><td class="u-cross">&#x2716;</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td></tr>
+            <tr><td>Walk Count</td><td class="u-cross">&#x2716;</td><td class="u-cross">&#x2716;</td><td class="u-check">&#x2714;</td><td class="u-cross">&#x2716;</td></tr>
+          </tbody>
+        </table>
+        <p class="summary-modal__note">The Walker is a constrained traversal instrument. Each parameter reshapes terrain (topology), entropy (probability), or sampling (behaviour).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared reach tooltip (Level 2 progressive disclosure).
+       A single element repositioned by JS on hover. -->
+  <div class="reach-tooltip" id="reach-tooltip">
+    <div class="reach-tooltip__title" id="reach-tooltip-title"></div>
+    <div class="reach-tooltip__body" id="reach-tooltip-body"></div>
+    <dl class="reach-tooltip__params" id="reach-tooltip-params"></dl>
+  </div>
+
+  <!-- Shared parameter tooltip (Level 2 progressive disclosure).
+       A single element repositioned by JS on hover. Simpler than reach
+       tooltip — just title + body (no params grid). -->
+  <div class="param-tooltip" id="param-tooltip">
+    <div class="param-tooltip__title" id="param-tooltip-title"></div>
+    <div class="param-tooltip__body" id="param-tooltip-body"></div>
   </div>
 
   <script src="static/js/app.js"></script>

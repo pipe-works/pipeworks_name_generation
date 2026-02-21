@@ -346,3 +346,46 @@ def test_help_contract(tmp_path: Path) -> None:
         entry = payload["entries"][0]
         assert "question" in entry
         assert "answer" in entry
+
+
+def test_get_version_contract(tmp_path: Path) -> None:
+    """Version endpoint should return the package version string."""
+    from pipeworks_name_generation import __version__
+    from pipeworks_name_generation.webapp.endpoint_adapters import get_version
+
+    handler = _HandlerHarness(path="/api/version", db_path=tmp_path / "ver.sqlite3")
+    get_version(handler, {})
+    payload = handler.json_body()
+
+    assert payload == {"version": __version__}
+
+
+def test_get_root_injects_version(tmp_path: Path, monkeypatch: Any) -> None:
+    """Root endpoint should inject the package version into the HTML."""
+    from unittest.mock import patch as mock_patch
+
+    from pipeworks_name_generation import __version__
+    from pipeworks_name_generation.webapp.endpoint_adapters import get_root
+
+    # Provide minimal HTML containing the marker that get_root replaces.
+    fake_html = '<span class="app-header__subtitle" id="app-version">user tools</span>'
+
+    with mock_patch(
+        "pipeworks_name_generation.webapp.endpoint_adapters.get_index_html",
+        return_value=fake_html,
+    ):
+        captured_html: list[str] = []
+
+        def fake_serve_root(handler: Any, html: str) -> None:
+            captured_html.append(html)
+
+        with mock_patch(
+            "pipeworks_name_generation.webapp.endpoint_adapters.static_routes.get_root",
+            side_effect=fake_serve_root,
+        ):
+            handler = _HandlerHarness(path="/", db_path=tmp_path / "root.sqlite3")
+            get_root(handler, {})
+
+    assert len(captured_html) == 1
+    assert f"v{__version__}" in captured_html[0]
+    assert "\u00b7" in captured_html[0]  # middle dot separator

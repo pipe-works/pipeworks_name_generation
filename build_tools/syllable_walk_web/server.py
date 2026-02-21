@@ -170,6 +170,13 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
             )
             return
 
+        # Version — reads from pipeworks_name_generation.__version__
+        if path == "/api/version":
+            from pipeworks_name_generation import __version__
+
+            self._send_json({"version": __version__})
+            return
+
         self._send_error(404, f"Unknown API route: {path}")
 
     def _route_post(self, path: str) -> None:

@@ -10,7 +10,8 @@
 </head>
 <body>
   <header class="app-header">
-    <span class="app-header__title">Pipeworks Name Generator</span>
+    <span class="app-header__title"><span class="app-header__icon">&#x270E;</span> Pipe-Works</span>
+    <span class="app-header__subtitle" id="app-version">user tools</span>
     <nav class="tabs">
       <button type="button" class="tab active" data-tab="generation">Generation</button>
       <button type="button" class="tab" data-tab="database">Database View</button>
@@ -328,7 +329,12 @@
                 <select id="db-table-select" class="select"></select>
               </div>
               <p class="muted" id="db-status">Load packages to begin browsing.</p>
-              <ul id="db-table-list"></ul>
+              <div id="db-manifest-section" class="db-manifest-section hidden">
+                <h4 class="db-manifest-heading">Package Manifest</h4>
+                <table class="db-manifest-table">
+                  <tbody id="db-manifest-tbody"></tbody>
+                </table>
+              </div>
             </section>
 
             <section class="db-card">

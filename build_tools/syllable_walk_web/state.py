@@ -22,6 +22,8 @@ class PatchState:
     syllable_count: int = 0
     walker: Any | None = None  # SyllableWalker, lazy-loaded
     walker_ready: bool = False
+    loading_stage: str | None = None  # Current loading stage (for progress display)
+    profile_reaches: dict[str, Any] | None = None  # ReachResult per profile
     annotated_data: list[dict] | None = None
     frequencies: dict[str, int] | None = None
     walks: list[dict] = field(default_factory=list)

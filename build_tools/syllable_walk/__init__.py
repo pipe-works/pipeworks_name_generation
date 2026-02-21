@@ -67,6 +67,11 @@ from build_tools.syllable_walk.profiles import (
     get_profile,
     list_profiles,
 )
+from build_tools.syllable_walk.reach import (
+    ReachResult,
+    compute_all_reaches,
+    compute_reach,
+)
 from build_tools.syllable_walk.walker import SyllableWalker
 
 # Public API
@@ -76,4 +81,7 @@ __all__ = [
     "WALK_PROFILES",
     "get_profile",
     "list_profiles",
+    "ReachResult",
+    "compute_reach",
+    "compute_all_reaches",
 ]

@@ -25,7 +25,8 @@
    17. Corpus Browser Modal
    18. Pipeline Layouts (Configure, Monitor, History)
    19. Status Bar Extensions
-   20. Responsive
+   20. Parameter Info (3-Tier Progressive Disclosure)
+   21. Responsive
    ═══════════════════════════════════════════════════════════════════════════ */
 
 
@@ -49,6 +50,10 @@ body {
   gap: 0;
   padding: 0;
   height: auto;   /* override base --header-h so both rows fit */
+}
+
+.app-header__icon {
+  margin-right: var(--sp-1);
 }
 
 .app-header__spacer {
@@ -229,7 +234,7 @@ body {
 
 .walk-layout {
   display: grid;
-  grid-template-columns: 22% 22% 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0;
   height: 100%;
   overflow: hidden;
@@ -254,8 +259,28 @@ body {
   gap: var(--sp-2);
 }
 
-.walk-col--combiner {
+/* Combine tab layout */
+.combine-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.combine-col {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--panel-pad);
+  border-right: 1px solid var(--col-border);
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-2);
+  border-radius: 0;
+}
+
+.combine-col:last-child {
+  border-right: none;
 }
 
 
@@ -314,6 +339,151 @@ body {
 .profile-option__desc {
   font-size: var(--text-xs);
   line-height: 1.4;
+}
+
+/* Profile reach — inline micro signal (Level 1) */
+.profile-reach {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--col-text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+  cursor: help;
+  position: relative;
+}
+
+/* Reach tooltip (Level 2) — JS-positioned floating panel.
+   Follows the canonical .tooltip-bubble pattern from pipe-works-base.css
+   but extended with structured sub-elements (title, body, params). Uses
+   the same --col-tooltip-* tokens and --font-ui base font. */
+.reach-tooltip {
+  position: fixed;
+  z-index: 200;
+  width: 320px;
+  padding: var(--sp-3);
+  background: var(--col-tooltip-bg);
+  color: var(--col-tooltip-text);
+  border: 1px solid var(--col-tooltip-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.reach-tooltip.is-visible {
+  opacity: 1;
+}
+
+/* Profile name — mono for structural label */
+.reach-tooltip__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--col-accent);
+  margin-bottom: var(--sp-1);
+}
+
+/* Description prose — inherits --font-ui from container */
+.reach-tooltip__body {
+  margin-bottom: var(--sp-2);
+}
+
+/* Parameter grid (reach, threshold, timing) — mono for data */
+.reach-tooltip__params {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--col-text-muted);
+  border-top: 1px solid var(--col-tooltip-border);
+  padding-top: var(--sp-2);
+}
+
+.reach-tooltip__params dt {
+  color: var(--col-text-muted);
+}
+
+.reach-tooltip__params dd {
+  margin: 0;
+  color: var(--col-tooltip-text);
+  text-align: right;
+}
+
+/* Reach modal deep-dive (Level 3) — table layout */
+.reach-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.reach-modal__table th {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--col-accent);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--col-border);
+  width: 1%;
+}
+
+.reach-modal__table td {
+  color: var(--col-text);
+  line-height: 1.6;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--col-border);
+}
+
+.reach-modal__table tr:last-child th,
+.reach-modal__table tr:last-child td {
+  border-bottom: none;
+}
+
+.reach-modal__table td ul {
+  margin: 0;
+  padding-left: var(--sp-4);
+}
+
+.reach-modal__table td li {
+  margin-bottom: 2px;
+}
+
+/* Reach info button (?) next to reach value */
+.reach-info-btn {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--col-text-muted);
+  border: 1px solid var(--col-border);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.reach-info-btn:hover {
+  color: var(--col-accent);
+  border-color: var(--col-accent);
+}
+
+/* Combine tab reach placeholder */
+.combine-reach-bar {
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--col-code-bg);
+  border: 1px dashed var(--col-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  margin-bottom: var(--sp-3);
 }
 
 
@@ -460,6 +630,54 @@ body {
 .walks-output .walk-item::before {
   content: '→ ';
   color: var(--col-text-muted);
+}
+
+/* Walks table */
+.walks-output table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.walks-output thead th {
+  text-align: left;
+  color: var(--col-text-muted);
+  font-weight: 600;
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--col-border);
+  position: sticky;
+  top: 0;
+  background: var(--col-code-bg);
+}
+
+.walks-output tbody td {
+  padding: 2px var(--sp-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--col-border) 40%, transparent);
+}
+
+.walks-output tbody td:first-child {
+  color: var(--col-text-muted);
+  width: 3.5rem;
+  text-align: right;
+  padding-right: var(--sp-3);
+}
+
+.walks-output tbody td:nth-child(2) {
+  color: var(--col-accent);
+}
+
+.walks-output tbody td:last-child {
+  color: var(--col-text-muted);
+  width: 2.5rem;
+  text-align: right;
+}
+
+/* Export bar */
+.walks-export-bar {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
 }
 
 
@@ -639,20 +857,6 @@ body {
   align-items: center;
   gap: var(--sp-3);
   margin-left: auto;
-}
-
-/* Blended */
-.blended-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-3);
-  flex: 1;
-  overflow: hidden;
-}
-
-.blended-col {
-  overflow-y: auto;
-  border-radius: var(--radius-md);
 }
 
 /* Analysis */
@@ -1207,7 +1411,217 @@ body {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   20. RESPONSIVE
+   20. PARAMETER INFO — 3-Tier Progressive Disclosure
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Control label row (wrapper for label + signal + info button) ──
+   Used by spinner and seed controls where the label is a direct child.
+   Slider controls already have .slider-control__header as the flex row. */
+.control-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.control-label-row .control-label {
+  margin-bottom: 0;
+}
+
+/* ── Level 1: Inline micro signal ──
+   Dim monospace text showing the parameter's structural role.
+   Uses --col-text-dim (faintest token) so it doesn't compete with
+   the control label or spinner suffix. */
+.param-signal {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--col-text-dim);
+  white-space: nowrap;
+  margin-left: auto;
+  letter-spacing: 0.02em;
+}
+
+/* ── Level 2: Parameter tooltip ──
+   Shared floating panel repositioned by JS on hover. Follows the
+   same token usage as .reach-tooltip and the canonical .tooltip-bubble
+   in pipe-works-base.css. */
+.param-tooltip {
+  position: fixed;
+  z-index: 200;
+  width: 280px;
+  padding: var(--sp-3);
+  background: var(--col-tooltip-bg);
+  color: var(--col-tooltip-text);
+  border: 1px solid var(--col-tooltip-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.param-tooltip.is-visible {
+  opacity: 1;
+}
+
+/* Parameter name — mono for structural label */
+.param-tooltip__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--col-accent);
+  margin-bottom: var(--sp-1);
+}
+
+/* Tooltip body — inherits --font-ui from container */
+.param-tooltip__body {
+  color: var(--col-tooltip-text);
+}
+
+/* ── Level 3 trigger: Parameter info button (?) ──
+   Mirrors .reach-info-btn — small circle next to the signal. */
+.param-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--col-text-muted);
+  border: 1px solid var(--col-border);
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.param-info-btn:hover {
+  color: var(--col-accent);
+  border-color: var(--col-accent);
+}
+
+/* ── Level 3: Parameter modal table ──
+   Mirrors .reach-modal__table — structured deep-dive content. */
+.param-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.param-modal__table th {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--col-accent);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--col-border);
+  width: 1%;
+}
+
+.param-modal__table td {
+  color: var(--col-text);
+  line-height: 1.6;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--col-border);
+}
+
+.param-modal__table tr:last-child th,
+.param-modal__table tr:last-child td {
+  border-bottom: none;
+}
+
+.param-modal__table td ul {
+  margin: 0;
+  padding-left: var(--sp-4);
+}
+
+.param-modal__table td li {
+  margin-bottom: 2px;
+}
+
+/* ── Structural Summary info button (inline in heading) ── */
+.summary-info-btn {
+  vertical-align: middle;
+  margin-left: var(--sp-1);
+}
+
+/* Widen the summary modal card — the 5-column matrix needs more room
+   than the base .modal__card width of min(640px, 90vw). */
+#summary-modal .modal__card {
+  width: min(780px, 90vw);
+}
+
+/* ── Structural Summary modal table ──
+   Multi-column matrix: parameter × structural role. */
+.summary-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-family: var(--font-ui);
+}
+
+.summary-modal__table thead th {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--col-accent);
+  text-align: center;
+  padding: var(--sp-2) var(--sp-2);
+  border-bottom: 2px solid var(--col-border);
+}
+
+.summary-modal__table thead th:first-child {
+  text-align: left;
+}
+
+.summary-modal__table td {
+  padding: var(--sp-2) var(--sp-2);
+  text-align: center;
+  border-bottom: 1px solid var(--col-border);
+  color: var(--col-text);
+}
+
+.summary-modal__table td:first-child {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.summary-modal__table tr:last-child td {
+  border-bottom: none;
+}
+
+.summary-modal__table .u-check {
+  color: var(--col-accent);
+}
+
+.summary-modal__table .u-cross {
+  color: var(--col-text-dim);
+  opacity: 0.4;
+}
+
+.summary-modal__table .u-indirect {
+  font-size: var(--text-xs);
+  font-style: italic;
+  color: var(--col-text-muted);
+}
+
+.summary-modal__note {
+  margin-top: var(--sp-4);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--col-text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   21. RESPONSIVE
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 1200px) {
@@ -1217,7 +1631,8 @@ body {
     overflow-y: auto;
     height: auto;
   }
-  .walk-col {
+  .walk-col,
+  .combine-col {
     height: auto;
     max-height: 80vh;
   }
@@ -1235,11 +1650,11 @@ body {
 }
 
 @media (max-width: 800px) {
-  .walk-layout {
+  .walk-layout,
+  .combine-layout {
     grid-template-columns: 1fr;
   }
   .analysis-columns,
-  .blended-columns,
   .render-columns {
     grid-template-columns: 1fr;
   }

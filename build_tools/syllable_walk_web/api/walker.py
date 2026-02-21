@@ -72,7 +72,9 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     patch.syllable_count = len(syllables)
     patch.annotated_data = syllables
     patch.walker_ready = False
+    patch.loading_stage = "Loading corpus data"
     patch.walker = None
+    patch.profile_reaches = None
     patch.walks = []
     patch.candidates_path = None
     patch.selections_path = None
@@ -88,14 +90,51 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     # SyllableWalker.from_data() builds an O(n²) neighbor graph that can
     # take seconds for large corpora.  The HTTP request returns immediately
     # with status="loading" so the UI can poll walker_ready.
+    #
+    # The loading_stage field is updated at each phase boundary so the UI
+    # poller can show progress to the user (e.g. "Building neighbour graph…").
     def _init_walker() -> None:
         try:
             from build_tools.syllable_walk.walker import SyllableWalker
 
-            walker = SyllableWalker.from_data(syllables, max_neighbor_distance=3)
+            # Progress callback writes directly to patch.loading_stage.
+            # The UI poller reads this field every second via /api/walker/stats.
+            def _on_progress(message: str) -> None:
+                patch.loading_stage = message
+
+            patch.loading_stage = "Building neighbour graph"
+            walker = SyllableWalker.from_data(
+                syllables,
+                max_neighbor_distance=3,
+                progress_callback=_on_progress,
+            )
             patch.walker = walker
+
+            # Compute profile reaches (deterministic, typically <1s).
+            # This runs BEFORE setting walker_ready so that when the
+            # UI poller sees walker_ready=True, reaches are guaranteed
+            # to be available in the same stats response. Without this
+            # ordering, the poller could see walker_ready=True, stop
+            # polling, and miss the reaches entirely.
+            from build_tools.syllable_walk.reach import compute_all_reaches
+
+            patch.loading_stage = "Computing profile reaches"
+            patch.profile_reaches = compute_all_reaches(
+                walker,
+                progress_callback=_on_progress,
+            )
+            patch.loading_stage = None
             patch.walker_ready = True
+
+            # TODO: Custom profile reach — on-demand computation
+            # When "custom" is selected with manual slider parameters,
+            # reach could be computed on-demand via a dedicated API
+            # endpoint. This is deferred because it would require an
+            # API call each time sliders change and would need
+            # debouncing. For now, only the four named profiles have
+            # pre-computed reach. Tracked for future implementation.
         except Exception:
+            patch.loading_stage = None
             patch.walker_ready = False
 
     thread = threading.Thread(target=_init_walker, daemon=True)
@@ -170,15 +209,31 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
     """
 
     def _patch_info(patch: PatchState) -> dict[str, Any]:
-        return {
+        info: dict[str, Any] = {
             "corpus": patch.run_id,
             "corpus_type": patch.corpus_type,
             "syllable_count": patch.syllable_count,
             "walker_ready": patch.walker_ready,
+            "loading_stage": patch.loading_stage,
             "has_walks": len(patch.walks) > 0,
             "has_candidates": patch.candidates is not None,
             "has_selections": len(patch.selected_names) > 0,
         }
+        # Include profile reaches once computed. Each entry contains
+        # reach count, total, threshold, and computation timing —
+        # enough for the UI micro signal and performance monitoring.
+        if patch.profile_reaches:
+            info["reaches"] = {
+                name: {
+                    "reach": r.reach,
+                    "total": r.total,
+                    "threshold": r.threshold,
+                    "computation_ms": r.computation_ms,
+                    "unique_reachable": r.unique_reachable,
+                }
+                for name, r in patch.profile_reaches.items()
+            }
+        return info
 
     return {
         "patch_a": _patch_info(state.patch_a),
