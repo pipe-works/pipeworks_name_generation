@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any
 
 from textual import on
 from textual.containers import Container, Horizontal
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Label, Static, Tree
 
@@ -404,10 +405,14 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         # Validate directory using configured validator
         is_valid, type_label, message = self.validator(path)
 
-        # Update status display
-        status_container = self.query_one("#validation-status", Static)
-        status_text = self.query_one("#status-text", Label)
-        select_button = self.query_one("#select-button", Button)
+        # Update status display. During teardown/racey UI transitions (seen on
+        # slower CI runners), delayed tree events can fire after the modal has
+        # started unmounting. In that case, UI nodes are gone and we should
+        # safely ignore the late validation event.
+        widgets = self._get_validation_widgets()
+        if widgets is None:
+            return
+        status_container, status_text, select_button = widgets
 
         if is_valid:
             # Valid selection - enable button, show success message
@@ -480,8 +485,10 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         # the user that they can click Select
         if self.selected_path == parent_dir:
             # Don't change validation state - parent is still selected
-            status_container = self.query_one("#validation-status", Static)
-            status_text = self.query_one("#status-text", Label)
+            widgets = self._get_validation_widgets()
+            if widgets is None:
+                return
+            status_container, status_text, _ = widgets
 
             # Keep the valid status but update the message
             if status_container.has_class("status-valid"):
@@ -492,11 +499,12 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                 return
 
         # Otherwise show a helpful message without disrupting valid selection
-        status_container = self.query_one("#validation-status", Static)
-        status_text = self.query_one("#status-text", Label)
+        widgets = self._get_validation_widgets()
+        if widgets is None:
+            return
+        status_container, status_text, select_button = widgets
 
         # Only show warning if we don't have a valid selection
-        select_button = self.query_one("#select-button", Button)
         if select_button.disabled:
             status_container.remove_class("status-valid", "status-none")
             status_container.add_class("status-invalid")
@@ -583,8 +591,12 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
                 if path.is_dir():
                     self._validate_and_update_status(path)
                     # If valid and already selected, confirm
-                    select_button = self.query_one("#select-button", Button)
-                    if not select_button.disabled and self.selected_path == path:
+                    select_button = self._get_select_button()
+                    if (
+                        select_button is not None
+                        and not select_button.disabled
+                        and self.selected_path == path
+                    ):
                         self.dismiss(self.selected_path)
 
     def action_cancel(self) -> None:
@@ -598,3 +610,31 @@ class DirectoryBrowserScreen(ModalScreen[Path | None]):
         tree.show_hidden = self.show_hidden
         status = "shown" if self.show_hidden else "hidden"
         self.notify(f"Hidden files: {status}", timeout=1.5)
+
+    def _get_validation_widgets(self) -> tuple[Static, Label, Button] | None:
+        """
+        Return validation/status widgets if the modal is still mounted.
+
+        Returns:
+            Tuple of ``(status_container, status_text, select_button)`` when all
+            widgets are available, otherwise ``None``.
+        """
+        try:
+            status_container = self.query_one("#validation-status", Static)
+            status_text = self.query_one("#status-text", Label)
+            select_button = self.query_one("#select-button", Button)
+        except NoMatches:
+            return None
+        return status_container, status_text, select_button
+
+    def _get_select_button(self) -> Button | None:
+        """
+        Return the Select button if mounted.
+
+        Returns:
+            The ``#select-button`` widget or ``None`` if unavailable.
+        """
+        try:
+            return self.query_one("#select-button", Button)
+        except NoMatches:
+            return None

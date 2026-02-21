@@ -182,6 +182,19 @@ class TestServeStatic:
         # Verify some content was written
         assert len(handler.wfile.getvalue()) > 0
 
+    def test_index_uses_module_app_script(self, handler):
+        """Test index.html loads app.js using an ES module script tag."""
+        handler._serve_static("index.html")
+        body = handler.wfile.getvalue().decode("utf-8")
+        assert '<script type="module" src="static/js/app.js"></script>' in body
+
+    def test_serve_nested_module_file(self, handler):
+        """Test serving a nested JavaScript module under static/js."""
+        handler._serve_static("js/core/status.js")
+        handler.send_response.assert_called_once_with(200)
+        body = handler.wfile.getvalue().decode("utf-8")
+        assert "export function setStatus" in body
+
     def test_serve_nonexistent_file(self, handler):
         """Test 404 for missing file."""
         handler._serve_static("does_not_exist.html")
