@@ -21,6 +21,7 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_export,
     handle_load_corpus,
     handle_package,
+    handle_reach_syllables,
     handle_select,
     handle_stats,
     handle_walk,
@@ -430,6 +431,187 @@ class TestHandleCombine:
         ):
             result = handle_combine({"patch": "a"}, loaded_state)
 
+        assert "error" in result
+
+    def test_flat_profile_uses_existing_combiner(self, loaded_state):
+        """Test profile=flat (or absent) uses the flat combiner path."""
+        mock_candidates = [
+            {"name": "Kari", "syllables": ["ka", "ri"], "features": {}},
+        ]
+        with patch(
+            "build_tools.name_combiner.combiner.combine_syllables",
+            return_value=mock_candidates,
+        ) as mock_combine:
+            result = handle_combine(
+                {"patch": "a", "count": 1, "syllables": 2, "profile": "flat"}, loaded_state
+            )
+
+        assert "error" not in result
+        assert result["generated"] == 1
+        mock_combine.assert_called_once()
+
+    def test_named_profile_uses_walk_generation(self, loaded_state):
+        """Test profile=dialect uses walk-based generation via _combine_via_walks."""
+        mock_walks = [
+            {"syllables": ["ka", "ri"], "formatted": "ka·ri"},
+            {"syllables": ["ri", "ka"], "formatted": "ri·ka"},
+        ]
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+                return_value=mock_walks,
+            ) as mock_gen,
+            patch(
+                "build_tools.name_combiner.aggregator.aggregate_features",
+                return_value={},
+            ),
+        ):
+            result = handle_combine(
+                {"patch": "a", "count": 2, "syllables": 2, "profile": "dialect"}, loaded_state
+            )
+
+        assert "error" not in result
+        assert result["generated"] == 2
+        # Verify generate_walks was called with profile="dialect" and steps=1
+        mock_gen.assert_called_once()
+        call_kwargs = mock_gen.call_args
+        assert call_kwargs[1].get("profile") == "dialect" or (len(call_kwargs[0]) > 1 and False)
+
+    def test_custom_profile_sends_explicit_params(self, loaded_state):
+        """Test profile=custom passes max_flips, temperature, frequency_weight."""
+        mock_walks = [
+            {"syllables": ["ka", "ri"], "formatted": "ka·ri"},
+        ]
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+                return_value=mock_walks,
+            ) as mock_gen,
+            patch(
+                "build_tools.name_combiner.aggregator.aggregate_features",
+                return_value={},
+            ),
+        ):
+            result = handle_combine(
+                {
+                    "patch": "a",
+                    "count": 1,
+                    "syllables": 2,
+                    "profile": "custom",
+                    "max_flips": 3,
+                    "temperature": 1.5,
+                    "frequency_weight": -0.5,
+                },
+                loaded_state,
+            )
+
+        assert "error" not in result
+        assert result["generated"] == 1
+        call_kwargs = mock_gen.call_args[1]
+        assert call_kwargs["max_flips"] == 3
+        assert call_kwargs["temperature"] == 1.5
+        assert call_kwargs["frequency_weight"] == -0.5
+
+    def test_profile_requires_walker_ready(self, state, sample_annotated_data):
+        """Test walk profile returns error when walker not ready."""
+        # Corpus loaded but walker not ready
+        state.patch_a.annotated_data = sample_annotated_data
+        state.patch_a.walker_ready = False
+        state.patch_a.walker = None
+
+        result = handle_combine(
+            {"patch": "a", "count": 1, "syllables": 2, "profile": "goblin"}, state
+        )
+
+        assert "error" in result
+        assert "Walker not ready" in result["error"]
+
+
+# ============================================================
+# handle_reach_syllables
+# ============================================================
+
+
+class TestHandleReachSyllables:
+    """Test POST /api/walker/reach-syllables handler."""
+
+    def test_error_when_no_corpus(self, state):
+        """Test returns error when no corpus loaded (no reach data)."""
+        result = handle_reach_syllables({"patch": "a", "profile": "dialect"}, state)
+        assert "error" in result
+
+    def test_error_when_invalid_profile(self, loaded_state):
+        """Test returns error for unknown profile name."""
+        # Set up mock reach data with known profiles
+        mock_reach = MagicMock()
+        mock_reach.reachable_indices = ((0, 5), (1, 3))
+        loaded_state.patch_a.profile_reaches = {"dialect": mock_reach}
+
+        result = handle_reach_syllables({"patch": "a", "profile": "nonexistent"}, loaded_state)
+        assert "error" in result
+        assert "Unknown profile" in result["error"]
+
+    def test_success_returns_syllables(self, loaded_state):
+        """Test successful response with syllable list sorted by reachability."""
+        import numpy as np
+
+        # Mock the walker with syllable data
+        loaded_state.patch_a.walker.syllables = ["ka", "ri"]
+        loaded_state.patch_a.walker.frequencies = np.array([100, 80])
+
+        mock_reach = MagicMock()
+        # (index, reachability_count) pairs sorted by count descending
+        mock_reach.reachable_indices = ((0, 5), (1, 3))
+        mock_reach.reach = 2
+        mock_reach.total = 2
+        mock_reach.unique_reachable = 2
+        loaded_state.patch_a.profile_reaches = {"dialect": mock_reach}
+
+        result = handle_reach_syllables({"patch": "a", "profile": "dialect"}, loaded_state)
+
+        assert "error" not in result
+        assert result["profile"] == "dialect"
+        assert result["reach"] == 2
+        assert result["total"] == 2
+        assert result["unique_reachable"] == 2
+        assert len(result["syllables"]) == 2
+        # Sorted by reachability count descending (ka=5, ri=3)
+        assert result["syllables"][0]["syllable"] == "ka"
+        assert result["syllables"][1]["syllable"] == "ri"
+        assert result["syllables"][0]["frequency"] == 100
+        assert result["syllables"][1]["frequency"] == 80
+        assert result["syllables"][0]["reachability"] == 5
+        assert result["syllables"][1]["reachability"] == 3
+
+    def test_slices_to_reach_count(self, loaded_state):
+        """Test response is limited to top `reach` syllables, not full union."""
+        import numpy as np
+
+        loaded_state.patch_a.walker.syllables = ["ka", "ri", "bo"]
+        loaded_state.patch_a.walker.frequencies = np.array([100, 80, 60])
+
+        mock_reach = MagicMock()
+        # 3 union-reachable syllables, but reach (mean per-node) is only 2
+        mock_reach.reachable_indices = ((0, 5), (1, 3), (2, 1))
+        mock_reach.reach = 2
+        mock_reach.total = 3
+        mock_reach.unique_reachable = 3
+        loaded_state.patch_a.profile_reaches = {"dialect": mock_reach}
+
+        result = handle_reach_syllables({"patch": "a", "profile": "dialect"}, loaded_state)
+
+        assert len(result["syllables"]) == 2  # sliced to reach, not 3
+        assert result["syllables"][0]["syllable"] == "ka"
+        assert result["syllables"][1]["syllable"] == "ri"
+
+    def test_error_when_walker_not_ready(self, state, sample_annotated_data):
+        """Test returns error when walker is None."""
+        mock_reach = MagicMock()
+        mock_reach.reachable_indices = ((0, 5),)
+        state.patch_a.profile_reaches = {"dialect": mock_reach}
+        state.patch_a.walker = None
+
+        result = handle_reach_syllables({"patch": "a", "profile": "dialect"}, state)
         assert "error" in result
 
 

@@ -352,38 +352,70 @@
 
         <hr class="divider" />
 
-        <fieldset class="profile-group">
-          <legend class="control-label">Profile</legend>
-          <label class="profile-option" data-patch="a" data-profile="clerical">
-            <input type="radio" name="profile-a" value="clerical" />
-            <span class="profile-option__name">clerical</span>
-            <span class="profile-option__desc u-muted">Conservative, favors common</span>
-            <span class="profile-reach" id="reach-a-clerical"></span>
-          </label>
-          <label class="profile-option is-selected" data-patch="a" data-profile="dialect">
-            <input type="radio" name="profile-a" value="dialect" checked />
-            <span class="profile-option__name">dialect</span>
-            <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
-            <span class="profile-reach" id="reach-a-dialect"></span>
-          </label>
-          <label class="profile-option" data-patch="a" data-profile="goblin">
-            <input type="radio" name="profile-a" value="goblin" />
-            <span class="profile-option__name">goblin</span>
-            <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
-            <span class="profile-reach" id="reach-a-goblin"></span>
-          </label>
-          <label class="profile-option" data-patch="a" data-profile="ritual">
-            <input type="radio" name="profile-a" value="ritual" />
-            <span class="profile-option__name">ritual</span>
-            <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
-            <span class="profile-reach" id="reach-a-ritual"></span>
-          </label>
-          <label class="profile-option" data-patch="a" data-profile="custom">
-            <input type="radio" name="profile-a" value="custom" />
-            <span class="profile-option__name">custom</span>
-            <span class="profile-option__desc u-muted">Manual parameter configuration</span>
-          </label>
-        </fieldset>
+        <div class="profile-tabs">
+          <div class="profile-tabs__nav">
+            <button class="profile-tabs__tab is-active" data-profile-tab="list" data-patch="a" type="button">Profiles</button>
+            <button class="profile-tabs__tab" data-profile-tab="clerical" data-patch="a" type="button">clerical</button>
+            <button class="profile-tabs__tab" data-profile-tab="dialect" data-patch="a" type="button">dialect</button>
+            <button class="profile-tabs__tab" data-profile-tab="goblin" data-patch="a" type="button">goblin</button>
+            <button class="profile-tabs__tab" data-profile-tab="ritual" data-patch="a" type="button">ritual</button>
+          </div>
+
+          <div class="profile-tabs__panel" id="profile-panel-a-list">
+            <fieldset class="profile-group">
+              <label class="profile-option" data-patch="a" data-profile="clerical">
+                <input type="radio" name="profile-a" value="clerical" />
+                <span class="profile-option__name">clerical</span>
+                <span class="profile-option__desc u-muted">Conservative, favors common</span>
+                <span class="profile-reach" id="reach-a-clerical"></span>
+              </label>
+              <label class="profile-option is-selected" data-patch="a" data-profile="dialect">
+                <input type="radio" name="profile-a" value="dialect" checked />
+                <span class="profile-option__name">dialect</span>
+                <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+                <span class="profile-reach" id="reach-a-dialect"></span>
+              </label>
+              <label class="profile-option" data-patch="a" data-profile="goblin">
+                <input type="radio" name="profile-a" value="goblin" />
+                <span class="profile-option__name">goblin</span>
+                <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+                <span class="profile-reach" id="reach-a-goblin"></span>
+              </label>
+              <label class="profile-option" data-patch="a" data-profile="ritual">
+                <input type="radio" name="profile-a" value="ritual" />
+                <span class="profile-option__name">ritual</span>
+                <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+                <span class="profile-reach" id="reach-a-ritual"></span>
+              </label>
+              <label class="profile-option" data-patch="a" data-profile="custom">
+                <input type="radio" name="profile-a" value="custom" />
+                <span class="profile-option__name">custom</span>
+                <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+              </label>
+            </fieldset>
+          </div>
+
+          <div class="profile-tabs__panel" id="profile-panel-a-clerical" hidden>
+            <div class="reach-syllables" id="reach-syllables-a-clerical">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-a-dialect" hidden>
+            <div class="reach-syllables" id="reach-syllables-a-dialect">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-a-goblin" hidden>
+            <div class="reach-syllables" id="reach-syllables-a-goblin">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-a-ritual" hidden>
+            <div class="reach-syllables" id="reach-syllables-a-ritual">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+        </div>
 
         <hr class="divider" />
 
@@ -534,38 +566,70 @@
 
         <hr class="divider" />
 
-        <fieldset class="profile-group">
-          <legend class="control-label">Profile</legend>
-          <label class="profile-option" data-patch="b" data-profile="clerical">
-            <input type="radio" name="profile-b" value="clerical" />
-            <span class="profile-option__name">clerical</span>
-            <span class="profile-option__desc u-muted">Conservative, favors common</span>
-            <span class="profile-reach" id="reach-b-clerical"></span>
-          </label>
-          <label class="profile-option" data-patch="b" data-profile="dialect">
-            <input type="radio" name="profile-b" value="dialect" />
-            <span class="profile-option__name">dialect</span>
-            <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
-            <span class="profile-reach" id="reach-b-dialect"></span>
-          </label>
-          <label class="profile-option" data-patch="b" data-profile="goblin">
-            <input type="radio" name="profile-b" value="goblin" />
-            <span class="profile-option__name">goblin</span>
-            <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
-            <span class="profile-reach" id="reach-b-goblin"></span>
-          </label>
-          <label class="profile-option is-selected" data-patch="b" data-profile="ritual">
-            <input type="radio" name="profile-b" value="ritual" checked />
-            <span class="profile-option__name">ritual</span>
-            <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
-            <span class="profile-reach" id="reach-b-ritual"></span>
-          </label>
-          <label class="profile-option" data-patch="b" data-profile="custom">
-            <input type="radio" name="profile-b" value="custom" />
-            <span class="profile-option__name">custom</span>
-            <span class="profile-option__desc u-muted">Manual parameter configuration</span>
-          </label>
-        </fieldset>
+        <div class="profile-tabs">
+          <div class="profile-tabs__nav">
+            <button class="profile-tabs__tab is-active" data-profile-tab="list" data-patch="b" type="button">Profiles</button>
+            <button class="profile-tabs__tab" data-profile-tab="clerical" data-patch="b" type="button">clerical</button>
+            <button class="profile-tabs__tab" data-profile-tab="dialect" data-patch="b" type="button">dialect</button>
+            <button class="profile-tabs__tab" data-profile-tab="goblin" data-patch="b" type="button">goblin</button>
+            <button class="profile-tabs__tab" data-profile-tab="ritual" data-patch="b" type="button">ritual</button>
+          </div>
+
+          <div class="profile-tabs__panel" id="profile-panel-b-list">
+            <fieldset class="profile-group">
+              <label class="profile-option" data-patch="b" data-profile="clerical">
+                <input type="radio" name="profile-b" value="clerical" />
+                <span class="profile-option__name">clerical</span>
+                <span class="profile-option__desc u-muted">Conservative, favors common</span>
+                <span class="profile-reach" id="reach-b-clerical"></span>
+              </label>
+              <label class="profile-option" data-patch="b" data-profile="dialect">
+                <input type="radio" name="profile-b" value="dialect" />
+                <span class="profile-option__name">dialect</span>
+                <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+                <span class="profile-reach" id="reach-b-dialect"></span>
+              </label>
+              <label class="profile-option" data-patch="b" data-profile="goblin">
+                <input type="radio" name="profile-b" value="goblin" />
+                <span class="profile-option__name">goblin</span>
+                <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+                <span class="profile-reach" id="reach-b-goblin"></span>
+              </label>
+              <label class="profile-option is-selected" data-patch="b" data-profile="ritual">
+                <input type="radio" name="profile-b" value="ritual" checked />
+                <span class="profile-option__name">ritual</span>
+                <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+                <span class="profile-reach" id="reach-b-ritual"></span>
+              </label>
+              <label class="profile-option" data-patch="b" data-profile="custom">
+                <input type="radio" name="profile-b" value="custom" />
+                <span class="profile-option__name">custom</span>
+                <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+              </label>
+            </fieldset>
+          </div>
+
+          <div class="profile-tabs__panel" id="profile-panel-b-clerical" hidden>
+            <div class="reach-syllables" id="reach-syllables-b-clerical">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-b-dialect" hidden>
+            <div class="reach-syllables" id="reach-syllables-b-dialect">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-b-goblin" hidden>
+            <div class="reach-syllables" id="reach-syllables-b-goblin">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+          <div class="profile-tabs__panel" id="profile-panel-b-ritual" hidden>
+            <div class="reach-syllables" id="reach-syllables-b-ritual">
+              <p class="placeholder-text">(Load a corpus to view reachable syllables)</p>
+            </div>
+          </div>
+        </div>
 
         <hr class="divider" />
 
@@ -757,12 +821,77 @@
             </div>
           </div>
 
-          <div class="slider-control">
-            <div class="slider-control__header">
-              <label class="control-label" for="comb-freq-a">Freq Weight</label>
-              <span class="slider-val u-accent" id="comb-freq-a-val">1.0</span>
+          <fieldset class="profile-group">
+            <legend class="control-label">Generation Profile</legend>
+            <label class="profile-option is-selected" data-patch="a" data-comb-profile="flat">
+              <input type="radio" name="comb-profile-a" value="flat" checked />
+              <span class="profile-option__name">flat</span>
+              <span class="profile-option__desc u-muted">Independent sampling</span>
+            </label>
+            <label class="profile-option" data-patch="a" data-comb-profile="clerical">
+              <input type="radio" name="comb-profile-a" value="clerical" />
+              <span class="profile-option__name">clerical</span>
+              <span class="profile-option__desc u-muted">Conservative, favors common</span>
+              <span class="profile-reach" id="comb-reach-a-clerical"></span>
+            </label>
+            <label class="profile-option" data-patch="a" data-comb-profile="dialect">
+              <input type="radio" name="comb-profile-a" value="dialect" />
+              <span class="profile-option__name">dialect</span>
+              <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+              <span class="profile-reach" id="comb-reach-a-dialect"></span>
+            </label>
+            <label class="profile-option" data-patch="a" data-comb-profile="goblin">
+              <input type="radio" name="comb-profile-a" value="goblin" />
+              <span class="profile-option__name">goblin</span>
+              <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+              <span class="profile-reach" id="comb-reach-a-goblin"></span>
+            </label>
+            <label class="profile-option" data-patch="a" data-comb-profile="ritual">
+              <input type="radio" name="comb-profile-a" value="ritual" />
+              <span class="profile-option__name">ritual</span>
+              <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+              <span class="profile-reach" id="comb-reach-a-ritual"></span>
+            </label>
+            <label class="profile-option" data-patch="a" data-comb-profile="custom">
+              <input type="radio" name="comb-profile-a" value="custom" />
+              <span class="profile-option__name">custom</span>
+              <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+            </label>
+          </fieldset>
+
+          <div id="comb-flat-params-a">
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-freq-a">Freq Weight</label>
+                <span class="slider-val u-accent" id="comb-freq-a-val">1.0</span>
+              </div>
+              <input class="range-input" id="comb-freq-a" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
             </div>
-            <input class="range-input" id="comb-freq-a" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <div id="comb-custom-params-a" hidden>
+            <div class="spinner-control">
+              <label class="control-label" for="comb-max-flips-a">Max Flips</label>
+              <div class="spinner-row">
+                <button class="btn btn--icon spinner-btn" data-target="comb-max-flips-a" data-delta="-1" aria-label="Decrease">−</button>
+                <input class="input input--sm spinner-val" id="comb-max-flips-a" type="number" value="2" min="1" max="3" />
+                <button class="btn btn--icon spinner-btn" data-target="comb-max-flips-a" data-delta="1"  aria-label="Increase">+</button>
+              </div>
+            </div>
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-temperature-a">Temperature</label>
+                <span class="slider-val u-accent" id="comb-temperature-a-val">0.7</span>
+              </div>
+              <input class="range-input" id="comb-temperature-a" type="range" min="0.1" max="5.0" step="0.1" value="0.7" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-cust-freq-a">Freq Weight</label>
+                <span class="slider-val u-accent" id="comb-cust-freq-a-val">0.0</span>
+              </div>
+              <input class="range-input" id="comb-cust-freq-a" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" />
+            </div>
           </div>
 
           <button class="btn btn--primary btn--full" id="generate-candidates-a">Generate Candidates</button>
@@ -892,12 +1021,77 @@
             </div>
           </div>
 
-          <div class="slider-control">
-            <div class="slider-control__header">
-              <label class="control-label" for="comb-freq-b">Freq Weight</label>
-              <span class="slider-val u-accent" id="comb-freq-b-val">1.0</span>
+          <fieldset class="profile-group">
+            <legend class="control-label">Generation Profile</legend>
+            <label class="profile-option is-selected" data-patch="b" data-comb-profile="flat">
+              <input type="radio" name="comb-profile-b" value="flat" checked />
+              <span class="profile-option__name">flat</span>
+              <span class="profile-option__desc u-muted">Independent sampling</span>
+            </label>
+            <label class="profile-option" data-patch="b" data-comb-profile="clerical">
+              <input type="radio" name="comb-profile-b" value="clerical" />
+              <span class="profile-option__name">clerical</span>
+              <span class="profile-option__desc u-muted">Conservative, favors common</span>
+              <span class="profile-reach" id="comb-reach-b-clerical"></span>
+            </label>
+            <label class="profile-option" data-patch="b" data-comb-profile="dialect">
+              <input type="radio" name="comb-profile-b" value="dialect" />
+              <span class="profile-option__name">dialect</span>
+              <span class="profile-option__desc u-muted">Moderate exploration, neutral</span>
+              <span class="profile-reach" id="comb-reach-b-dialect"></span>
+            </label>
+            <label class="profile-option" data-patch="b" data-comb-profile="goblin">
+              <input type="radio" name="comb-profile-b" value="goblin" />
+              <span class="profile-option__name">goblin</span>
+              <span class="profile-option__desc u-muted">Chaotic, favors rare</span>
+              <span class="profile-reach" id="comb-reach-b-goblin"></span>
+            </label>
+            <label class="profile-option" data-patch="b" data-comb-profile="ritual">
+              <input type="radio" name="comb-profile-b" value="ritual" />
+              <span class="profile-option__name">ritual</span>
+              <span class="profile-option__desc u-muted">Maximum exploration, strongly rare</span>
+              <span class="profile-reach" id="comb-reach-b-ritual"></span>
+            </label>
+            <label class="profile-option" data-patch="b" data-comb-profile="custom">
+              <input type="radio" name="comb-profile-b" value="custom" />
+              <span class="profile-option__name">custom</span>
+              <span class="profile-option__desc u-muted">Manual parameter configuration</span>
+            </label>
+          </fieldset>
+
+          <div id="comb-flat-params-b">
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-freq-b">Freq Weight</label>
+                <span class="slider-val u-accent" id="comb-freq-b-val">1.0</span>
+              </div>
+              <input class="range-input" id="comb-freq-b" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
             </div>
-            <input class="range-input" id="comb-freq-b" type="range" min="0.0" max="1.0" step="0.1" value="1.0" />
+          </div>
+
+          <div id="comb-custom-params-b" hidden>
+            <div class="spinner-control">
+              <label class="control-label" for="comb-max-flips-b">Max Flips</label>
+              <div class="spinner-row">
+                <button class="btn btn--icon spinner-btn" data-target="comb-max-flips-b" data-delta="-1" aria-label="Decrease">−</button>
+                <input class="input input--sm spinner-val" id="comb-max-flips-b" type="number" value="2" min="1" max="3" />
+                <button class="btn btn--icon spinner-btn" data-target="comb-max-flips-b" data-delta="1"  aria-label="Increase">+</button>
+              </div>
+            </div>
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-temperature-b">Temperature</label>
+                <span class="slider-val u-accent" id="comb-temperature-b-val">0.7</span>
+              </div>
+              <input class="range-input" id="comb-temperature-b" type="range" min="0.1" max="5.0" step="0.1" value="0.7" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-control__header">
+                <label class="control-label" for="comb-cust-freq-b">Freq Weight</label>
+                <span class="slider-val u-accent" id="comb-cust-freq-b-val">0.0</span>
+              </div>
+              <input class="range-input" id="comb-cust-freq-b" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" />
+            </div>
           </div>
 
           <button class="btn btn--primary btn--full" id="generate-candidates-b">Generate Candidates</button>

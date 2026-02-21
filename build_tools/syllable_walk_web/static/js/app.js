@@ -278,6 +278,222 @@ function initProfiles() {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   6a. PROFILE TABS — Per-Profile Syllable Tables
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Cache for lazy-loaded syllable data. Keyed by "{patch}-{profile}". */
+const _reachSyllables = {};
+
+/**
+ * Initialise the profile tab group for both Patch A and Patch B.
+ *
+ * Each profile section has a tab bar: "Profiles" (radio list) plus one
+ * tab per named profile (clerical, dialect, goblin, ritual) that shows
+ * a table of reachable syllables, fetched on demand from the API.
+ */
+function initProfileTabs() {
+  document.querySelectorAll('.profile-tabs__tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const patch = tab.dataset.patch;
+      const target = tab.dataset.profileTab;
+
+      /* Toggle active tab within this patch's tab group */
+      tab.closest('.profile-tabs').querySelectorAll('.profile-tabs__tab')
+        .forEach(t => t.classList.remove('is-active'));
+      tab.classList.add('is-active');
+
+      /* Show/hide panels */
+      tab.closest('.profile-tabs').querySelectorAll('.profile-tabs__panel')
+        .forEach(p => p.hidden = true);
+      const panel = document.getElementById(`profile-panel-${patch}-${target}`);
+      if (panel) panel.hidden = false;
+
+      /* Lazy-load syllable data for named profile tabs */
+      if (target !== 'list') {
+        loadReachSyllables(patch, target);
+      }
+    });
+  });
+}
+
+/**
+ * Fetch and render the reachable syllables for a given patch and profile.
+ *
+ * Cached after first fetch — subsequent tab switches reuse the cached data.
+ *
+ * @param {string} patch - "a" or "b"
+ * @param {string} profile - "clerical", "dialect", "goblin", or "ritual"
+ */
+function loadReachSyllables(patch, profile) {
+  const key = `${patch}-${profile}`;
+  const container = document.getElementById(`reach-syllables-${patch}-${profile}`);
+  if (!container) return;
+
+  /* Already loaded — skip. */
+  if (_reachSyllables[key]) return;
+
+  /* Check if reach data is available. */
+  if (!_reachData[key]) {
+    container.innerHTML = '<p class="placeholder-text">(Load a corpus to view reachable syllables)</p>';
+    return;
+  }
+
+  container.innerHTML = '<p class="placeholder-text">Loading syllables\u2026</p>';
+
+  fetch('/api/walker/reach-syllables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patch: patch, profile: profile }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        container.innerHTML = `<p class="placeholder-text">${data.error}</p>`;
+        return;
+      }
+
+      _reachSyllables[key] = data;
+      renderReachSyllables(container, data);
+    })
+    .catch(err => {
+      container.innerHTML = `<p class="placeholder-text">Error: ${err.message}</p>`;
+    });
+}
+
+/**
+ * Render a reach syllables response into a table.
+ *
+ * @param {HTMLElement} container - The .reach-syllables div
+ * @param {Object} data - API response with syllables array
+ */
+function reachSyllablesToTxt(data) {
+  const lines = data.syllables.map(s => s.syllable);
+  return lines.join('\n') + '\n';
+}
+
+function reachSyllablesToMd(data) {
+  const header = '| # | Syllable | Freq | Nodes |\n| ---: | --- | ---: | ---: |';
+  const rows = data.syllables.map((s, i) =>
+    `| ${i + 1} | ${s.syllable} | ${s.frequency.toLocaleString()} | ${s.reachability.toLocaleString()} |`
+  );
+  return `## ${data.profile} \u2014 top ${data.syllables.length} / ${data.total} syllables by reachability\n\n` +
+    [header, ...rows].join('\n') + '\n';
+}
+
+/**
+ * Flash a button with confirmation text, then restore the original label.
+ */
+function flashBtn(btn, msg) {
+  const orig = btn.textContent;
+  btn.textContent = msg;
+  btn.classList.add('btn--flash');
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove('btn--flash'); }, 1200);
+}
+
+function renderReachSyllables(container, data) {
+  const syllables = data.syllables || [];
+  const count = syllables.length;
+  const patch = container.id.split('-')[2];   /* reach-syllables-{patch}-{profile} */
+  const profile = data.profile;
+  const pfx = `reach-${patch}-${profile}`;
+
+  const header = `<div class="reach-syllables__header">` +
+    `<span class="u-accent">${profile}</span>` +
+    `<span class="u-muted">\u2014 top ${count.toLocaleString()} / ${data.total.toLocaleString()} syllables by reachability</span>` +
+    `</div>`;
+
+  const exportBar = `<div class="reach-syllables__export-bar">` +
+    `<button class="btn btn--secondary btn--sm" id="${pfx}-copy-txt">Copy TXT</button>` +
+    `<button class="btn btn--secondary btn--sm" id="${pfx}-copy-md">Copy MD</button>` +
+    `<button class="btn btn--secondary btn--sm" id="${pfx}-export-txt">Export TXT</button>` +
+    `<button class="btn btn--secondary btn--sm" id="${pfx}-export-md">Export MD</button>` +
+    `</div>`;
+
+  const rows = syllables.map((s, i) =>
+    `<tr><td>${i + 1}</td><td>${s.syllable}</td><td>${s.frequency.toLocaleString()}</td><td>${s.reachability.toLocaleString()}</td></tr>`
+  ).join('');
+
+  container.innerHTML = header + exportBar +
+    `<div class="reach-syllables__scroll">` +
+    `<table class="reach-syllables__table">` +
+    `<thead><tr><th>#</th><th>Syllable</th><th>Freq</th><th>Nodes</th></tr></thead>` +
+    `<tbody>${rows}</tbody></table></div>`;
+
+  /* Wire button handlers with visual feedback */
+  document.getElementById(`${pfx}-copy-txt`)?.addEventListener('click', function () {
+    navigator.clipboard.writeText(reachSyllablesToTxt(data)).then(() => {
+      flashBtn(this, 'Copied!');
+      setStatus(`Patch ${patch.toUpperCase()}: copied ${count} ${profile} reach syllables as TXT`);
+    });
+  });
+  document.getElementById(`${pfx}-copy-md`)?.addEventListener('click', function () {
+    navigator.clipboard.writeText(reachSyllablesToMd(data)).then(() => {
+      flashBtn(this, 'Copied!');
+      setStatus(`Patch ${patch.toUpperCase()}: copied ${count} ${profile} reach syllables as Markdown`);
+    });
+  });
+  document.getElementById(`${pfx}-export-txt`)?.addEventListener('click', function () {
+    downloadBlob(reachSyllablesToTxt(data), `patch_${patch}_${profile}_reach.txt`, 'text/plain');
+    flashBtn(this, 'Saved!');
+    setStatus(`Patch ${patch.toUpperCase()}: exported ${count} ${profile} reach syllables as TXT`);
+  });
+  document.getElementById(`${pfx}-export-md`)?.addEventListener('click', function () {
+    downloadBlob(reachSyllablesToMd(data), `patch_${patch}_${profile}_reach.md`, 'text/markdown');
+    flashBtn(this, 'Saved!');
+    setStatus(`Patch ${patch.toUpperCase()}: exported ${count} ${profile} reach syllables as Markdown`);
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6b. COMBINER PROFILE SELECTION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Initialise combiner profile selection for both Patch A and Patch B.
+ *
+ * Handles click events on the combiner profile options (flat, clerical,
+ * dialect, goblin, ritual, custom) and toggles visibility of the
+ * flat-params and custom-params panels per the selected profile.
+ *
+ * Visibility rules:
+ *   - "flat"           → show comb-flat-params, hide comb-custom-params
+ *   - named profiles   → hide both panels
+ *   - "custom"         → hide comb-flat-params, show comb-custom-params
+ */
+function initCombinerProfiles() {
+  document.querySelectorAll('[data-comb-profile]').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const patch = opt.dataset.patch;
+      const profile = opt.querySelector('input[type="radio"]').value;
+
+      /* Toggle is-selected on sibling profile options */
+      document.querySelectorAll(`[data-comb-profile][data-patch="${patch}"]`)
+        .forEach(o => o.classList.remove('is-selected'));
+      opt.classList.add('is-selected');
+      opt.querySelector('input[type="radio"]').checked = true;
+
+      /* Toggle parameter panel visibility */
+      const flatParams   = document.getElementById(`comb-flat-params-${patch}`);
+      const customParams = document.getElementById(`comb-custom-params-${patch}`);
+
+      if (profile === 'flat') {
+        if (flatParams)   flatParams.hidden = false;
+        if (customParams) customParams.hidden = true;
+      } else if (profile === 'custom') {
+        if (flatParams)   flatParams.hidden = true;
+        if (customParams) customParams.hidden = false;
+      } else {
+        /* Named profile — hide both panels */
+        if (flatParams)   flatParams.hidden = true;
+        if (customParams) customParams.hidden = true;
+      }
+    });
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
    7. LANGUAGE OPTION SELECTION
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -570,36 +786,47 @@ const _reachData = {};
  * @param {Object} reaches - Dict mapping profile name to {reach, total, threshold, computation_ms}
  */
 function updateReachValues(patch, reaches) {
-  for (const [name, info] of Object.entries(reaches)) {
-    const el = document.getElementById(`reach-${patch}-${name}`);
-    if (!el) continue;
+  /* Invalidate cached syllable tables — new corpus means new reach data. */
+  for (const name of Object.keys(reaches)) {
+    delete _reachSyllables[`${patch}-${name}`];
+  }
 
+  for (const [name, info] of Object.entries(reaches)) {
     /* Cache per-profile reach data for tooltip display. */
     _reachData[`${patch}-${name}`] = info;
 
-    /* Level 1: inline micro signal — muted, monospace, right-aligned */
-    el.textContent = `reach \u2248${info.reach.toLocaleString()}`;
+    /* Populate reach spans for both the Walk tab and the Combiner tab.
+       Walk tab uses "reach-{patch}-{name}", Combiner uses "comb-reach-{patch}-{name}". */
+    const ids = [`reach-${patch}-${name}`, `comb-reach-${patch}-${name}`];
 
-    /* Level 2: tooltip on hover (JS-positioned floating panel).
-       Only wire up once — check for marker attribute. */
-    if (!el.dataset.reachWired) {
-      el.dataset.reachWired = '1';
-      el.addEventListener('mouseenter', () => showReachTooltip(el, `${patch}-${name}`));
-      el.addEventListener('mouseleave', hideReachTooltip);
-    }
+    for (const elId of ids) {
+      const el = document.getElementById(elId);
+      if (!el) continue;
 
-    /* Level 3: info button to open the deep-dive modal */
-    if (!el.querySelector('.reach-info-btn')) {
-      const btn = document.createElement('span');
-      btn.className = 'reach-info-btn';
-      btn.textContent = '?';
-      btn.setAttribute('aria-label', 'Traversal reach details');
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openReachModal();
-      });
-      el.appendChild(btn);
+      /* Level 1: inline micro signal — muted, monospace, right-aligned */
+      el.textContent = `reach \u2248${info.reach.toLocaleString()}`;
+
+      /* Level 2: tooltip on hover (JS-positioned floating panel).
+         Only wire up once — check for marker attribute. */
+      if (!el.dataset.reachWired) {
+        el.dataset.reachWired = '1';
+        el.addEventListener('mouseenter', () => showReachTooltip(el, `${patch}-${name}`));
+        el.addEventListener('mouseleave', hideReachTooltip);
+      }
+
+      /* Level 3: info button to open the deep-dive modal */
+      if (!el.querySelector('.reach-info-btn')) {
+        const btn = document.createElement('span');
+        btn.className = 'reach-info-btn';
+        btn.textContent = '?';
+        btn.setAttribute('aria-label', 'Traversal reach details');
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openReachModal();
+        });
+        el.appendChild(btn);
+      }
     }
   }
 
@@ -1087,11 +1314,31 @@ function initGenerateCandidates() {
       const syllsExact = parseInt(document.getElementById(`comb-syllables-${patch}`).value) || 2;
       const seedStr = document.getElementById(`comb-seed-${patch}`)?.value;
       const seed = seedStr ? parseInt(seedStr, 16) : null;
-      const freqWeight = parseFloat(document.getElementById(`comb-freq-${patch}`)?.value) || 1.0;
+
+      /* Read selected combiner profile */
+      const profileEl = document.querySelector(`input[name="comb-profile-${patch}"]:checked`);
+      const profile = profileEl ? profileEl.value : 'flat';
 
       /* Read syllable mode: "exact" uses the spinner value, "all" generates 2-4 */
       const combMode = document.querySelector(`input[name="comb-mode-${patch}"]:checked`)?.value || 'exact';
       const sylls = combMode === 'all' ? [2, 3, 4] : syllsExact;
+
+      /* Build request body based on profile selection */
+      const reqBody = { patch: patch, count: count, syllables: sylls, seed: seed };
+
+      if (profile === 'flat') {
+        /* Flat mode: use the flat freq weight slider */
+        reqBody.frequency_weight = parseFloat(document.getElementById(`comb-freq-${patch}`)?.value) || 1.0;
+      } else if (profile === 'custom') {
+        /* Custom mode: send explicit walk parameters */
+        reqBody.profile = 'custom';
+        reqBody.max_flips = parseInt(document.getElementById(`comb-max-flips-${patch}`)?.value) || 2;
+        reqBody.temperature = parseFloat(document.getElementById(`comb-temperature-${patch}`)?.value) || 0.7;
+        reqBody.frequency_weight = parseFloat(document.getElementById(`comb-cust-freq-${patch}`)?.value) || 0.0;
+      } else {
+        /* Named profile: just send the profile name */
+        reqBody.profile = profile;
+      }
 
       const out = document.getElementById(`comb-output-${patch}`);
       out.innerHTML = '<span class="placeholder-text">Generating candidates…</span>';
@@ -1100,13 +1347,7 @@ function initGenerateCandidates() {
       fetch('/api/walker/combine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patch: patch,
-          count: count,
-          syllables: sylls,
-          seed: seed,
-          frequency_weight: freqWeight,
-        }),
+        body: JSON.stringify(reqBody),
       })
         .then(r => r.json())
         .then(data => {
@@ -2156,6 +2397,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initSpinners();
   initSliders();
   initProfiles();
+  initProfileTabs();
+  initCombinerProfiles();
   initLangOptions();
   initRadioOptions();
   initSeedButtons();
