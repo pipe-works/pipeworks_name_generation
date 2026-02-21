@@ -241,14 +241,156 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
     }
 
 
+def handle_reach_syllables(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
+    """Handle POST /api/walker/reach-syllables.
+
+    Returns the list of reachable syllables for a given profile and patch,
+    sorted alphabetically with frequency data.
+
+    Args:
+        body: Request body with ``patch`` and ``profile``.
+        state: Global server state.
+
+    Returns:
+        Dict with ``profile``, ``reach``, ``total``, and ``syllables`` list.
+    """
+    patch_key = body.get("patch", "a").lower()
+    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    profile = body.get("profile", "")
+
+    if not patch.profile_reaches:
+        return {"error": f"No reach data for patch {patch_key.upper()}. Load a corpus first."}
+
+    if profile not in patch.profile_reaches:
+        valid = ", ".join(sorted(patch.profile_reaches.keys()))
+        return {"error": f"Unknown profile '{profile}'. Valid profiles: {valid}"}
+
+    reach_result = patch.profile_reaches[profile]
+    walker = patch.walker
+
+    if walker is None:
+        return {"error": f"Walker not ready for patch {patch_key.upper()}."}
+
+    # reachable_indices is a tuple of (syllable_index, reachability_count)
+    # pairs, pre-sorted by count descending.  Slice to the top `reach`
+    # entries — these are the most commonly available syllables per step,
+    # matching the reach badge count shown in the UI.
+    top_entries = reach_result.reachable_indices[: reach_result.reach]
+    syllables = []
+    for idx, reachability in top_entries:
+        syllables.append(
+            {
+                "syllable": walker.syllables[idx],
+                "frequency": int(walker.frequencies[idx]),
+                "reachability": reachability,
+            }
+        )
+
+    return {
+        "profile": profile,
+        "reach": reach_result.reach,
+        "total": reach_result.total,
+        "unique_reachable": reach_result.unique_reachable,
+        "syllables": syllables,
+    }
+
+
+def _combine_via_walks(
+    *,
+    patch: PatchState,
+    profile: str,
+    syllable_counts: list[int],
+    count: int,
+    seed: int | None,
+    max_flips: int,
+    temperature: float,
+    frequency_weight: float,
+) -> list[dict[str, Any]]:
+    """Generate name candidates using walk-based graph traversal.
+
+    Each candidate is produced by walking the syllable neighbor graph.
+    The walk length determines the number of syllables in the name
+    (steps + 1 = syllable count).
+
+    Args:
+        patch: Patch state with loaded walker and annotated_data.
+        profile: Walk profile name or ``"custom"``.
+        syllable_counts: List of syllable counts to generate for.
+        count: Number of candidates per syllable count.
+        seed: RNG seed for determinism.
+        max_flips: Max feature flips per step (custom mode only).
+        temperature: Exploration temperature (custom mode only).
+        frequency_weight: Frequency bias (custom mode only).
+
+    Returns:
+        List of candidate dicts with ``name``, ``syllables``, ``features``.
+    """
+    from build_tools.name_combiner.aggregator import aggregate_features
+    from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+    # Build a lookup from syllable text → annotated record for feature
+    # aggregation.  Walk results contain syllable text but not features.
+    assert patch.annotated_data is not None  # caller guards this
+    syl_lookup: dict[str, dict[str, Any]] = {}
+    for rec in patch.annotated_data:
+        syl_lookup[rec["syllable"]] = rec
+
+    candidates: list[dict[str, Any]] = []
+
+    for sc in syllable_counts:
+        steps = sc - 1  # walk of N steps → N+1 syllables
+        if steps < 1:
+            steps = 1
+
+        walk_kwargs: dict[str, Any] = {
+            "steps": steps,
+            "count": count,
+            "seed": seed,
+        }
+        if profile != "custom":
+            walk_kwargs["profile"] = profile
+        else:
+            walk_kwargs["max_flips"] = max_flips
+            walk_kwargs["temperature"] = temperature
+            walk_kwargs["frequency_weight"] = frequency_weight
+
+        walks = generate_walks(patch.walker, **walk_kwargs)
+
+        for walk in walks:
+            syllable_texts = walk["syllables"]
+            # Build annotated records for feature aggregation
+            annotated_records = [
+                syl_lookup.get(s, {"syllable": s, "features": {}}) for s in syllable_texts
+            ]
+            features = aggregate_features(annotated_records)
+            candidates.append(
+                {
+                    "name": "".join(syllable_texts),
+                    "syllables": syllable_texts,
+                    "features": features,
+                }
+            )
+
+    return candidates
+
+
 def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     """Handle POST /api/walker/combine.
 
     Generates name candidates from the loaded corpus syllables.
 
+    Supports two generation modes selected by the ``profile`` parameter:
+
+    - **Flat** (``profile`` absent or ``"flat"``): Independent random sampling
+      using ``frequency_weight`` (0.0–1.0).  No walker required.
+    - **Walk-based** (``profile`` is a named profile or ``"custom"``): Graph
+      traversal using the walker's neighbor graph.  Requires the walker to be
+      initialised (``walker_ready``).
+
     Args:
         body: Request body with ``patch``, ``count``, ``syllables``,
-            ``seed``, ``frequency_weight``.
+            ``seed``, ``frequency_weight``, and optionally ``profile``,
+            ``max_flips``, ``temperature``.
         state: Global server state.
 
     Returns:
@@ -260,8 +402,6 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     if not patch.annotated_data:
         return {"error": f"No corpus loaded for patch {patch_key.upper()}."}
 
-    from build_tools.syllable_walk_web.services.combiner_runner import run_combiner
-
     # Accept either a single int or a list of syllable counts.
     raw_syllables = body.get("syllables", 2)
     syllable_counts: list[int] = (
@@ -270,19 +410,45 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     count = body.get("count", 10000)
     seed = body.get("seed")
     frequency_weight = body.get("frequency_weight", 1.0)
+    profile = body.get("profile")
 
     try:
         candidates: list[dict[str, Any]] = []
-        for sc in syllable_counts:
-            candidates.extend(
-                run_combiner(
-                    patch.annotated_data,
-                    syllable_count=sc,
-                    count=count,
-                    seed=seed,
-                    frequency_weight=frequency_weight,
-                )
+
+        if profile and profile != "flat":
+            # Walk-based generation — requires initialised walker.
+            if not patch.walker_ready or patch.walker is None:
+                return {
+                    "error": (
+                        f"Walker not ready for patch {patch_key.upper()}. "
+                        "Load a corpus in the Walk tab first."
+                    )
+                }
+
+            candidates = _combine_via_walks(
+                patch=patch,
+                profile=profile,
+                syllable_counts=syllable_counts,
+                count=count,
+                seed=seed,
+                max_flips=body.get("max_flips", 2),
+                temperature=body.get("temperature", 0.7),
+                frequency_weight=body.get("frequency_weight", 0.0),
             )
+        else:
+            # Flat sampling — original combiner path.
+            from build_tools.syllable_walk_web.services.combiner_runner import run_combiner
+
+            for sc in syllable_counts:
+                candidates.extend(
+                    run_combiner(
+                        patch.annotated_data,
+                        syllable_count=sc,
+                        count=count,
+                        seed=seed,
+                        frequency_weight=frequency_weight,
+                    )
+                )
     except Exception as e:
         return {"error": f"Combiner failed: {e}"}
 

@@ -119,6 +119,12 @@ class ReachResult:
             starting node (union across all nodes). This is supplementary
             context — the mean per-node count (``reach``) is the primary
             metric displayed in the UI.
+        reachable_indices: Tuple of ``(syllable_index, reachability_count)``
+            pairs for all syllables in the union reachable set, sorted by
+            reachability count descending (most commonly reachable first).
+            The count is how many starting nodes can reach that syllable.
+            Maps to syllable text via ``walker.syllables[idx]``.
+            Omitted from ``to_dict()`` to keep API responses lean.
 
     Example:
         >>> result = ReachResult(
@@ -145,6 +151,7 @@ class ReachResult:
     frequency_weight: float
     computation_ms: float
     unique_reachable: int = 0
+    reachable_indices: tuple[tuple[int, int], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a plain dictionary for API responses.
@@ -262,6 +269,11 @@ def compute_reach(
     # This is supplementary context (stored as unique_reachable).
     union_reachable: set[int] = set()
 
+    # Per-syllable reachability count: how many starting nodes can reach
+    # each syllable.  Used to identify the "commonly reachable" set —
+    # syllables reachable from >= 50% of starting positions.
+    reachability_counts: dict[int, int] = {}
+
     # Iterate over every syllable as a potential starting node.
     # This is the "exhaustive" part — we compute the transition
     # distribution from every possible position in the graph.
@@ -316,6 +328,7 @@ def compute_reach(
             if probability > threshold:
                 node_count += 1
                 union_reachable.add(idx)
+                reachability_counts[idx] = reachability_counts.get(idx, 0) + 1
         per_node_counts.append(node_count)
 
     elapsed_ms = (time.monotonic() - start_time) * 1000.0
@@ -324,6 +337,11 @@ def compute_reach(
     # nearest integer for display. This represents "on average, how many
     # syllables are effectively available at each step of a walk?"
     mean_reach = sum(per_node_counts) / len(per_node_counts)
+
+    # Build reachable entries sorted by reachability count descending
+    # (most commonly reachable syllables first).  Each entry is
+    # (syllable_index, count_of_starting_nodes_that_can_reach_it).
+    reachable_entries = sorted(reachability_counts.items(), key=lambda x: (-x[1], x[0]))
 
     return ReachResult(
         profile_name=profile_name,
@@ -335,6 +353,7 @@ def compute_reach(
         frequency_weight=frequency_weight,
         computation_ms=round(elapsed_ms, 2),
         unique_reachable=len(union_reachable),
+        reachable_indices=tuple(reachable_entries),
     )
 
 

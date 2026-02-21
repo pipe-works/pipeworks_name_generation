@@ -576,6 +576,39 @@ class TestEdgeCases:
                 f"< reach={result.reach}"
             )
 
+    def test_reachable_indices_populated(self, walker):
+        """reachable_indices must be (index, count) tuples sorted by count desc.
+
+        Each entry is a (syllable_index, reachability_count) pair where count
+        is how many starting nodes can reach that syllable.  The list should
+        contain exactly unique_reachable entries, sorted by count descending.
+        """
+        results = compute_all_reaches(walker)
+        total = len(walker.syllables)
+        for name, result in results.items():
+            assert isinstance(
+                result.reachable_indices, tuple
+            ), f"Profile '{name}': reachable_indices is not a tuple"
+            assert len(result.reachable_indices) == result.unique_reachable, (
+                f"Profile '{name}': reachable_indices length "
+                f"({len(result.reachable_indices)}) != unique_reachable "
+                f"({result.unique_reachable})"
+            )
+            # Each entry is a (syllable_index, reachability_count) pair
+            for entry in result.reachable_indices:
+                assert (
+                    isinstance(entry, tuple) and len(entry) == 2
+                ), f"Profile '{name}': entry {entry!r} is not a 2-tuple"
+                idx, count = entry
+                assert 0 <= idx < total, f"Profile '{name}': index {idx} out of range [0, {total})"
+                assert count >= 1, f"Profile '{name}': reachability count {count} < 1"
+            # Sorted by count descending (then index ascending for ties)
+            if len(result.reachable_indices) > 1:
+                counts = [c for _, c in result.reachable_indices]
+                assert counts == sorted(
+                    counts, reverse=True
+                ), f"Profile '{name}': reachable_indices not sorted by count desc"
+
 
 # ============================================================
 # Metadata Tests

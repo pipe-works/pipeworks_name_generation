@@ -352,6 +352,110 @@ body {
   position: relative;
 }
 
+/* Profile tabs — scoped tab group within the Profile section.
+   Provides a compact tabbed interface: "Profiles" (radio list) plus
+   one tab per named profile showing reachable syllable tables. */
+
+.profile-tabs {
+  margin: 0;
+}
+
+.profile-tabs__nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--col-border);
+  margin-bottom: var(--sp-1);
+}
+
+.profile-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--col-text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.profile-tabs__tab:hover:not(.is-active) {
+  color: var(--col-text);
+  background: color-mix(in srgb, var(--col-accent) 8%, transparent);
+}
+
+.profile-tabs__tab.is-active {
+  color: var(--col-accent);
+  border-bottom-color: var(--col-accent);
+}
+
+.profile-tabs__panel[hidden] {
+  display: none;
+}
+
+/* Reach syllables — fixed header/buttons, scrollable table body */
+.reach-syllables__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+  font-size: var(--text-xs);
+}
+
+.reach-syllables__export-bar {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.reach-syllables__scroll {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.reach-syllables__table {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  border-collapse: collapse;
+}
+
+.reach-syllables__table th {
+  text-align: left;
+  color: var(--col-text-muted);
+  font-weight: 600;
+  padding: 2px var(--sp-1);
+  border-bottom: 1px solid var(--col-border);
+  position: sticky;
+  top: 0;
+  background: var(--col-surface);
+}
+
+.reach-syllables__table td {
+  padding: 1px var(--sp-1);
+  border-bottom: 1px solid color-mix(in srgb, var(--col-border) 40%, transparent);
+}
+
+.reach-syllables__table tr:hover td {
+  background: var(--col-surface-2);
+}
+
+/* Button feedback flash */
+.btn--flash {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
 /* Reach tooltip (Level 2) — JS-positioned floating panel.
    Follows the canonical .tooltip-bubble pattern from pipe-works-base.css
    but extended with structured sub-elements (title, body, params). Uses
