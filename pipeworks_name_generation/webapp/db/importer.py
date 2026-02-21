@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import zipfile
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -88,7 +89,15 @@ def import_package_pair(
         raise FileNotFoundError(f"Package ZIP does not exist: {zip_resolved}")
 
     payload = load_metadata_json(metadata_resolved)
-    package_name = str(payload.get("common_name", "")).strip() or zip_resolved.stem
+
+    # FIX: Support both old-format "common_name" and new-format "package_name"
+    # metadata fields. Old packages use "common_name", newer patch-based
+    # packages use "package_name". Fall back to the ZIP stem if neither exists.
+    package_name = (
+        str(payload.get("common_name", "")).strip()
+        or str(payload.get("package_name", "")).strip()
+        or zip_resolved.stem
+    )
 
     raw_files_included = payload.get("files_included")
     if raw_files_included is None:
@@ -98,9 +107,25 @@ def import_package_pair(
     else:
         raise ValueError("Metadata key 'files_included' must be a list when provided.")
 
-    allowed_txt_names = {
-        str(name).strip() for name in files_included if str(name).strip().lower().endswith(".txt")
-    }
+    # FIX: Build TWO allowed-name sets to handle both metadata formats.
+    #
+    # Old format uses basenames in files_included:
+    #   ["pyphen_first_name_2syl.txt", "pyphen_last_name_2syl.txt"]
+    #
+    # New format uses directory-qualified relative paths:
+    #   ["patch_a/selections.txt", "patch_b/selections.txt"]
+    #
+    # We collect both the full relative paths AND the basenames so the
+    # filter below matches entries regardless of which convention the
+    # metadata author used.
+    allowed_txt_full_paths: set[str] = set()
+    allowed_txt_basenames: set[str] = set()
+    for name in files_included:
+        cleaned = str(name).strip()
+        if not cleaned.lower().endswith(".txt"):
+            continue
+        allowed_txt_full_paths.add(cleaned)
+        allowed_txt_basenames.add(Path(cleaned).name)
 
     try:
         with zipfile.ZipFile(zip_resolved, "r") as archive:
@@ -110,8 +135,17 @@ def import_package_pair(
                 if not name.endswith("/") and name.lower().endswith(".txt")
             )
 
-            if allowed_txt_names:
-                entries = [entry for entry in entries if Path(entry).name in allowed_txt_names]
+            # FIX: Match ZIP entries against both full relative paths and
+            # basenames. The full-path check handles the new patch-based
+            # format ("patch_a/selections.txt"), while the basename check
+            # preserves backward compatibility with old flat-layout packages
+            # ("pyphen_first_name_2syl.txt").
+            if allowed_txt_full_paths:
+                entries = [
+                    entry
+                    for entry in entries
+                    if entry in allowed_txt_full_paths or Path(entry).name in allowed_txt_basenames
+                ]
 
             cursor = conn.execute(
                 """
@@ -133,6 +167,19 @@ def import_package_pair(
                 raise RuntimeError("SQLite did not return a row id for imported package insert.")
             package_id = int(cursor.lastrowid)
 
+            # FIX: Detect basename collisions among the filtered entries.
+            # When two ZIP entries in different directories share the same
+            # basename (e.g. "patch_a/selections.txt" and
+            # "patch_b/selections.txt"), we must use a directory-qualified
+            # source_txt_name to avoid UNIQUE constraint violations.
+            #
+            # Old-format packages (e.g. "selections/nltk_first_name_2syl.txt")
+            # have unique basenames, so they continue to store just the
+            # basename for backward compatibility with existing DB records
+            # and the generation class mapper.
+            basename_counts = Counter(Path(entry).name for entry in entries)
+            colliding_basenames = {name for name, count in basename_counts.items() if count > 1}
+
             created_tables: list[dict[str, Any]] = []
             for index, entry_name in enumerate(entries, start=1):
                 txt_rows = read_txt_rows(archive, entry_name)
@@ -142,16 +189,25 @@ def import_package_pair(
                 create_text_table(conn, table_name)
                 insert_text_rows(conn, table_name, txt_rows)
 
+                entry_path = Path(entry_name)
+                if entry_path.name in colliding_basenames:
+                    # FIX: Directory-qualify to avoid UNIQUE collision.
+                    # "patch_a/selections.txt" -> "patch_a_selections.txt"
+                    source_txt_name = str(entry_path).replace("/", "_")
+                else:
+                    # No collision: use bare basename for backward compat.
+                    source_txt_name = entry_path.name
+
                 conn.execute(
                     """
                     INSERT INTO package_tables (package_id, source_txt_name, table_name, row_count)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (package_id, Path(entry_name).name, table_name, len(txt_rows)),
+                    (package_id, source_txt_name, table_name, len(txt_rows)),
                 )
                 created_tables.append(
                     {
-                        "source_txt_name": Path(entry_name).name,
+                        "source_txt_name": source_txt_name,
                         "table_name": table_name,
                         "row_count": len(txt_rows),
                     }

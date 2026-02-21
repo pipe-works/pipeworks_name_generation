@@ -5,6 +5,7 @@ from .connection import connect_database
 from .importer import import_package_pair, load_metadata_json, read_txt_rows
 from .repositories import (
     build_package_table_name,
+    delete_package,
     get_package_table,
     list_package_tables,
     list_packages,
@@ -28,6 +29,7 @@ __all__ = [
     "slugify_identifier",
     "list_packages",
     "list_package_tables",
+    "delete_package",
     "get_package_table",
     "quote_identifier",
     "create_text_table",

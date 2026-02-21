@@ -41,7 +41,6 @@
       <!-- Pipeline sub-tabs -->
       <nav class="app-nav sub-nav" id="sub-nav-pipeline" role="navigation" aria-label="Pipeline screens">
         <button class="tab is-active" data-screen="pipeline-configure" data-tool="pipeline">Configure</button>
-        <button class="tab"           data-screen="pipeline-monitor"   data-tool="pipeline">Monitor</button>
         <button class="tab"           data-screen="pipeline-history"   data-tool="pipeline">History</button>
       </nav>
       <!-- Walker sub-tabs -->
@@ -153,6 +152,54 @@
           <input class="input" id="custom-lang" type="text" placeholder="e.g. sv_SE" style="width:100%" />
         </div>
 
+        <hr class="divider" />
+
+        <!-- ── Pipeline Monitor (inline) ── -->
+        <h2 class="panel__heading">Pipeline Monitor <span class="badge badge--muted" id="monitor-status-badge">Idle</span></h2>
+
+        <div class="job-meta" id="monitor-job-meta">
+          <div class="job-meta__row">
+            <span class="control-label">Status</span>
+            <span class="u-accent u-mono" id="monitor-job-status">idle</span>
+          </div>
+          <div class="job-meta__row">
+            <span class="control-label">Stage</span>
+            <span class="u-mono u-muted" id="monitor-job-stage">—</span>
+          </div>
+          <div class="job-meta__row">
+            <span class="control-label">Progress</span>
+            <span class="u-mono u-muted" id="monitor-job-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="progress-bar-wrap" style="margin-top:var(--sp-2)">
+          <div class="progress-bar">
+            <div class="progress-bar__fill" id="monitor-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="stage-indicators" style="margin-top:var(--sp-2)">
+          <div class="stage-indicator" id="stage-ind-extract">
+            <span class="stage-indicator__dot"></span>
+            <span class="stage-indicator__label">Extract</span>
+          </div>
+          <div class="stage-indicator" id="stage-ind-normalize">
+            <span class="stage-indicator__dot"></span>
+            <span class="stage-indicator__label">Normalize</span>
+          </div>
+          <div class="stage-indicator" id="stage-ind-annotate">
+            <span class="stage-indicator__dot"></span>
+            <span class="stage-indicator__label">Annotate</span>
+          </div>
+        </div>
+
+        <div class="monitor-log-inline" style="margin-top:var(--sp-3)">
+          <p class="control-label">Log Output</p>
+          <div class="log-output" id="monitor-log" aria-live="polite" aria-label="Pipeline log output">
+            <p class="placeholder-text">(No job running — log will appear here)</p>
+          </div>
+        </div>
+
       </section>
 
       <!-- Right: Constraints + Stages + Run -->
@@ -222,82 +269,6 @@
     </div><!-- /pipeline-layout -->
   </main>
 
-
-  <!-- ── PIPELINE: MONITOR ── -->
-  <main class="app-main screen" id="screen-pipeline-monitor" role="main" hidden>
-    <div class="modal-screen-layout">
-      <div class="modal-screen-header">
-        <h1 class="modal-screen-header__title">Pipeline Monitor</h1>
-        <span class="badge badge--muted" id="monitor-status-badge">Idle</span>
-      </div>
-
-      <div class="monitor-layout">
-
-        <!-- Progress panel -->
-        <div class="monitor-progress panel panel--dark">
-          <h2 class="panel__heading">Job Progress</h2>
-
-          <div class="job-meta" id="monitor-job-meta">
-            <div class="job-meta__row">
-              <span class="control-label">Status</span>
-              <span class="u-accent u-mono" id="monitor-job-status">idle</span>
-            </div>
-            <div class="job-meta__row">
-              <span class="control-label">Stage</span>
-              <span class="u-mono u-muted" id="monitor-job-stage">—</span>
-            </div>
-            <div class="job-meta__row">
-              <span class="control-label">Progress</span>
-              <span class="u-mono u-muted" id="monitor-job-pct">0%</span>
-            </div>
-            <div class="job-meta__row">
-              <span class="control-label">Source</span>
-              <span class="u-mono u-muted" id="monitor-job-source">—</span>
-            </div>
-            <div class="job-meta__row">
-              <span class="control-label">Output</span>
-              <span class="u-mono u-muted" id="monitor-job-output">—</span>
-            </div>
-          </div>
-
-          <div class="progress-bar-wrap" style="margin-top:var(--sp-3)">
-            <div class="progress-bar">
-              <div class="progress-bar__fill" id="monitor-progress-fill" style="width:0%"></div>
-            </div>
-          </div>
-
-          <div class="stage-indicators" style="margin-top:var(--sp-3)">
-            <div class="stage-indicator" id="stage-ind-extract">
-              <span class="stage-indicator__dot"></span>
-              <span class="stage-indicator__label">Extract</span>
-            </div>
-            <div class="stage-indicator" id="stage-ind-normalize">
-              <span class="stage-indicator__dot"></span>
-              <span class="stage-indicator__label">Normalize</span>
-            </div>
-            <div class="stage-indicator" id="stage-ind-annotate">
-              <span class="stage-indicator__dot"></span>
-              <span class="stage-indicator__label">Annotate</span>
-            </div>
-          </div>
-
-          <div class="pipeline-actions" style="margin-top:var(--sp-4)">
-            <button class="btn btn--primary btn--full" id="monitor-run-btn">▶ Run Pipeline</button>
-            <button class="btn btn--ghost btn--full" id="monitor-cancel-btn" disabled style="margin-top:var(--sp-2)">✕ Cancel</button>
-          </div>
-        </div>
-
-        <!-- Log panel -->
-        <div class="monitor-log panel panel--dark">
-          <h2 class="panel__heading">Log Output</h2>
-          <div class="log-output" id="monitor-log" aria-live="polite" aria-label="Pipeline log output">
-            <p class="placeholder-text">(No job running — log will appear here)</p>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </main>
 
 
   <!-- ── PIPELINE: HISTORY ── -->

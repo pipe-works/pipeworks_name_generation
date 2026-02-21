@@ -14,7 +14,6 @@
     <nav class="tabs">
       <button type="button" class="tab active" data-tab="generation">Generation</button>
       <button type="button" class="tab" data-tab="database">Database View</button>
-      <button type="button" class="tab" data-tab="import">Import</button>
       <button type="button" class="tab" data-tab="favorites">Favorites</button>
       <button type="button" class="tab" data-tab="help">Help</button>
     </nav>
@@ -317,9 +316,12 @@
 
             <section class="db-card">
               <h3>Selection</h3>
-              <div class="grid">
+              <div class="grid db-package-grid">
                 <label for="db-package-select">Package</label>
-                <select id="db-package-select" class="select"></select>
+                <div class="db-package-row">
+                  <select id="db-package-select" class="select"></select>
+                  <button type="button" id="db-delete-package-btn" class="btn btn--secondary btn--sm" title="Delete selected package">Delete</button>
+                </div>
               </div>
               <div class="grid">
                 <label for="db-table-select">Table</label>
@@ -327,6 +329,18 @@
               </div>
               <p class="muted" id="db-status">Load packages to begin browsing.</p>
               <ul id="db-table-list"></ul>
+            </section>
+
+            <section class="db-card">
+              <h3>Import</h3>
+              <div class="row-buttons">
+                <button type="button" id="import-browse-btn" class="btn btn--primary">Browse for Metadata...</button>
+              </div>
+              <div id="import-selected-path" class="import-selected-path muted">No metadata file selected.</div>
+              <div class="row-buttons">
+                <button type="button" id="import-btn" class="btn btn--primary" disabled>Import Package</button>
+              </div>
+              <p id="import-status" class="muted">Select a *_metadata.json file to import.</p>
             </section>
           </div>
           <div class="db-main">
@@ -346,21 +360,6 @@
             </table>
           </div>
         </div>
-      </section>
-
-      <section class="panel" id="panel-import">
-        <div class="grid">
-          <label for="metadata-path">Metadata JSON Path</label>
-          <input id="metadata-path" class="input" type="text" placeholder="/path/to/package_metadata.json" />
-        </div>
-        <div class="grid">
-          <label for="zip-path">Package ZIP Path</label>
-          <input id="zip-path" class="input" type="text" placeholder="/path/to/package.zip" />
-        </div>
-        <div class="row-buttons">
-          <button type="button" id="import-btn" class="btn btn--primary">Import Pair</button>
-        </div>
-        <p id="import-status" class="muted">Waiting for input.</p>
       </section>
 
       <section class="panel" id="panel-favorites">
@@ -477,6 +476,24 @@
         <button type="button" id="favorites-modal-save" class="btn btn--primary">Save Favorites</button>
       </div>
       <input id="favorites-modal-id" type="hidden" />
+    </div>
+  </div>
+
+  <div id="import-browser-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="import-browser-title">
+      <div class="modal-header">
+        <h3 id="import-browser-title">Select Metadata File</h3>
+        <button type="button" id="import-browser-close" class="btn btn--icon icon-btn" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div id="import-browser-breadcrumb" class="import-browser-breadcrumb muted"></div>
+      <div id="import-browser-list" class="import-browser-list"></div>
+      <div class="row-buttons modal-actions">
+        <button type="button" id="import-browser-cancel" class="btn btn--secondary">Cancel</button>
+        <button type="button" id="import-browser-select" class="btn btn--primary" disabled>Select</button>
+      </div>
     </div>
   </div>
 

@@ -17,6 +17,9 @@ from pipeworks_name_generation.webapp.db import (
     connect_database as _connect_database,
 )
 from pipeworks_name_generation.webapp.db import (
+    delete_package as _delete_package,
+)
+from pipeworks_name_generation.webapp.db import (
     export_database as _export_database,
 )
 from pipeworks_name_generation.webapp.db import (
@@ -75,6 +78,7 @@ from pipeworks_name_generation.webapp.generation import (
 )
 from pipeworks_name_generation.webapp.help_content import get_help_entries
 from pipeworks_name_generation.webapp.http import _parse_optional_int, _parse_required_int
+from pipeworks_name_generation.webapp.routes import browse as browse_routes
 from pipeworks_name_generation.webapp.routes import database as database_routes
 from pipeworks_name_generation.webapp.routes import database_admin as database_admin_routes
 from pipeworks_name_generation.webapp.routes import favorites as favorites_routes
@@ -326,6 +330,16 @@ def get_favicon(handler: Any, _query: dict[str, list[str]]) -> None:
     static_routes.get_favicon(handler)
 
 
+def post_browse_directory(handler: Any) -> None:
+    """Browse a directory for *_metadata.json files."""
+    browse_routes.post_browse_directory(handler)
+
+
+def post_read_metadata(handler: Any) -> None:
+    """Read a *_metadata.json file and return its contents."""
+    browse_routes.post_read_metadata(handler)
+
+
 def post_import(handler: Any) -> None:
     """Import one metadata+zip pair and create tables for included txt data."""
     import_routes.post_import(
@@ -370,6 +384,17 @@ def post_database_export(handler: Any) -> None:
     )
 
 
+def post_database_delete_package(handler: Any) -> None:
+    """Delete one imported package and its associated tables."""
+    database_admin_routes.post_database_delete_package(
+        handler,
+        connect_database=_connect_database,
+        initialize_schema=handler._ensure_schema,
+        delete_package=_delete_package,
+        on_delete_success=lambda: clear_generation_package_options_cache(handler.db_path),
+    )
+
+
 def post_database_import(handler: Any) -> None:
     """Restore the main SQLite database from a file path."""
     database_admin_routes.post_database_import(
@@ -399,6 +424,8 @@ __all__ = [
     "get_database_package_tables",
     "get_database_table_rows",
     "get_favicon",
+    "post_browse_directory",
+    "post_read_metadata",
     "post_import",
     "post_favorites",
     "post_favorites_update",
@@ -407,6 +434,7 @@ __all__ = [
     "post_favorites_import",
     "post_database_backup",
     "post_database_export",
+    "post_database_delete_package",
     "post_database_import",
     "post_generate",
 ]

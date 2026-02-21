@@ -162,8 +162,56 @@ def post_database_import(
     )
 
 
+def post_database_delete_package(
+    handler: _DatabaseAdminHandler,
+    *,
+    connect_database: Callable[..., Any],
+    initialize_schema: Callable[..., None],
+    delete_package: Callable[..., dict[str, Any]],
+    on_delete_success: Callable[[], None] | None = None,
+) -> None:
+    """Delete one imported package and its associated tables."""
+    try:
+        payload = handler._read_json_body()
+    except ValueError as exc:
+        handler._send_json({"error": str(exc)}, status=400)
+        return
+
+    raw_id = payload.get("package_id")
+    if raw_id is None:
+        handler._send_json({"error": "'package_id' is required."}, status=400)
+        return
+
+    try:
+        package_id = int(raw_id)
+    except (TypeError, ValueError):
+        handler._send_json({"error": "'package_id' must be an integer."}, status=400)
+        return
+
+    try:
+        with connect_database(handler.db_path) as conn:
+            initialize_schema(conn)
+            result = delete_package(conn, package_id=package_id)
+        if on_delete_success is not None:
+            on_delete_success()
+        handler._send_json(
+            {
+                "message": (
+                    f"Deleted package '{result['package_name']}' "
+                    f"and {result['tables_dropped']} table(s)."
+                ),
+                **result,
+            }
+        )
+    except ValueError as exc:
+        handler._send_json({"error": str(exc)}, status=400)
+    except Exception as exc:  # pragma: no cover - defensive error response
+        handler._send_json({"error": f"Delete failed: {exc}"}, status=500)
+
+
 __all__ = [
     "post_database_backup",
     "post_database_export",
     "post_database_import",
+    "post_database_delete_package",
 ]

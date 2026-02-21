@@ -68,6 +68,63 @@ def list_package_tables(conn: sqlite3.Connection, package_id: int) -> list[dict[
     ]
 
 
+def delete_package(conn: sqlite3.Connection, package_id: int) -> dict[str, Any]:
+    """Delete one imported package and its associated dynamic txt tables.
+
+    Drops the physical SQLite tables created during import, removes the
+    ``package_tables`` rows (via ON DELETE CASCADE), and finally removes the
+    ``imported_packages`` row.
+
+    Args:
+        conn: Open SQLite connection.
+        package_id: Package id to delete.
+
+    Returns:
+        Summary dict with deleted package name and table count.
+
+    Raises:
+        ValueError: If the package id does not exist.
+    """
+    row = conn.execute(
+        "SELECT id, package_name FROM imported_packages WHERE id = ?",
+        (package_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Package id {package_id} not found.")
+
+    package_name = str(row["package_name"])
+
+    # Look up physical table names so we can DROP them.
+    table_rows = conn.execute(
+        "SELECT table_name FROM package_tables WHERE package_id = ?",
+        (package_id,),
+    ).fetchall()
+
+    from pipeworks_name_generation.webapp.db.table_store import quote_identifier
+
+    dropped_count = 0
+    for trow in table_rows:
+        tname = str(trow["table_name"])
+        try:
+            quoted = quote_identifier(tname)
+            conn.execute(f"DROP TABLE IF EXISTS {quoted}")  # nosec B608
+            dropped_count += 1
+        except ValueError:
+            # Skip tables with unexpected names rather than aborting.
+            pass
+
+    # CASCADE removes package_tables rows automatically.
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("DELETE FROM imported_packages WHERE id = ?", (package_id,))
+    conn.commit()
+
+    return {
+        "package_id": package_id,
+        "package_name": package_name,
+        "tables_dropped": dropped_count,
+    }
+
+
 def get_package_table(conn: sqlite3.Connection, table_id: int) -> dict[str, Any] | None:
     """Return one package table metadata row by id."""
     row = conn.execute(
@@ -95,5 +152,6 @@ __all__ = [
     "build_package_table_name",
     "list_packages",
     "list_package_tables",
+    "delete_package",
     "get_package_table",
 ]

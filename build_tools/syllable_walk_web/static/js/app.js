@@ -168,7 +168,6 @@ function navigateToScreen(screenId) {
   if (screenId === 'walker-blended') populateBlended();
   if (screenId === 'walker-render')   populateRender();
   if (screenId === 'walker-analysis') populateAnalysis();
-  if (screenId === 'pipeline-monitor') syncMonitorFromConfig();
 }
 
 
@@ -1137,13 +1136,7 @@ function checkPipelineReady() {
 }
 
 function initPipelineConfigureRun() {
-  document.getElementById('pipe-run-btn')?.addEventListener('click', () => {
-    /* Switch to Monitor and start real pipeline run */
-    switchTool('pipeline');
-    navigateToScreen('pipeline-monitor');
-    setTimeout(() => startPipelineRun(), 100);
-  });
-
+  document.getElementById('pipe-run-btn')?.addEventListener('click', startPipelineRun);
   document.getElementById('pipe-cancel-btn')?.addEventListener('click', cancelPipelineRun);
 }
 
@@ -1154,16 +1147,6 @@ function initPipelineConfigureRun() {
 
 let _pipelinePoller = null;
 let _lastLogOffset = 0;
-
-function syncMonitorFromConfig() {
-  document.getElementById('monitor-job-source').textContent = state.pipeSource || '—';
-  document.getElementById('monitor-job-output').textContent = state.pipeOutput || '—';
-}
-
-function initMonitorRun() {
-  document.getElementById('monitor-run-btn')?.addEventListener('click', startPipelineRun);
-  document.getElementById('monitor-cancel-btn')?.addEventListener('click', cancelPipelineRun);
-}
 
 function startPipelineRun() {
   if (state.pipeJobRunning) return;
@@ -1184,8 +1167,8 @@ function startPipelineRun() {
   const stageEl  = document.getElementById('monitor-job-stage');
   const pctEl    = document.getElementById('monitor-job-pct');
   const badge    = document.getElementById('monitor-status-badge');
-  const runBtn   = document.getElementById('monitor-run-btn');
-  const cancelBtn = document.getElementById('monitor-cancel-btn');
+  const runBtn   = document.getElementById('pipe-run-btn');
+  const cancelBtn = document.getElementById('pipe-cancel-btn');
 
   /* Reset UI */
   logEl.innerHTML = '';
@@ -1198,9 +1181,6 @@ function startPipelineRun() {
   badge.className = 'badge is-running';
   runBtn.disabled = true;
   cancelBtn.disabled = false;
-
-  document.getElementById('monitor-job-source').textContent = state.pipeSource;
-  document.getElementById('monitor-job-output').textContent = state.pipeOutput || '_working/output/';
 
   ['extract', 'normalize', 'annotate'].forEach(s => {
     const ind = document.getElementById(`stage-ind-${s}`);
@@ -1292,8 +1272,8 @@ function pollPipelineStatus() {
         clearInterval(_pipelinePoller);
         _pipelinePoller = null;
 
-        const runBtn    = document.getElementById('monitor-run-btn');
-        const cancelBtn = document.getElementById('monitor-cancel-btn');
+        const runBtn    = document.getElementById('pipe-run-btn');
+        const cancelBtn = document.getElementById('pipe-cancel-btn');
         runBtn.disabled = false;
         cancelBtn.disabled = true;
 
@@ -1510,7 +1490,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initRenderScreen();
   initPackageBuild();
   initPipelineConfigureRun();
-  initMonitorRun();
   initHistorySelection();
 
   /* Set initial screen */

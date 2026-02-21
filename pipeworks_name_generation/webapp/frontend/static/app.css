@@ -614,6 +614,19 @@ body {
   flex-wrap: wrap;
   gap: 0.55rem;
 }
+.db-package-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.db-package-row .select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.db-package-row .btn {
+  flex-shrink: 0;
+}
+
 #db-table-list {
   margin-top: 0.6rem;
   margin-bottom: 0;
@@ -816,6 +829,64 @@ body {
 }
 .icon-btn span {
   line-height: 1;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPORT FILE BROWSER
+   ═══════════════════════════════════════════════════════════════ */
+
+.import-selected-path {
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.65rem;
+  background: var(--col-surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  word-break: break-all;
+  margin-bottom: 0.6rem;
+}
+
+.import-browser-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  word-break: break-all;
+  padding: 0.3rem 0;
+}
+
+.import-browser-list {
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-md);
+  background: var(--col-surface-2);
+  max-height: 340px;
+  overflow: auto;
+}
+
+.import-browser-entry {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--col-border) 50%, transparent);
+}
+.import-browser-entry:last-child {
+  border-bottom: none;
+}
+.import-browser-entry:hover {
+  background: var(--col-accent-glow);
+  color: var(--col-accent);
+}
+
+.import-browser-entry--dir {
+  font-weight: 600;
+}
+.import-browser-entry--file {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+.import-browser-entry--selected {
+  background: var(--col-accent-glow);
+  color: var(--col-accent);
+  border-left: 3px solid var(--col-accent);
 }
 
 
