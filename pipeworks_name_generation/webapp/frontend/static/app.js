@@ -9,7 +9,6 @@
 
     const tabs = Array.from(document.querySelectorAll('.tab'));
     const panels = {
-      import: document.getElementById('panel-import'),
       generation: document.getElementById('panel-generation'),
       database: document.getElementById('panel-database'),
       favorites: document.getElementById('panel-favorites'),
@@ -116,14 +115,154 @@
       if (pane) pane.classList.toggle('collapsed', selectionPaneCollapsed);
     }
 
-    async function importPair() {
+    // ── Import File Browser ────────────────────────────────────────
+    const importBrowserState = {
+      selectedMetadataPath: null,
+      selectedMetadataData: null,
+      selectedZipPath: null,
+      lastBrowsePath: '.',
+      highlightedEntry: null,
+    };
+
+    function openImportBrowserModal() {
+      const modal = document.getElementById('import-browser-modal');
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      importBrowserState.highlightedEntry = null;
+      document.getElementById('import-browser-select').disabled = true;
+      browseTo(importBrowserState.lastBrowsePath);
+    }
+
+    function closeImportBrowserModal() {
+      const modal = document.getElementById('import-browser-modal');
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    async function browseTo(dirPath) {
+      const list = document.getElementById('import-browser-list');
+      const breadcrumb = document.getElementById('import-browser-breadcrumb');
+      list.innerHTML = '<p class="muted">Loading...</p>';
+
+      const response = await fetch('/api/browse-directory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: dirPath }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        list.innerHTML = `<p class="err">${escapeHtml(data.error || 'Failed to browse directory.')}</p>`;
+        return;
+      }
+
+      importBrowserState.lastBrowsePath = data.path;
+      importBrowserState.highlightedEntry = null;
+      document.getElementById('import-browser-select').disabled = true;
+
+      breadcrumb.textContent = data.path;
+
+      list.innerHTML = '';
+
+      if (data.parent) {
+        const parentRow = document.createElement('div');
+        parentRow.className = 'import-browser-entry import-browser-entry--dir';
+        parentRow.textContent = '.. (parent directory)';
+        parentRow.addEventListener('click', () => browseTo(data.parent));
+        list.appendChild(parentRow);
+      }
+
+      for (const entry of data.entries) {
+        const row = document.createElement('div');
+        if (entry.type === 'directory') {
+          row.className = 'import-browser-entry import-browser-entry--dir';
+          row.textContent = entry.name + '/';
+          row.addEventListener('click', () => browseTo(entry.path));
+        } else {
+          row.className = 'import-browser-entry import-browser-entry--file';
+          row.textContent = entry.name;
+          row.addEventListener('click', () => {
+            const prev = list.querySelector('.import-browser-entry--selected');
+            if (prev) prev.classList.remove('import-browser-entry--selected');
+            row.classList.add('import-browser-entry--selected');
+            importBrowserState.highlightedEntry = entry;
+            document.getElementById('import-browser-select').disabled = false;
+          });
+          row.addEventListener('dblclick', () => {
+            importBrowserState.highlightedEntry = entry;
+            confirmBrowserSelection();
+          });
+        }
+        list.appendChild(row);
+      }
+
+      if (!data.entries.length && !data.parent) {
+        list.innerHTML = '<p class="muted">Empty directory.</p>';
+      }
+    }
+
+    async function confirmBrowserSelection() {
+      const entry = importBrowserState.highlightedEntry;
+      if (!entry) return;
+
       const status = document.getElementById('import-status');
+      status.className = 'muted';
+      status.textContent = 'Reading metadata...';
+
+      const response = await fetch('/api/read-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: entry.path }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        status.className = 'err';
+        status.textContent = data.error || 'Failed to read metadata.';
+        return;
+      }
+
+      const metadata = data.metadata || {};
+      const directory = data.directory || '';
+      const zipFile = metadata.zip_file || '';
+
+      if (!zipFile) {
+        status.className = 'err';
+        status.textContent = 'Metadata JSON does not contain a "zip_file" field.';
+        return;
+      }
+
+      const zipPath = directory ? directory + '/' + zipFile : zipFile;
+
+      importBrowserState.selectedMetadataPath = entry.path;
+      importBrowserState.selectedMetadataData = metadata;
+      importBrowserState.selectedZipPath = zipPath;
+
+      const selectedEl = document.getElementById('import-selected-path');
+      selectedEl.className = 'import-selected-path ok';
+      selectedEl.textContent = entry.path;
+
+      document.getElementById('import-btn').disabled = false;
+      status.className = 'ok';
+      status.textContent = `Metadata loaded. ZIP: ${zipFile}`;
+
+      closeImportBrowserModal();
+    }
+
+    async function importFromSelection() {
+      const status = document.getElementById('import-status');
+      if (!importBrowserState.selectedMetadataPath || !importBrowserState.selectedZipPath) {
+        status.className = 'err';
+        status.textContent = 'No metadata file selected. Use Browse to select one.';
+        return;
+      }
+
       status.className = 'muted';
       status.textContent = 'Importing...';
 
       const payload = {
-        metadata_json_path: document.getElementById('metadata-path').value.trim(),
-        package_zip_path: document.getElementById('zip-path').value.trim(),
+        metadata_json_path: importBrowserState.selectedMetadataPath,
+        package_zip_path: importBrowserState.selectedZipPath,
       };
 
       const response = await fetch('/api/import', {
@@ -996,6 +1135,40 @@
       setDatabaseToolStatus(`Backup written to ${data.backup_path}.`, 'ok');
     }
 
+    async function deleteSelectedPackage() {
+      const packageSelect = document.getElementById('db-package-select');
+      const packageId = Number(packageSelect.value || '0');
+      if (!packageId) {
+        setDatabaseToolStatus('Select a package to delete.', 'err');
+        return;
+      }
+
+      const packageLabel = packageSelect.selectedOptions[0]?.textContent || `id ${packageId}`;
+      const confirmed = window.confirm(
+        `Delete package "${packageLabel}" and all its imported tables?\n\nThis cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setDatabaseToolStatus('Deleting package...', 'muted');
+      const response = await fetch('/api/database/delete-package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package_id: packageId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDatabaseToolStatus(data.error || 'Failed to delete package.', 'err');
+        return;
+      }
+
+      setDatabaseToolStatus(data.message || 'Package deleted.', 'ok');
+      await loadPackages();
+      await loadGenerationPackageOptions();
+    }
+
     async function loadPackageTables() {
       const packageSelect = document.getElementById('db-package-select');
       const tableSelect = document.getElementById('db-table-select');
@@ -1120,7 +1293,12 @@
       loadTableRows();
     }
 
-    document.getElementById('import-btn').addEventListener('click', importPair);
+    document.getElementById('import-btn').addEventListener('click', importFromSelection);
+    document.getElementById('import-browse-btn').addEventListener('click', openImportBrowserModal);
+    document.getElementById('import-browser-close').addEventListener('click', closeImportBrowserModal);
+    document.getElementById('import-browser-cancel').addEventListener('click', closeImportBrowserModal);
+    document.getElementById('import-browser-select').addEventListener('click', confirmBrowserSelection);
+    document.getElementById('import-browser-modal').querySelector('.modal-backdrop').addEventListener('click', closeImportBrowserModal);
     document.getElementById('generation-toggle-btn').addEventListener('click', toggleGenerationCards);
     document.getElementById('api-builder-selection-toggle-btn').addEventListener('click', toggleSelectionPane);
     for (const classKey of generationCardKeys) {
@@ -1139,6 +1317,9 @@
     });
     document.getElementById('db-backup-btn').addEventListener('click', () => {
       void backupDatabase();
+    });
+    document.getElementById('db-delete-package-btn').addEventListener('click', () => {
+      void deleteSelectedPackage();
     });
     document.getElementById('db-package-select').addEventListener('change', loadPackageTables);
     document.getElementById('db-table-select').addEventListener('change', () => {

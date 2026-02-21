@@ -159,6 +159,9 @@ def _map_source_txt_name_to_generation_class(source_txt_name: str) -> str | None
 
     Returns:
         Canonical generation class key, or ``None`` when no mapping is known.
+        A return value of ``None`` does NOT mean the file should be skipped —
+        callers should treat unmapped files as universal sources available
+        to all generation classes (see ``_list_generation_package_options``).
     """
     normalized = re.sub(r"[^a-z0-9]+", "_", Path(source_txt_name).stem.lower()).strip("_")
     for class_key, patterns in GENERATION_CLASS_PATTERNS.items():
@@ -179,6 +182,14 @@ def _extract_syllable_option_from_source_txt_name(source_txt_name: str) -> str |
 
     Returns:
         Normalized syllable option key, or ``None`` when no known mode exists.
+
+    .. note::
+
+        A return value of ``None`` does NOT mean the file should be skipped.
+        Callers should treat ``None`` as ``"all"`` for files that lack an
+        explicit syllable-count suffix — this is the case for newer
+        patch-based packages whose files are named generically (e.g.
+        ``patch_a_selections.txt``).
     """
     normalized = re.sub(r"[^a-z0-9]+", "_", Path(source_txt_name).stem.lower()).strip("_")
     if "_all" in normalized or normalized.endswith("all"):
@@ -241,12 +252,19 @@ def _list_generation_syllable_options(
     for row in rows:
         source_txt_name = str(row["source_txt_name"])
         mapped_class = _map_source_txt_name_to_generation_class(source_txt_name)
-        if mapped_class != class_key:
+
+        # FIX: Universal files (mapped_class is None) match any class_key,
+        # consistent with _list_generation_package_options and
+        # _list_generation_matching_tables.
+        if mapped_class is not None and mapped_class != class_key:
             continue
 
         option_key = _extract_syllable_option_from_source_txt_name(source_txt_name)
+
+        # FIX: Universal files without a syllable-count suffix default to
+        # "all" so they always appear as a selectable syllable option.
         if option_key is None:
-            continue
+            option_key = "all"
         option_keys.add(option_key)
 
     sorted_keys = sorted(option_keys, key=_syllable_option_sort_key)
@@ -317,11 +335,22 @@ def _list_generation_matching_tables(
     for row in rows:
         source_txt_name = str(row["source_txt_name"])
         mapped_class = _map_source_txt_name_to_generation_class(source_txt_name)
-        if mapped_class != class_key:
+
+        # FIX: When the class mapper returns None the file has no
+        # class-specific pattern in its name (e.g. "patch_a_selections.txt").
+        # These universal files match ANY requested class_key, mirroring
+        # the same logic used in _list_generation_package_options.
+        if mapped_class is not None and mapped_class != class_key:
             continue
 
         mapped_syllable = _extract_syllable_option_from_source_txt_name(source_txt_name)
-        if mapped_syllable != normalized_syllable_key:
+
+        # FIX: When the syllable mapper returns None the file has no
+        # syllable-count suffix (e.g. "patch_a_selections.txt" vs
+        # "pyphen_first_name_2syl.txt"). Treat None as "all" so these
+        # universal files are reachable via the "all" syllable option.
+        effective_syllable = mapped_syllable if mapped_syllable is not None else "all"
+        if effective_syllable != normalized_syllable_key:
             continue
 
         matches.append(
@@ -428,23 +457,33 @@ def _list_generation_package_options(conn: sqlite3.Connection) -> list[dict[str,
     }
     for row in rows:
         class_key = _map_source_txt_name_to_generation_class(str(row["source_txt_name"]))
-        if class_key is None:
-            continue
+
+        # FIX: Newer patch-based packages use generic filenames like
+        # "patch_a_selections.txt" that don't contain a name-class hint
+        # (e.g. "first_name" or "last_name"). When the mapper returns
+        # None the file is treated as a UNIVERSAL source and registered
+        # under EVERY generation class. This ensures the package appears
+        # in all class-card dropdowns so the user can generate any class
+        # of name from the imported corpus.
+        target_classes = (
+            [class_key] if class_key is not None else [k for k, _ in GENERATION_NAME_CLASSES]
+        )
 
         package_id = int(row["package_id"])
         package_name = str(row["package_name"])
         source_txt_name = str(row["source_txt_name"])
 
-        existing = per_class[class_key].get(package_id)
-        if existing is None:
-            per_class[class_key][package_id] = {
-                "package_id": package_id,
-                "package_name": package_name,
-                "source_txt_names": [source_txt_name],
-            }
-            continue
+        for target_class in target_classes:
+            existing = per_class[target_class].get(package_id)
+            if existing is None:
+                per_class[target_class][package_id] = {
+                    "package_id": package_id,
+                    "package_name": package_name,
+                    "source_txt_names": [source_txt_name],
+                }
+                continue
 
-        existing["source_txt_names"].append(source_txt_name)
+            existing["source_txt_names"].append(source_txt_name)
 
     result: list[dict[str, Any]] = []
     for class_key, label in GENERATION_NAME_CLASSES:

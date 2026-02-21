@@ -1003,6 +1003,7 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 6rem;
+  max-height: 30vh;
 }
 
 .log-output .log-line {

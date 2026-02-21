@@ -46,6 +46,9 @@ POST_ROUTE_METHODS: dict[str, str] = {
     "/api/favorites/export": "post_favorites_export",
     "/api/favorites/import": "post_favorites_import",
     "/api/generate": "post_generate",
+    "/api/database/delete-package": "post_database_delete_package",
+    "/api/browse-directory": "post_browse_directory",
+    "/api/read-metadata": "post_read_metadata",
 }
 
 
