@@ -1061,7 +1061,6 @@
         status.className = 'muted';
         status.textContent = 'No imported packages available.';
         document.getElementById('db-table-select').innerHTML = '';
-        document.getElementById('db-table-list').innerHTML = '';
         document.getElementById('db-row-body').innerHTML = '';
         document.getElementById('db-page-status').textContent = 'Rows 0-0 of 0';
         return;
@@ -1071,6 +1070,7 @@
         const opt = document.createElement('option');
         opt.value = String(pkg.id);
         opt.textContent = `${pkg.package_name} (id ${pkg.id})`;
+        opt.dataset.metadataPath = pkg.metadata_json_path || '';
         packageSelect.appendChild(opt);
       }
 
@@ -1172,10 +1172,11 @@
     async function loadPackageTables() {
       const packageSelect = document.getElementById('db-package-select');
       const tableSelect = document.getElementById('db-table-select');
-      const tableList = document.getElementById('db-table-list');
       const status = document.getElementById('db-status');
       tableSelect.innerHTML = '';
-      tableList.innerHTML = '';
+
+      document.getElementById('db-manifest-section').classList.add('hidden');
+      document.getElementById('db-manifest-tbody').innerHTML = '';
 
       const packageId = Number(packageSelect.value || '0');
       if (!packageId) {
@@ -1213,13 +1214,6 @@
         opt.textContent = table.source_txt_name;
         opt.dataset.rowCount = String(table.row_count);
         tableSelect.appendChild(opt);
-
-        const li = document.createElement('li');
-        li.innerHTML =
-          `<div><strong>${escapeHtml(table.source_txt_name)}</strong> ` +
-          `<span class="muted">(${table.row_count} rows)</span></div>` +
-          `<code>${escapeHtml(table.table_name)}</code>`;
-        tableList.appendChild(li);
       }
 
       dbState.tableId = Number(tableSelect.value);
@@ -1227,6 +1221,69 @@
       status.className = 'ok';
       status.textContent = `Loaded ${tables.length} table(s).`;
       await loadTableRows();
+      loadManifestMetadata();
+    }
+
+    function loadManifestMetadata() {
+      const section = document.getElementById('db-manifest-section');
+      const tbody = document.getElementById('db-manifest-tbody');
+      section.classList.add('hidden');
+      tbody.innerHTML = '';
+
+      const packageSelect = document.getElementById('db-package-select');
+      const selectedOption = packageSelect.selectedOptions[0];
+      const metadataPath = selectedOption?.dataset.metadataPath;
+      if (!metadataPath) return;
+
+      /* The metadata_json_path stored in the DB already points to the
+         *_metadata.json file which contains the full package manifest. */
+      fetch('/api/read-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: metadataPath }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.metadata) return;
+          const m = data.metadata;
+          renderManifestTable(m, tbody);
+          section.classList.remove('hidden');
+        })
+        .catch(() => {});
+    }
+
+    function renderManifestTable(manifest, tbody) {
+      const rows = [];
+
+      if (manifest.package_name) rows.push(['Package', escapeHtml(manifest.package_name)]);
+      if (manifest.version) rows.push(['Version', escapeHtml(manifest.version)]);
+      if (manifest.schema_version != null) rows.push(['Schema', String(manifest.schema_version)]);
+      if (manifest.created_at) {
+        const d = new Date(manifest.created_at);
+        const formatted = Number.isNaN(d.getTime()) ? manifest.created_at : d.toLocaleString();
+        rows.push(['Created', escapeHtml(formatted)]);
+      }
+
+      const patchKeys = ['patch_a', 'patch_b'];
+      const patchLabels = { patch_a: 'Patch A', patch_b: 'Patch B' };
+      for (const pk of patchKeys) {
+        const patch = manifest[pk];
+        if (!patch) continue;
+        rows.push([patchLabels[pk], '__sub__']);
+        if (patch.run_id) rows.push(['Run ID', `<code>${escapeHtml(patch.run_id)}</code>`]);
+        if (patch.corpus_type) rows.push(['Corpus', escapeHtml(patch.corpus_type)]);
+        if (patch.syllable_count != null) rows.push(['Syllables', String(patch.syllable_count).replace(/\B(?=(\d{3})+(?!\d))/g, ',')]);
+        if (patch.walk_count != null) rows.push(['Walks', String(patch.walk_count)]);
+        if (patch.candidate_count != null) rows.push(['Candidates', String(patch.candidate_count).replace(/\B(?=(\d{3})+(?!\d))/g, ',')]);
+        if (patch.selection_count != null) rows.push(['Selections', String(patch.selection_count).replace(/\B(?=(\d{3})+(?!\d))/g, ',')]);
+      }
+
+      tbody.innerHTML = rows.map(([label, value]) => {
+        if (value === '__sub__') {
+          return `<tr><td colspan="2" class="manifest-sub">${escapeHtml(label)}</td></tr>`;
+        }
+        return `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`;
+      }).join('');
     }
 
     async function loadTableRows() {
@@ -1370,3 +1427,5 @@
     loadHelpContent();
     renderApiBuilder();
     setGenerationCardsCollapsed(true);
+
+    /* Version is injected server-side into the HTML template. */

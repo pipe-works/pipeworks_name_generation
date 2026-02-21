@@ -23,6 +23,10 @@ body {
   padding: 0 var(--sp-4);
 }
 
+.app-header__icon {
+  margin-right: var(--sp-1);
+}
+
 
 /* ── Theme Toggle ─────────────────────────────────────────────── */
 
@@ -627,31 +631,64 @@ body {
   flex-shrink: 0;
 }
 
-#db-table-list {
-  margin-top: 0.6rem;
-  margin-bottom: 0;
-  border: 1px solid var(--col-border);
-  border-radius: var(--radius-md);
-  padding: 0.65rem 0.8rem;
-  max-height: 56vh;
-  overflow: auto;
-  background: var(--col-surface-2);
-}
-#db-table-list code {
-  display: inline-block;
-  margin-top: 0.2rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--col-surface) 90%, var(--col-surface-2) 10%);
-  color: var(--col-text);
-  font-size: 0.78rem;
-}
+
 #db-row-body td:first-child {
   width: 90px;
   white-space: nowrap;
 }
 #db-page-status {
   margin-left: 0.15rem;
+}
+
+/* ── Manifest metadata table ── */
+.db-manifest-section {
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--col-border);
+  padding-top: var(--sp-3);
+}
+
+.db-manifest-section.hidden {
+  display: none;
+}
+
+.db-manifest-heading {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--col-accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 var(--sp-2) 0;
+}
+
+.db-manifest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+}
+
+.db-manifest-table th {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--col-text-muted);
+  text-align: left;
+  white-space: nowrap;
+  padding: 3px var(--sp-2) 3px 0;
+  vertical-align: top;
+  width: 1%;
+}
+
+.db-manifest-table td {
+  color: var(--col-text);
+  padding: 3px 0;
+}
+
+.db-manifest-table .manifest-sub {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--col-accent);
+  padding-top: var(--sp-2);
 }
 
 

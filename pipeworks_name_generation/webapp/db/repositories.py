@@ -32,7 +32,7 @@ def build_package_table_name(package_name: str, txt_stem: str, package_id: int, 
 def list_packages(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return imported package list for the Database View tab."""
     rows = conn.execute("""
-        SELECT id, package_name, imported_at
+        SELECT id, package_name, imported_at, metadata_json_path
         FROM imported_packages
         ORDER BY id DESC
         """).fetchall()
@@ -41,6 +41,7 @@ def list_packages(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             "id": int(row["id"]),
             "package_name": str(row["package_name"]),
             "imported_at": str(row["imported_at"]),
+            "metadata_json_path": str(row["metadata_json_path"]),
         }
         for row in rows
     ]

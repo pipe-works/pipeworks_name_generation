@@ -89,8 +89,15 @@ from pipeworks_name_generation.webapp.routes import static as static_routes
 
 
 def get_root(handler: Any, _query: dict[str, list[str]]) -> None:
-    """Serve the single-page web UI shell."""
-    static_routes.get_root(handler, get_index_html())
+    """Serve the single-page web UI shell with version injected."""
+    from pipeworks_name_generation import __version__
+
+    html = get_index_html().replace(
+        ">user tools</",
+        f">user tools \u00b7 v{__version__}</",
+        1,
+    )
+    static_routes.get_root(handler, html)
 
 
 def get_static_pipe_works_fonts_css(handler: Any, _query: dict[str, list[str]]) -> None:
@@ -160,6 +167,13 @@ def get_static_font(handler: Any, path: str) -> None:
 def get_health(handler: Any, _query: dict[str, list[str]]) -> None:
     """Return a lightweight liveness response."""
     static_routes.get_health(handler)
+
+
+def get_version(handler: Any, _query: dict[str, list[str]]) -> None:
+    """Return the package version."""
+    from pipeworks_name_generation import __version__
+
+    handler._send_json({"version": __version__})
 
 
 def get_help(handler: Any, _query: dict[str, list[str]]) -> None:
@@ -413,6 +427,7 @@ __all__ = [
     "get_static_favorites_js",
     "get_static_font",
     "get_health",
+    "get_version",
     "get_help",
     "get_favorites",
     "get_favorite_tags",
