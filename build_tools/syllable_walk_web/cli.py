@@ -19,6 +19,7 @@ class BuildToolsSettings:
 
     Attributes:
         output_base: Base directory for pipeline run discovery.
+        sessions_dir: Optional explicit session storage directory.
         corpus_dir_a: Directory containing runs to auto-load into Patch A.
         corpus_dir_b: Directory containing runs to auto-load into Patch B.
         port: Optional explicit port. ``None`` means auto-select.
@@ -26,6 +27,7 @@ class BuildToolsSettings:
     """
 
     output_base: Path | None = None
+    sessions_dir: Path | None = None
     corpus_dir_a: str | None = None
     corpus_dir_b: str | None = None
     port: int | None = None
@@ -59,6 +61,13 @@ def load_build_tools_settings(config_path: Path | None) -> BuildToolsSettings:
         if stripped:
             output_base = Path(stripped).expanduser()
 
+    raw_sessions = parser.get("build_tools", "sessions_dir", fallback=None)
+    sessions_dir: Path | None = None
+    if raw_sessions is not None:
+        stripped = raw_sessions.strip()
+        if stripped:
+            sessions_dir = Path(stripped).expanduser()
+
     raw_corpus_a = parser.get("build_tools", "corpus_dir_a", fallback=None)
     corpus_dir_a: str | None = None
     if raw_corpus_a is not None:
@@ -84,6 +93,7 @@ def load_build_tools_settings(config_path: Path | None) -> BuildToolsSettings:
 
     return BuildToolsSettings(
         output_base=output_base,
+        sessions_dir=sessions_dir,
         corpus_dir_a=corpus_dir_a,
         corpus_dir_b=corpus_dir_b,
         port=port,
@@ -147,13 +157,21 @@ Examples::
     )
 
     parser.add_argument(
+        "--sessions-dir",
+        type=str,
+        default=None,
+        help=("Optional directory for saved walker sessions. " "Default: <output_base>/sessions"),
+    )
+
+    parser.add_argument(
         "--config",
         type=str,
         default="server.ini",
         help=(
             "Path to INI config file. Reads the [build_tools] section for "
-            "output_base, port, and verbose. CLI arguments override INI "
-            "values. Default: server.ini"
+            "output_base, sessions_dir, corpus_dir_a, corpus_dir_b, port, "
+            "and verbose. CLI arguments override INI values. "
+            "Default: server.ini"
         ),
     )
 
@@ -195,6 +213,14 @@ def main(args: list[str] | None = None) -> int:
         else:
             output_base = None
 
+        # Resolve sessions_dir: CLI > INI > None
+        if parsed.sessions_dir is not None:
+            sessions_dir = Path(parsed.sessions_dir)
+        elif ini_settings.sessions_dir is not None:
+            sessions_dir = ini_settings.sessions_dir
+        else:
+            sessions_dir = None
+
         # Resolve port: CLI > INI > None
         port = parsed.port if parsed.port is not None else ini_settings.port
 
@@ -205,6 +231,7 @@ def main(args: list[str] | None = None) -> int:
             port=port,
             verbose=verbose,
             output_base=output_base,
+            sessions_dir=sessions_dir,
             corpus_dir_a=ini_settings.corpus_dir_a,
             corpus_dir_b=ini_settings.corpus_dir_b,
         )

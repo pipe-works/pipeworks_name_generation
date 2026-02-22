@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pipeworks:schema:walker-run-state:v1",
+  "title": "Walker Run State Snapshot (v1)",
+  "description": "Run-local IPC snapshot that references patch output sidecars for restore workflows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state_kind",
+    "run_id",
+    "created_at_utc",
+    "manifest_ipc_output_hash",
+    "sidecars",
+    "ipc"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "state_kind": {
+      "type": "string",
+      "const": "walker_run_state"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}_[0-9]{6}_.+$"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "manifest_ipc_output_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reach_cache_ipc_output_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sidecars": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "patch_a_walks",
+        "patch_a_candidates",
+        "patch_a_selections",
+        "patch_a_package",
+        "patch_b_walks",
+        "patch_b_candidates",
+        "patch_b_selections",
+        "patch_b_package"
+      ],
+      "properties": {
+        "patch_a_walks": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_a_candidates": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_a_selections": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_a_package": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_b_walks": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_b_candidates": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_b_selections": { "$ref": "#/$defs/sidecarRefOrNull" },
+        "patch_b_package": { "$ref": "#/$defs/sidecarRefOrNull" }
+      }
+    },
+    "ipc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "library",
+        "library_ref",
+        "input_hash",
+        "output_hash",
+        "input_payload",
+        "output_payload"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "library": {
+          "type": "string",
+          "const": "pipeworks-ipc"
+        },
+        "library_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_payload": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "output_payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sidecarRefOrNull": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "relative_path",
+        "artifact_kind",
+        "patch",
+        "ipc_input_hash",
+        "ipc_output_hash"
+      ],
+      "properties": {
+        "relative_path": {
+          "type": "string",
+          "pattern": "^ipc\\/patch_[ab]_(walks|candidates|selections|package)\\.v1\\.json$"
+        },
+        "artifact_kind": {
+          "type": "string",
+          "enum": [
+            "walks",
+            "candidates",
+            "selections",
+            "package"
+          ]
+        },
+        "patch": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ]
+        },
+        "ipc_input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ipc_output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

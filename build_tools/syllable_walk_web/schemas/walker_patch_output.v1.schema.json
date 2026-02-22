@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pipeworks:schema:walker-patch-output:v1",
+  "title": "Walker Patch Output Sidecar (v1)",
+  "description": "Run-local IPC sidecar for one patch output type (walks, candidates, selections, package).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "patch",
+    "run_id",
+    "created_at_utc",
+    "ipc",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "artifact_kind": {
+      "type": "string",
+      "enum": [
+        "walks",
+        "candidates",
+        "selections",
+        "package"
+      ]
+    },
+    "patch": {
+      "type": "string",
+      "enum": [
+        "a",
+        "b"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}_[0-9]{6}_.+$"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ipc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "library",
+        "library_ref",
+        "input_hash",
+        "output_hash",
+        "input_payload",
+        "output_payload"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "library": {
+          "type": "string",
+          "const": "pipeworks-ipc"
+        },
+        "library_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_payload": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "output_payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

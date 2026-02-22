@@ -59,6 +59,12 @@ class TestCreateArgumentParser:
         args = parser.parse_args([])
         assert args.config == "server.ini"
 
+    def test_parser_has_sessions_dir_argument(self):
+        """Test parser has --sessions-dir argument."""
+        parser = create_argument_parser()
+        args = parser.parse_args(["--sessions-dir", "/tmp/sessions"])
+        assert args.sessions_dir == "/tmp/sessions"
+
     def test_parser_config_custom_path(self):
         """Test parser accepts custom --config path."""
         parser = create_argument_parser()
@@ -72,6 +78,7 @@ class TestCreateArgumentParser:
         assert args.port is None
         assert args.quiet is False
         assert args.output_base is None
+        assert args.sessions_dir is None
         assert args.config == "server.ini"
 
 
@@ -84,6 +91,7 @@ class TestParseArguments:
         assert args.port is None
         assert args.quiet is False
         assert args.output_base is None
+        assert args.sessions_dir is None
         assert args.config == "server.ini"
 
     def test_parse_port_arg(self):
@@ -106,14 +114,30 @@ class TestParseArguments:
         args = parse_arguments(["--config", "/etc/app.ini"])
         assert args.config == "/etc/app.ini"
 
+    def test_parse_sessions_dir_arg(self):
+        """Test parsing --sessions-dir argument."""
+        args = parse_arguments(["--sessions-dir", "/tmp/sessions"])
+        assert args.sessions_dir == "/tmp/sessions"
+
     def test_parse_all_args(self):
         """Test parsing all arguments together."""
         args = parse_arguments(
-            ["--port", "9000", "--quiet", "--output-base", "/tmp", "--config", "custom.ini"]
+            [
+                "--port",
+                "9000",
+                "--quiet",
+                "--output-base",
+                "/tmp",
+                "--sessions-dir",
+                "/tmp/sessions",
+                "--config",
+                "custom.ini",
+            ]
         )
         assert args.port == 9000
         assert args.quiet is True
         assert args.output_base == "/tmp"
+        assert args.sessions_dir == "/tmp/sessions"
         assert args.config == "custom.ini"
 
     def test_parse_invalid_port_raises(self):
@@ -138,6 +162,7 @@ class TestLoadBuildToolsSettings:
         assert settings.output_base is None
         assert settings.corpus_dir_a is None
         assert settings.corpus_dir_b is None
+        assert settings.sessions_dir is None
         assert settings.port is None
         assert settings.verbose is True
 
@@ -148,6 +173,7 @@ class TestLoadBuildToolsSettings:
         assert settings.output_base is None
         assert settings.corpus_dir_a is None
         assert settings.corpus_dir_b is None
+        assert settings.sessions_dir is None
         assert settings.port is None
         assert settings.verbose is True
 
@@ -160,6 +186,7 @@ class TestLoadBuildToolsSettings:
         assert settings.output_base is None
         assert settings.corpus_dir_a is None
         assert settings.corpus_dir_b is None
+        assert settings.sessions_dir is None
         assert settings.port is None
         assert settings.verbose is True
 
@@ -171,6 +198,7 @@ class TestLoadBuildToolsSettings:
                 [
                     "[build_tools]",
                     "output_base = _working/output",
+                    "sessions_dir = _working/sessions",
                     "corpus_dir_a = 20260121_084017_nltk",
                     "corpus_dir_b = 20260122_091500_pyphen",
                     "port = 9000",
@@ -182,6 +210,7 @@ class TestLoadBuildToolsSettings:
         settings = load_build_tools_settings(ini_path)
 
         assert settings.output_base == Path("_working/output")
+        assert settings.sessions_dir == Path("_working/sessions")
         assert settings.corpus_dir_a == "20260121_084017_nltk"
         assert settings.corpus_dir_b == "20260122_091500_pyphen"
         assert settings.port == 9000
@@ -223,6 +252,22 @@ class TestLoadBuildToolsSettings:
         assert settings.corpus_dir_a is None
         assert settings.corpus_dir_b is None
 
+    def test_blank_sessions_dir_returns_none(self, tmp_path: Path):
+        """Blank sessions_dir should resolve to None."""
+        ini_path = tmp_path / "server.ini"
+        ini_path.write_text(
+            "\n".join(
+                [
+                    "[build_tools]",
+                    "sessions_dir =   ",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        settings = load_build_tools_settings(ini_path)
+
+        assert settings.sessions_dir is None
+
     def test_corpus_dir_a_only(self, tmp_path: Path):
         """Setting only corpus_dir_a should leave corpus_dir_b as None."""
         ini_path = tmp_path / "server.ini"
@@ -256,6 +301,22 @@ class TestLoadBuildToolsSettings:
 
         assert settings.output_base == Path("~/my_output").expanduser()
 
+    def test_expands_user_in_sessions_dir(self, tmp_path: Path):
+        """Tilde in sessions_dir should be expanded."""
+        ini_path = tmp_path / "server.ini"
+        ini_path.write_text(
+            "\n".join(
+                [
+                    "[build_tools]",
+                    "sessions_dir = ~/my_sessions",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        settings = load_build_tools_settings(ini_path)
+
+        assert settings.sessions_dir == Path("~/my_sessions").expanduser()
+
     def test_returns_frozen_dataclass(self, tmp_path: Path):
         """Returned settings should be a frozen BuildToolsSettings instance."""
         ini_path = tmp_path / "server.ini"
@@ -288,6 +349,7 @@ class TestMain:
                 port=None,
                 verbose=True,
                 output_base=None,
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -300,6 +362,7 @@ class TestMain:
                 port=9000,
                 verbose=True,
                 output_base=None,
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -312,6 +375,7 @@ class TestMain:
                 port=None,
                 verbose=False,
                 output_base=None,
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -324,6 +388,7 @@ class TestMain:
                 port=None,
                 verbose=True,
                 output_base=Path("/tmp/output"),
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -349,6 +414,7 @@ class TestMain:
                 port=9500,
                 verbose=False,
                 output_base=Path("_working/output"),
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -373,6 +439,7 @@ class TestMain:
                 port=None,
                 verbose=True,
                 output_base=None,
+                sessions_dir=None,
                 corpus_dir_a="20260121_084017_nltk",
                 corpus_dir_b="20260122_091500_pyphen",
             )
@@ -396,6 +463,7 @@ class TestMain:
                 port=7000,
                 verbose=True,
                 output_base=None,
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -419,6 +487,7 @@ class TestMain:
                 port=None,
                 verbose=True,
                 output_base=Path("/custom/path"),
+                sessions_dir=None,
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )
@@ -442,6 +511,43 @@ class TestMain:
                 port=None,
                 verbose=False,
                 output_base=None,
+                sessions_dir=None,
+                corpus_dir_a=None,
+                corpus_dir_b=None,
+            )
+
+    def test_main_passes_sessions_dir_to_server(self, tmp_path: Path):
+        """CLI --sessions-dir should be forwarded to run_server as a Path."""
+        with patch("build_tools.syllable_walk_web.server.run_server", return_value=0) as mock_run:
+            main(["--sessions-dir", str(tmp_path / "sessions"), "--config", "nonexistent.ini"])
+            mock_run.assert_called_once_with(
+                port=None,
+                verbose=True,
+                output_base=None,
+                sessions_dir=tmp_path / "sessions",
+                corpus_dir_a=None,
+                corpus_dir_b=None,
+            )
+
+    def test_main_ini_passes_sessions_dir(self, tmp_path: Path):
+        """INI sessions_dir should be forwarded when CLI override is absent."""
+        ini_path = tmp_path / "server.ini"
+        ini_path.write_text(
+            "\n".join(
+                [
+                    "[build_tools]",
+                    "sessions_dir = /tmp/ini-sessions",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        with patch("build_tools.syllable_walk_web.server.run_server", return_value=0) as mock_run:
+            main(["--config", str(ini_path)])
+            mock_run.assert_called_once_with(
+                port=None,
+                verbose=True,
+                output_base=None,
+                sessions_dir=Path("/tmp/ini-sessions"),
                 corpus_dir_a=None,
                 corpus_dir_b=None,
             )

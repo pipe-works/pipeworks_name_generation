@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pipeworks:schema:walker-patch-session:v1",
+  "title": "Walker Dual-Patch Session (v1)",
+  "description": "Persisted dual-patch session manifest that references run-local IPC state artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_kind",
+    "session_id",
+    "created_at_utc",
+    "patch_a",
+    "patch_b",
+    "ipc"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "session_kind": {
+      "type": "string",
+      "const": "walker_patch_session"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "patch_a": {
+      "$ref": "#/$defs/patchRefOrNull"
+    },
+    "patch_b": {
+      "$ref": "#/$defs/patchRefOrNull"
+    },
+    "ipc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "library",
+        "library_ref",
+        "input_hash",
+        "output_hash",
+        "input_payload",
+        "output_payload"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "library": {
+          "type": "string",
+          "const": "pipeworks-ipc"
+        },
+        "library_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_payload": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "output_payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "patchRefOrNull": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "patch",
+        "run_id",
+        "manifest_ipc_output_hash",
+        "run_state_relative_path",
+        "run_state_ipc_output_hash"
+      ],
+      "properties": {
+        "patch": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ]
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[0-9]{8}_[0-9]{6}_.+$"
+        },
+        "manifest_ipc_output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "run_state_relative_path": {
+          "type": "string",
+          "pattern": "^ipc\\/walker_run_state\\.v1\\.json$"
+        },
+        "run_state_ipc_output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

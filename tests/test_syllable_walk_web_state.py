@@ -110,11 +110,21 @@ class TestServerState:
         """Test default output_base is _working/output."""
         state = ServerState()
         assert state.output_base == Path("_working/output")
+        assert state.sessions_base is None
 
     def test_custom_output_base(self):
         """Test output_base can be set at construction."""
         state = ServerState(output_base=Path("/tmp/custom"))
         assert state.output_base == Path("/tmp/custom")
+
+    def test_custom_sessions_base(self):
+        """Test sessions_base can be set independently at construction."""
+        state = ServerState(
+            output_base=Path("/tmp/custom"),
+            sessions_base=Path("/tmp/sessions"),
+        )
+        assert state.output_base == Path("/tmp/custom")
+        assert state.sessions_base == Path("/tmp/sessions")
 
     def test_patches_are_independent(self):
         """Test that patch_a and patch_b are separate instances."""
