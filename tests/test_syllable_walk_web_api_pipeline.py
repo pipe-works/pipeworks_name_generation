@@ -304,7 +304,11 @@ class TestHandleRuns:
     def test_delegates_to_discover_runs(self, state):
         """Test passes output_base to discover_runs."""
         mock_run = MagicMock()
-        mock_run.to_dict.return_value = {"path": "/test", "timestamp": "20260220_120000"}
+        mock_run.to_dict.return_value = {
+            "path": "/test",
+            "run_id": "20260220_120000_pyphen",
+            "timestamp": "20260220_120000",
+        }
 
         with patch(
             "build_tools.syllable_walk_web.run_discovery.discover_runs",
@@ -314,6 +318,7 @@ class TestHandleRuns:
 
         mock_discover.assert_called_once_with(state.output_base)
         assert len(result["runs"]) == 1
+        assert result["runs"][0]["run_id"] == "20260220_120000_pyphen"
 
     def test_uses_corpus_dir_a_for_patch_a(self, state, tmp_path):
         """Test patch=a discovers from corpus_dir_a when set."""

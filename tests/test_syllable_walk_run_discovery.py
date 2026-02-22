@@ -123,6 +123,7 @@ class TestRunInfo:
         """RunInfo.to_dict should include additive manifest and IPC fields."""
         run_info = RunInfo(
             path=tmp_path / "20260222_150000_pyphen",
+            run_id="20260222_150000_pyphen",
             extractor_type="pyphen",
             timestamp="20260222_150000",
             display_name="run",
@@ -137,6 +138,7 @@ class TestRunInfo:
             ipc_output_hash="b" * 64,
         )
         payload = run_info.to_dict()
+        assert payload["run_id"] == "20260222_150000_pyphen"
         assert payload["status"] == "completed"
         assert payload["created_at_utc"] == "2026-02-22T15:00:00Z"
         assert payload["stage_statuses"]["extract"] == "completed"
@@ -311,6 +313,7 @@ class TestDiscoverRuns:
         assert len(runs) == 1
         run = runs[0]
         payload = run.to_dict()
+        assert payload["run_id"] == manifest_run.name
         assert payload["status"] == "completed"
         assert payload["source_path"] == "/tmp/source.txt"
         assert payload["files_processed"] == 1
@@ -423,6 +426,7 @@ class TestSelectionAndLookup:
         """Run lookup should return the matching discovered run."""
         run = get_run_by_id(manifest_run.name, tmp_path)
         assert run is not None
+        assert run.run_id == manifest_run.name
         assert run.path.name == manifest_run.name
 
     def test_get_run_by_id_returns_none_when_missing(

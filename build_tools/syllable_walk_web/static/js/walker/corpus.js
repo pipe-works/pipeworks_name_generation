@@ -18,6 +18,19 @@ let _corpusRunsByPatch = { a: [], b: [] };
 let _walkerReadyPollers = {};
 
 /**
+ * Resolve one run object's canonical run id.
+ *
+ * @param {{run_id?: string, path?: string}} run - Run payload from API.
+ * @returns {string}
+ */
+function getRunId(run) {
+  if (run && typeof run.run_id === 'string' && run.run_id.length > 0) {
+    return run.run_id;
+  }
+  return '';
+}
+
+/**
  * Apply corpus status text with a semantic visual state.
  *
  * @param {'a'|'b'|string} patch - Patch key.
@@ -82,10 +95,10 @@ function initCorpusDropdowns() {
       if (!runId) return; /* placeholder selected - nothing to do */
 
       /* Look up the full run object for metadata (syllable count, etc.) */
-      const run = (_corpusRunsByPatch[patch] || []).find(r => r.path.split('/').pop() === runId);
+      const run = (_corpusRunsByPatch[patch] || []).find(r => getRunId(r) === runId);
       if (!run) return;
 
-      loadCorpus(patch, runId, run);
+      loadCorpus(patch, runId);
     });
 
     /* 3. Refresh button */
@@ -128,7 +141,8 @@ export function populateCorpusDropdowns() {
 
         /* Build an <option> for each discovered run. */
         runs.forEach(run => {
-          const runId = run.path.split('/').pop();
+          const runId = getRunId(run);
+          if (!runId) return;
           const syllables = run.syllable_count.toLocaleString();
           const selections = run.selection_count
             ? ` · ${run.selection_count} selections`
@@ -157,10 +171,9 @@ export function populateCorpusDropdowns() {
  *
  * @param {'a'|'b'|string} patch - Patch key receiving the corpus.
  * @param {string} runId - Selected run identifier.
- * @param {{path: string}} run - Run metadata entry used by current view.
  * @returns {void}
  */
-function loadCorpus(patch, runId, run) {
+function loadCorpus(patch, runId) {
   const P = patch.toUpperCase();
   const label = `${runId} · loading…`;
 
