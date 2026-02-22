@@ -552,6 +552,17 @@ class TestEdgeCases:
                 neighbor_limit=0,
             )
 
+    def test_walk_rejects_invalid_max_length(self, initialized_walker):
+        """max_length must be >= 1 when provided."""
+        with pytest.raises(ValueError, match="max_length must be >= 1"):
+            initialized_walker.walk(
+                start="ka",
+                steps=2,
+                max_flips=2,
+                temperature=1.0,
+                max_length=0,
+            )
+
     def test_walk_rejects_invalid_length_bounds(self, initialized_walker):
         """min_length > max_length should raise ValueError."""
         with pytest.raises(ValueError, match="min_length .* must be <= max_length"):
@@ -563,6 +574,57 @@ class TestEdgeCases:
                 min_length=4,
                 max_length=2,
             )
+
+    def test_walk_rejects_start_shorter_than_min_length(self, initialized_walker):
+        """Start syllable must satisfy min_length constraint."""
+        with pytest.raises(ValueError, match="shorter than min_length"):
+            initialized_walker.walk(
+                start="ka",
+                steps=1,
+                max_flips=2,
+                temperature=1.0,
+                min_length=3,
+            )
+
+    def test_walk_rejects_start_longer_than_max_length(self, initialized_walker):
+        """Start syllable must satisfy max_length constraint."""
+        with pytest.raises(ValueError, match="longer than max_length"):
+            initialized_walker.walk(
+                start="bak",
+                steps=1,
+                max_flips=2,
+                temperature=1.0,
+                max_length=2,
+            )
+
+    def test_walk_applies_neighbor_limit_cap(self, initialized_walker):
+        """neighbor_limit branch should cap considered neighbors."""
+        walk = initialized_walker.walk(
+            start="ka",
+            steps=2,
+            max_flips=3,
+            temperature=1.0,
+            neighbor_limit=1,
+            seed=11,
+        )
+        assert len(walk) == 3
+
+    def test_walk_filters_neighbors_by_min_length(self, initialized_walker):
+        """Neighbor candidates shorter than min_length should be skipped."""
+        start_idx = initialized_walker.syllable_to_idx["bak"]
+        short_idx = initialized_walker.syllable_to_idx["ka"]
+        initialized_walker.neighbor_graph[start_idx] = [short_idx]
+
+        walk = initialized_walker.walk(
+            start="bak",
+            steps=1,
+            max_flips=3,
+            temperature=1.0,
+            min_length=3,
+            seed=42,
+        )
+        # Only inertia candidate remains, so walker stays on the same syllable.
+        assert walk[1]["syllable"] == "bak"
 
     def test_walk_respects_max_length_constraint(self, initialized_walker):
         """Traversal should stay within requested syllable length bounds."""
@@ -605,6 +667,16 @@ class TestUtilityMethods:
         """Length filter with no eligible syllables should raise ValueError."""
         with pytest.raises(ValueError, match="No syllables available"):
             initialized_walker.get_random_syllable(seed=7, min_length=10)
+
+    def test_get_random_syllable_rejects_invalid_max_length(self, initialized_walker):
+        """max_length must be >= 1 when provided."""
+        with pytest.raises(ValueError, match="max_length must be >= 1"):
+            initialized_walker.get_random_syllable(seed=7, max_length=0)
+
+    def test_get_random_syllable_rejects_invalid_length_bounds(self, initialized_walker):
+        """min_length > max_length should raise ValueError."""
+        with pytest.raises(ValueError, match="min_length .* must be <= max_length"):
+            initialized_walker.get_random_syllable(seed=7, min_length=3, max_length=2)
 
     def test_get_syllable_info_exists(self, initialized_walker):
         """Test get_syllable_info for existing syllable."""

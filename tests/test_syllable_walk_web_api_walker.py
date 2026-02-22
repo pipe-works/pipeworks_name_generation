@@ -451,6 +451,102 @@ class TestHandleLoadCorpus:
 
         assert state.patch_a.loading_error is None
 
+    def test_rejects_non_string_patch(self, state):
+        """Non-string patch key should fail validation via _resolve_patch_state."""
+        result = handle_load_corpus({"patch": 123, "run_id": "run_1"}, state)
+        assert "error" in result
+        assert "Invalid patch" in result["error"]
+
+    def test_stale_generation_after_from_data_is_ignored(self, state):
+        """If generation changes after walker build, thread exits without publish."""
+        run = MagicMock()
+        run.corpus_db_path = None
+        run.annotated_json_path = None
+        run.extractor_type = "pyphen"
+        run.path = "/test/path"
+
+        class _ThreadInline:
+            def __init__(self, target, daemon):
+                self._target = target
+                self._daemon = daemon
+
+            def start(self):
+                self._target()
+
+        def _from_data(*args, **kwargs):
+            # Simulate another load claiming generation ownership after build.
+            state.patch_a.active_load_generation = 999
+            return "walker-a"
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+                return_value=run,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.corpus_loader.load_corpus",
+                return_value=([{"syllable": "ka", "frequency": 10}], "test"),
+            ),
+            patch("build_tools.syllable_walk_web.api.walker.threading.Thread", _ThreadInline),
+            patch(
+                "build_tools.syllable_walk.walker.SyllableWalker.from_data",
+                side_effect=_from_data,
+            ),
+            patch("build_tools.syllable_walk.reach.compute_all_reaches") as mock_reaches,
+        ):
+            handle_load_corpus({"patch": "a", "run_id": "run_1"}, state)
+
+        assert state.patch_a.walker is None
+        assert state.patch_a.profile_reaches is None
+        assert state.patch_a.walker_ready is False
+        mock_reaches.assert_not_called()
+
+    def test_stale_generation_after_reach_compute_is_ignored(self, state):
+        """If generation changes after reach compute, results are not published."""
+        run = MagicMock()
+        run.corpus_db_path = None
+        run.annotated_json_path = None
+        run.extractor_type = "pyphen"
+        run.path = "/test/path"
+
+        class _ThreadInline:
+            def __init__(self, target, daemon):
+                self._target = target
+                self._daemon = daemon
+
+            def start(self):
+                self._target()
+
+        def _compute_reaches(*args, **kwargs):
+            # Simulate newer load taking ownership right before publish.
+            state.patch_a.active_load_generation = 999
+            return {"dialect": "reach-a"}
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+                return_value=run,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.corpus_loader.load_corpus",
+                return_value=([{"syllable": "ka", "frequency": 10}], "test"),
+            ),
+            patch("build_tools.syllable_walk_web.api.walker.threading.Thread", _ThreadInline),
+            patch(
+                "build_tools.syllable_walk.walker.SyllableWalker.from_data",
+                return_value="walker-a",
+            ),
+            patch(
+                "build_tools.syllable_walk.reach.compute_all_reaches",
+                side_effect=_compute_reaches,
+            ),
+        ):
+            handle_load_corpus({"patch": "a", "run_id": "run_1"}, state)
+
+        assert state.patch_a.walker is None
+        assert state.patch_a.profile_reaches is None
+        assert state.patch_a.walker_ready is False
+
 
 # ============================================================
 # handle_walk
@@ -524,6 +620,38 @@ class TestHandleWalk:
         assert "error" in result
         assert "min_length must be <= max_length" in result["error"]
 
+    def test_walk_rejects_non_numeric_parameters(self, loaded_state):
+        """Non-numeric numeric fields should return validation error."""
+        result = handle_walk({"patch": "a", "count": "not-an-int"}, loaded_state)
+        assert "error" in result
+        assert "expected numeric values" in result["error"]
+
+    def test_walk_rejects_invalid_seed(self, loaded_state):
+        """Seed must be integer or null."""
+        result = handle_walk({"patch": "a", "seed": "bad-seed"}, loaded_state)
+        assert "error" in result
+        assert "Invalid seed" in result["error"]
+
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            ({"count": 0}, "count must be >= 1"),
+            ({"steps": -1}, "steps must be >= 0"),
+            ({"max_flips": 0}, "max_flips must be >= 1"),
+            ({"neighbor_limit": 0}, "neighbor_limit must be >= 1"),
+            ({"min_length": 0}, "min_length must be >= 1"),
+            ({"max_length": 0}, "max_length must be >= 1"),
+            ({"temperature": 0}, "temperature must be > 0"),
+        ],
+    )
+    def test_walk_rejects_invalid_ranges(self, loaded_state, payload, expected):
+        """Each API numeric bound violation should return a clear error."""
+        body = {"patch": "a"}
+        body.update(payload)
+        result = handle_walk(body, loaded_state)
+        assert "error" in result
+        assert expected in result["error"]
+
     def test_walk_failure_returns_error(self, loaded_state):
         """Test walk generation exception returns error."""
         with patch(
@@ -579,6 +707,16 @@ class TestHandleStats:
         error_result = handle_stats(state)
         assert error_result["patch_a"]["loader_status"] == "error"
         assert error_result["patch_a"]["loading_error"] == "Walker initialisation failed: graph"
+
+    def test_stats_idle_with_run_loaded_but_not_initialising(self, state):
+        """run_id without active generation should report idle."""
+        state.patch_a.run_id = "20260222_000000_pyphen"
+        state.patch_a.walker_ready = False
+        state.patch_a.active_load_generation = None
+        state.patch_a.loading_error = None
+        state.patch_a.loading_stage = None
+        result = handle_stats(state)
+        assert result["patch_a"]["loader_status"] == "idle"
 
     def test_stats_include_reaches_when_computed(self, loaded_state):
         """Stats response includes reaches once profile_reaches is populated.
@@ -748,6 +886,27 @@ class TestHandleCombine:
         mock_gen.assert_called_once()
         call_kwargs = mock_gen.call_args
         assert call_kwargs[1].get("profile") == "dialect" or (len(call_kwargs[0]) > 1 and False)
+
+    def test_named_profile_with_one_syllable_still_uses_one_step(self, loaded_state):
+        """Syllable count 1 should clamp to one walk step."""
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+                return_value=[{"syllables": ["ka"], "formatted": "ka"}],
+            ) as mock_gen,
+            patch(
+                "build_tools.name_combiner.aggregator.aggregate_features",
+                return_value={},
+            ),
+        ):
+            result = handle_combine(
+                {"patch": "a", "count": 1, "syllables": 1, "profile": "dialect"},
+                loaded_state,
+            )
+
+        assert "error" not in result
+        _, kwargs = mock_gen.call_args
+        assert kwargs["steps"] == 1
 
     def test_custom_profile_sends_explicit_params(self, loaded_state):
         """Test profile=custom passes max_flips, temperature, frequency_weight."""
@@ -952,6 +1111,19 @@ class TestHandleSelect:
             )
 
         assert "error" in result
+
+    def test_selector_exception_returns_error(self, state_with_candidates):
+        """Raised selector exceptions should be converted to API errors."""
+        with patch(
+            "build_tools.syllable_walk_web.services.selector_runner.run_selector",
+            side_effect=RuntimeError("selector blew up"),
+        ):
+            result = handle_select(
+                {"patch": "a", "name_class": "first_name"}, state_with_candidates
+            )
+
+        assert "error" in result
+        assert "Selector failed" in result["error"]
 
 
 # ============================================================

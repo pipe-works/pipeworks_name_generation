@@ -387,6 +387,27 @@ class TestWalkGenerator:
         with pytest.raises(ValueError, match="min_length .* must be <= max_length"):
             generate_walks(mock_walker, count=1, min_length=5, max_length=2)
 
+    def test_invalid_neighbor_limit_raises_value_error(self, mock_walker):
+        """neighbor_limit must be >= 1."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        with pytest.raises(ValueError, match="neighbor_limit must be >= 1"):
+            generate_walks(mock_walker, count=1, neighbor_limit=0)
+
+    def test_invalid_min_length_raises_value_error(self, mock_walker):
+        """min_length must be >= 1."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        with pytest.raises(ValueError, match="min_length must be >= 1"):
+            generate_walks(mock_walker, count=1, min_length=0)
+
+    def test_invalid_max_length_raises_value_error(self, mock_walker):
+        """max_length must be >= 1."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        with pytest.raises(ValueError, match="max_length must be >= 1"):
+            generate_walks(mock_walker, count=1, max_length=0)
+
 
 # ============================================================
 # metrics
