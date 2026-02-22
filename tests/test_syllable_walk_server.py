@@ -254,7 +254,7 @@ class TestRouteGet:
         body = json.loads(handler.wfile.getvalue())
         assert "output_base" in body
         assert "sessions_base" in body
-        assert body["sessions_base"].endswith("/_working/output/sessions")
+        assert Path(body["sessions_base"]) == (Path("_working/output") / "sessions").resolve()
 
     def test_settings_prefers_explicit_sessions_base(self, handler, tmp_path):
         """Explicit sessions_base should override output_base/sessions fallback."""
