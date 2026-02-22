@@ -62,10 +62,26 @@ function initGenerateWalks() {
       const temperature = parseFloat(document.getElementById(`temperature-${patch}`)?.value) || 0.7;
       const frequencyWeight = parseFloat(document.getElementById(`freq-weight-${patch}`)?.value) || 0.0;
       const maxFlips = parseInt(document.getElementById(`max-flips-${patch}`)?.value) || 2;
+      const minLength = parseInt(document.getElementById(`min-length-${patch}`)?.value) || 2;
+      const maxLength = parseInt(document.getElementById(`max-length-${patch}`)?.value) || 5;
+      const neighborLimit = parseInt(document.getElementById(`neighbors-${patch}`)?.value) || 10;
 
       /* Read seed */
       const seedStr = document.getElementById(`seed-${patch}`)?.value;
       const seed = seedStr ? parseInt(seedStr, 16) : null;
+
+      if (minLength < 1 || maxLength < 1) {
+        _ctx.setStatus(`Patch ${P}: min/max length must be >= 1`);
+        return;
+      }
+      if (minLength > maxLength) {
+        _ctx.setStatus(`Patch ${P}: min length must be <= max length`);
+        return;
+      }
+      if (neighborLimit < 1) {
+        _ctx.setStatus(`Patch ${P}: neighbors must be >= 1`);
+        return;
+      }
 
       const out = document.getElementById(`walks-output-${patch}`);
       out.innerHTML = '<span class="placeholder-text">Generating…</span>';
@@ -82,6 +98,9 @@ function initGenerateWalks() {
           temperature: temperature,
           frequency_weight: frequencyWeight,
           max_flips: maxFlips,
+          min_length: minLength,
+          max_length: maxLength,
+          neighbor_limit: neighborLimit,
           seed: seed,
         }),
       })

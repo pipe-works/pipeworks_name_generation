@@ -44,7 +44,19 @@ def generate_walks(
     Returns:
         List of walk result dicts, each with keys:
         ``formatted`` (str), ``syllables`` (list[str]), ``steps`` (list[dict]).
+
+    Raises:
+        ValueError: If requested constraints are invalid.
     """
+    if neighbor_limit < 1:
+        raise ValueError(f"neighbor_limit must be >= 1, got {neighbor_limit}")
+    if min_length < 1:
+        raise ValueError(f"min_length must be >= 1, got {min_length}")
+    if max_length < 1:
+        raise ValueError(f"max_length must be >= 1, got {max_length}")
+    if min_length > max_length:
+        raise ValueError(f"min_length ({min_length}) must be <= max_length ({max_length})")
+
     results = []
 
     for i in range(count):
@@ -53,7 +65,11 @@ def generate_walks(
         # produces the same set of walks.
         walk_seed = (seed + i) if seed is not None else None
 
-        start = walker.get_random_syllable(seed=walk_seed)
+        start = walker.get_random_syllable(
+            seed=walk_seed,
+            min_length=min_length,
+            max_length=max_length,
+        )
 
         # walk_from_profile uses pre-tuned parameter sets (temperature,
         # max_flips, etc.); "custom" is a sentinel meaning "use explicit
@@ -63,6 +79,9 @@ def generate_walks(
                 start=start,
                 profile=profile,
                 steps=steps,
+                neighbor_limit=neighbor_limit,
+                min_length=min_length,
+                max_length=max_length,
                 seed=walk_seed,
             )
         else:
@@ -72,6 +91,9 @@ def generate_walks(
                 max_flips=max_flips,
                 temperature=temperature,
                 frequency_weight=frequency_weight,
+                neighbor_limit=neighbor_limit,
+                min_length=min_length,
+                max_length=max_length,
                 seed=walk_seed,
             )
 

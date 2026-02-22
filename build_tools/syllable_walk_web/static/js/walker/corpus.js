@@ -18,6 +18,27 @@ let _corpusRunsByPatch = { a: [], b: [] };
 let _walkerReadyPollers = {};
 
 /**
+ * Apply corpus status text with a semantic visual state.
+ *
+ * @param {'a'|'b'|string} patch - Patch key.
+ * @param {string} text - Status text to render.
+ * @param {'neutral'|'loaded'|'error'} [state='neutral'] - Visual state token.
+ * @returns {void}
+ */
+function setCorpusStatus(patch, text, state = 'neutral') {
+  const el = document.getElementById(`corpus-status-${patch}`);
+  if (!el) return;
+
+  el.textContent = text;
+  el.classList.remove('is-loaded', 'is-error');
+  if (state === 'loaded') {
+    el.classList.add('is-loaded');
+  } else if (state === 'error') {
+    el.classList.add('is-error');
+  }
+}
+
+/**
  * Initialise corpus dropdown selectors and load initial run options.
  *
  * @param {{
@@ -143,8 +164,7 @@ function loadCorpus(patch, runId, run) {
   const P = patch.toUpperCase();
   const label = `${runId} · loading…`;
 
-  document.getElementById(`corpus-status-${patch}`).textContent = label;
-  document.getElementById(`corpus-status-${patch}`).classList.add('is-loaded');
+  setCorpusStatus(patch, label, 'neutral');
   document.getElementById(`status-corpus-${patch}`).textContent = runId;
   _ctx.state[`corpus${P}`] = runId;
   _ctx.setStatus(`Patch ${P}: loading corpus ${runId}…`);
@@ -157,20 +177,22 @@ function loadCorpus(patch, runId, run) {
     .then(r => r.json())
     .then(data => {
       if (data.error) {
-        document.getElementById(`corpus-status-${patch}`).textContent = `Error: ${data.error}`;
+        setCorpusStatus(patch, `Error: ${data.error}`, 'error');
         _ctx.setStatus(`Patch ${P}: ${data.error}`);
         return;
       }
       const syllCount = (data.syllable_count || 0).toLocaleString();
-      document.getElementById(`corpus-status-${patch}`).textContent =
-        `${runId} · ${syllCount} syllables · walker loading…`;
+      setCorpusStatus(
+        patch,
+        `${runId} · ${syllCount} syllables · walker loading…`
+      );
       _ctx.setStatus(`Patch ${P}: ${syllCount} syllables loaded, walker initialising…`);
 
       /* Start polling for walker readiness */
       pollWalkerReady(patch);
     })
     .catch(err => {
-      document.getElementById(`corpus-status-${patch}`).textContent = `Error: ${err.message}`;
+      setCorpusStatus(patch, `Error: ${err.message}`, 'error');
       _ctx.setStatus(`Patch ${P}: load failed — ${err.message}`);
     });
 }
@@ -201,26 +223,35 @@ function pollWalkerReady(patch) {
         const info = data[patchKey];
         if (!info) return;
 
-        if (info.walker_ready) {
+        if (info.loader_status === 'error' || info.loading_error) {
+          clearInterval(_walkerReadyPollers[patch]);
+          _walkerReadyPollers[patch] = null;
+          const runId = _ctx.state[`corpus${P}`] || info.corpus || 'unknown-run';
+          const message = info.loading_error || 'Walker initialisation failed';
+          setCorpusStatus(patch, `${runId} · ${message}`, 'error');
+          _ctx.setStatus(`Patch ${P}: ${message}`);
+          return;
+        }
+
+        if (info.walker_ready || info.loader_status === 'ready') {
           clearInterval(_walkerReadyPollers[patch]);
           _walkerReadyPollers[patch] = null;
           const runId = _ctx.state[`corpus${P}`];
           const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
-          document.getElementById(`corpus-status-${patch}`).textContent =
-            `${runId} · ${count} syllables · walker ready ✓`;
+          setCorpusStatus(patch, `${runId} · ${count} syllables · walker ready ✓`, 'loaded');
           _ctx.setStatus(`Patch ${P}: walker ready`);
 
           /* Update profile reach values once available in the stats response. */
           if (info.reaches) {
             _ctx.updateReachValues(patch, info.reaches);
           }
-        } else if (info.loading_stage) {
+        } else if (info.loading_stage || info.loader_status === 'loading') {
           /* Show loading stage progress while walker is building. */
           const runId = _ctx.state[`corpus${P}`];
           const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
-          document.getElementById(`corpus-status-${patch}`).textContent =
-            `${runId} · ${count} syllables · ${info.loading_stage}…`;
-          _ctx.setStatus(`Patch ${P}: ${info.loading_stage}…`);
+          const stageLabel = info.loading_stage || 'Loading corpus data';
+          setCorpusStatus(patch, `${runId} · ${count} syllables · ${stageLabel}…`, 'neutral');
+          _ctx.setStatus(`Patch ${P}: ${stageLabel}…`);
         }
       })
       .catch(() => { /* ignore polling errors */ });
