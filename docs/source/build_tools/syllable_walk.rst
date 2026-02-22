@@ -249,7 +249,7 @@ This is a build-time analysis tool only - not used during runtime name generatio
 
 **Related Documentation:**
 
-- :doc:`syllable_walk_web` - Web interface for browsing selections and generating walks
+- :doc:`syllable_walk_web` - Browser-based Pipeline + Walker interface with run discovery and dual patches
 - :doc:`syllable_walk_tui` - Interactive TUI for exploring phonetic space
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
 - :doc:`corpus_sqlite_builder` - Builds SQLite database for fast loading

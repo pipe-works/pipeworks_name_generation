@@ -87,7 +87,7 @@ Quick Start
    python -m build_tools.corpus_sqlite_builder _working/output/20260110_143022_pyphen/
 
    # Explore syllable walks (choose one interface)
-   python -m build_tools.syllable_walk_web      # Browser-based selections browser
+   python -m build_tools.syllable_walk_web      # Browser-based Pipeline + Walker interface
    python -m build_tools.syllable_walk_tui       # Terminal TUI with side-by-side comparison
 
    # Analyze and visualize

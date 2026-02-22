@@ -130,6 +130,88 @@ class TestHandleStart:
         assert kwargs["min_syllable_length"] == 3
         assert kwargs["max_syllable_length"] == 6
 
+    def test_error_when_min_exceeds_max(self, state, tmp_path):
+        """Test returns error when min_syllable_length > max_syllable_length."""
+        source = tmp_path / "corpus"
+        source.mkdir()
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner.start_pipeline"
+        ) as mock_start:
+            result = handle_start(
+                {
+                    "source_path": str(source),
+                    "min_syllable_length": 9,
+                    "max_syllable_length": 4,
+                },
+                state,
+            )
+
+        assert "error" in result
+        assert "<=" in result["error"]
+        mock_start.assert_not_called()
+
+    def test_error_when_min_is_not_integer(self, state, tmp_path):
+        """Test returns error when min_syllable_length is invalid."""
+        source = tmp_path / "corpus"
+        source.mkdir()
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner.start_pipeline"
+        ) as mock_start:
+            result = handle_start(
+                {
+                    "source_path": str(source),
+                    "min_syllable_length": "abc",
+                },
+                state,
+            )
+
+        assert "error" in result
+        assert "min_syllable_length" in result["error"]
+        mock_start.assert_not_called()
+
+    def test_error_when_max_is_not_integer(self, state, tmp_path):
+        """Test returns error when max_syllable_length is invalid."""
+        source = tmp_path / "corpus"
+        source.mkdir()
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner.start_pipeline"
+        ) as mock_start:
+            result = handle_start(
+                {
+                    "source_path": str(source),
+                    "max_syllable_length": "abc",
+                },
+                state,
+            )
+
+        assert "error" in result
+        assert "max_syllable_length" in result["error"]
+        mock_start.assert_not_called()
+
+    def test_coerces_string_lengths(self, state, tmp_path):
+        """Test numeric string lengths are coerced before forwarding."""
+        source = tmp_path / "corpus"
+        source.mkdir()
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner.start_pipeline"
+        ) as mock_start:
+            handle_start(
+                {
+                    "source_path": str(source),
+                    "min_syllable_length": "3",
+                    "max_syllable_length": "7",
+                },
+                state,
+            )
+
+        _, kwargs = mock_start.call_args
+        assert kwargs["min_syllable_length"] == 3
+        assert kwargs["max_syllable_length"] == 7
+
 
 # ============================================================
 # handle_status

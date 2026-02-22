@@ -19,6 +19,7 @@ import pytest
 
 from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
+    _build_output_tree_lines,
     _discover_selections,
     _format_display_name,
     _get_syllable_count_from_db,
@@ -143,6 +144,7 @@ class TestRunInfo:
         assert result["selection_count"] == 1
         assert "corpus_db_path" in result
         assert "annotated_json_path" in result
+        assert result["output_tree_lines"] == []
 
     def test_to_dict_with_none_paths(self, tmp_path):
         """Test to_dict with None paths."""
@@ -161,6 +163,7 @@ class TestRunInfo:
         assert result["corpus_db_path"] is None
         assert result["annotated_json_path"] is None
         assert result["selection_count"] == 0
+        assert result["output_tree_lines"] == []
 
 
 # ============================================================
@@ -377,6 +380,21 @@ class TestDiscoverRuns:
         assert runs[0].timestamp == "20260121_084017"  # Newer first
         assert runs[1].timestamp == "20260120_084017"
 
+    def test_stable_order_for_tied_timestamps(self, output_dir):
+        """Test deterministic name ordering when timestamps are equal."""
+        run_nltk = output_dir / "20260122_120000_nltk"
+        run_pyphen = output_dir / "20260122_120000_pyphen"
+        for run_dir, stem in ((run_nltk, "nltk"), (run_pyphen, "pyphen")):
+            run_dir.mkdir()
+            data_dir = run_dir / "data"
+            data_dir.mkdir()
+            with open(data_dir / f"{stem}_syllables_annotated.json", "w") as f:
+                json.dump([{"syllable": "x"}], f)
+
+        runs = discover_runs(output_dir)
+        tied = [r.path.name for r in runs if r.timestamp == "20260122_120000"]
+        assert tied == ["20260122_120000_nltk", "20260122_120000_pyphen"]
+
     def test_multi_word_extractor(self, output_dir):
         """Test handling multi-word extractor types."""
         # Create run with multi-word extractor
@@ -416,6 +434,57 @@ class TestDiscoverRuns:
 
         # Should not include the empty run
         assert all(r.path.name != "20260122_084017_empty" for r in runs)
+
+    def test_extracts_history_metadata_fields(self, output_dir):
+        """Test source/files/duration metadata extraction for history detail."""
+        run_dir = output_dir / "20260123_101010_nltk"
+        run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+        with open(data_dir / "nltk_syllables_annotated.json", "w") as f:
+            json.dump([{"syllable": "x"}], f)
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        with open(meta_dir / "sample.txt", "w") as f:
+            f.write("Input File: /tmp/source/sample.txt\n")
+        with open(run_dir / "nltk_normalization_meta.txt", "w") as f:
+            f.write("Input Files:         3 files processed\n")
+            f.write("Processing Time:         0.42s\n")
+
+        runs = discover_runs(output_dir)
+        run = next((r for r in runs if r.path.name == "20260123_101010_nltk"), None)
+        assert run is not None
+        assert run.source_path == "/tmp/source/sample.txt"
+        assert run.files_processed == 3
+        assert run.processing_time == "0.42s"
+
+    def test_build_output_tree_lines_lists_run_contents(self, tmp_path):
+        """Test output tree includes top-level and one-level nested entries."""
+        run_dir = tmp_path / "20260123_111111_pyphen"
+        run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+        (data_dir / "corpus.db").write_text("stub")
+        (data_dir / "pyphen_syllables_annotated.json").write_text("[]")
+        (run_dir / "pyphen_normalization_meta.txt").write_text("meta")
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        (meta_dir / "source.txt").write_text("src")
+
+        lines = _build_output_tree_lines(run_dir, 1784)
+
+        assert lines[0] == "20260123_111111_pyphen/"
+        assert any("data/" in line for line in lines)
+        assert any("corpus.db  1,784 syllables" in line for line in lines)
+        assert any("pyphen_syllables_annotated.json  annotated data" in line for line in lines)
+        assert any("meta/" in line for line in lines)
+
+    def test_discover_runs_includes_output_tree_lines(self, output_dir):
+        """Test run payload contains output tree lines for History renderer."""
+        runs = discover_runs(output_dir)
+        assert len(runs) == 1
+        assert isinstance(runs[0].output_tree_lines, list)
+        assert len(runs[0].output_tree_lines) > 0
 
 
 # ============================================================

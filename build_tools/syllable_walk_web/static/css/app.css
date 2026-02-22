@@ -1475,6 +1475,18 @@ body {
   margin-top: var(--sp-2);
 }
 
+#history-output-tree {
+  min-height: 14rem;
+  max-height: 55vh;
+  overflow: auto;
+  resize: vertical;
+  line-height: 1.75;
+}
+
+.history-detail .job-meta__row > span:last-child {
+  overflow-wrap: anywhere;
+}
+
 /* Output box (package / history) */
 .output-box {
   background: var(--col-code-bg);

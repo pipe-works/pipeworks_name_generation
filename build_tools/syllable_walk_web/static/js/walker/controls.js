@@ -205,6 +205,25 @@ function initLangOptions() {
     });
   });
 
+  const syncExtractorUi = extractor => {
+    const langGrid = document.getElementById('lang-grid');
+    const customLang = document.getElementById('custom-lang');
+    if (langGrid) {
+      langGrid.style.opacity = extractor === 'nltk' ? '0.4' : '1';
+      langGrid.style.pointerEvents = extractor === 'nltk' ? 'none' : '';
+    }
+    if (customLang) {
+      customLang.disabled = extractor === 'nltk';
+      if (extractor === 'nltk') {
+        customLang.placeholder = 'Disabled for nltk (language is auto)';
+      } else {
+        customLang.placeholder = 'e.g. sv_SE';
+      }
+    }
+    const badge = document.getElementById('sb-pipe-extractor');
+    if (badge) badge.textContent = extractor;
+  };
+
   /* Extractor type — disable lang grid when nltk selected */
   document.querySelectorAll('.profile-option[data-extractor]').forEach(opt => {
     opt.addEventListener('click', () => {
@@ -214,12 +233,11 @@ function initLangOptions() {
         .forEach(o => o.classList.remove('is-selected'));
       opt.classList.add('is-selected');
       opt.querySelector('input[type="radio"]').checked = true;
-      const langGrid = document.getElementById('lang-grid');
-      langGrid.style.opacity = extractor === 'nltk' ? '0.4' : '1';
-      langGrid.style.pointerEvents = extractor === 'nltk' ? 'none' : '';
-      document.getElementById('sb-pipe-extractor').textContent = extractor;
+      syncExtractorUi(extractor);
     });
   });
+
+  syncExtractorUi(_ctx.state.pipeExtractor || 'pyphen');
 }
 
 /**
