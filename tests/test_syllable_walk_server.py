@@ -248,11 +248,22 @@ class TestRouteGet:
         handler.send_response.assert_called_once_with(400)
 
     def test_settings(self, handler):
-        """Test GET /api/settings returns output_base."""
+        """Test GET /api/settings returns output_base and sessions_base."""
         handler._route_get("/api/settings")
         handler.send_response.assert_called_once_with(200)
         body = json.loads(handler.wfile.getvalue())
         assert "output_base" in body
+        assert "sessions_base" in body
+        assert body["sessions_base"].endswith("/_working/output/sessions")
+
+    def test_settings_prefers_explicit_sessions_base(self, handler, tmp_path):
+        """Explicit sessions_base should override output_base/sessions fallback."""
+        handler.state.sessions_base = tmp_path / "sessions_override"
+
+        handler._route_get("/api/settings")
+        handler.send_response.assert_called_once_with(200)
+        body = json.loads(handler.wfile.getvalue())
+        assert body["sessions_base"] == str((tmp_path / "sessions_override").resolve())
 
     def test_version(self, handler):
         """Test GET /api/version returns package version."""
@@ -326,6 +337,9 @@ class TestRoutePost:
         handler._route_post("/api/settings/output-base")
         handler.send_response.assert_called_once_with(200)
         assert handler.state.output_base == tmp_path.resolve()
+        response = json.loads(handler.wfile.getvalue())
+        assert response["output_base"] == str(tmp_path.resolve())
+        assert response["sessions_base"] == str((tmp_path.resolve() / "sessions").resolve())
 
 
 # ============================================================
@@ -353,10 +367,15 @@ class TestFindAvailablePort:
     """Test find_available_port utility."""
 
     def test_finds_port_on_open_system(self):
-        """Test that a port is found under normal conditions."""
-        port = find_available_port(start=49152, max_tries=10)
-        assert port is not None
-        assert 49152 <= port < 49162
+        """Test returns first candidate when socket bind succeeds immediately."""
+        with patch("socket.socket") as mock_cls:
+            mock_sock = MagicMock()
+            mock_sock.bind = MagicMock(return_value=None)
+            mock_cls.return_value.__enter__ = MagicMock(return_value=mock_sock)
+            mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+            port = find_available_port(start=49152, max_tries=10)
+            assert port == 49152
 
     def test_returns_none_when_all_taken(self):
         """Test returns None when max_tries exhausted."""
@@ -479,3 +498,14 @@ class TestRunServerCorpusDirs:
 
             assert CorpusBuilderHandler.state.corpus_dir_a is None
             assert CorpusBuilderHandler.state.corpus_dir_b is None
+
+    def test_stores_sessions_dir_override(self, tmp_path):
+        """Test sessions_dir override is stored in state as an absolute path."""
+        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+            mock_server = MagicMock()
+            mock_server.serve_forever.side_effect = KeyboardInterrupt()
+            mock_cls.return_value = mock_server
+
+            run_server(port=8765, verbose=False, sessions_dir=tmp_path / "sessions_dir")
+
+            assert CorpusBuilderHandler.state.sessions_base == (tmp_path / "sessions_dir").resolve()

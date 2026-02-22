@@ -163,9 +163,19 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
 
         # Settings
         if path == "/api/settings":
+            from build_tools.syllable_walk_web.services.session_paths import (
+                resolve_sessions_base,
+            )
+
             self._send_json(
                 {
                     "output_base": str(self.state.output_base.resolve()),
+                    "sessions_base": str(
+                        resolve_sessions_base(
+                            output_base=self.state.output_base,
+                            configured_sessions_base=self.state.sessions_base,
+                        )
+                    ),
                 }
             )
             return
@@ -223,7 +233,21 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": f"Not a directory: {new_path}"}, status=400)
                 return
             self.state.output_base = resolved
-            self._send_json({"output_base": str(resolved)})
+            from build_tools.syllable_walk_web.services.session_paths import (
+                resolve_sessions_base,
+            )
+
+            self._send_json(
+                {
+                    "output_base": str(resolved),
+                    "sessions_base": str(
+                        resolve_sessions_base(
+                            output_base=self.state.output_base,
+                            configured_sessions_base=self.state.sessions_base,
+                        )
+                    ),
+                }
+            )
             return
 
         # Pipeline
@@ -380,6 +404,7 @@ def run_server(
     port: int | None = None,
     verbose: bool = True,
     output_base: Path | None = None,
+    sessions_dir: Path | None = None,
     corpus_dir_a: str | None = None,
     corpus_dir_b: str | None = None,
 ) -> int:
@@ -390,6 +415,8 @@ def run_server(
         verbose: If ``True``, log HTTP requests to stderr.
         output_base: Base path for pipeline run discovery.
             Defaults to ``_working/output``.
+        sessions_dir: Optional explicit directory for saved walker sessions.
+            Defaults to ``None`` (callers derive ``output_base/sessions``).
         corpus_dir_a: Run discovery directory for Patch A.
         corpus_dir_b: Run discovery directory for Patch B.
 
@@ -410,6 +437,8 @@ def run_server(
         CorpusBuilderHandler.state = ServerState(output_base=output_base)
     else:
         CorpusBuilderHandler.state = ServerState()
+    if sessions_dir is not None:
+        CorpusBuilderHandler.state.sessions_base = sessions_dir.expanduser().resolve()
 
     # Per-patch corpus directories from INI config.
     if corpus_dir_a:
