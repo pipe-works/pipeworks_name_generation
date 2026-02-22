@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from build_tools.syllable_walk_web.services import pipeline_manifest
 from build_tools.syllable_walk_web.state import PipelineJobState
 
 # Stage names used in progress reporting
@@ -202,7 +203,12 @@ def _parse_run_directory(stdout: str, output_dir: str, extractor: str) -> Path |
 
 
 def _run_pipeline(job: PipelineJobState) -> None:
-    """Execute pipeline stages sequentially in a background thread."""
+    """Execute pipeline stages sequentially in a background thread.
+
+    The runner now maintains an on-disk ``manifest.json`` for each discovered
+    run directory. Manifest writes are additive and do not alter existing job
+    status/log semantics used by the frontend polling endpoints.
+    """
     assert job.config is not None  # set by start_pipeline before thread starts
     cfg = job.config
     extractor = cfg["extractor"]
@@ -214,6 +220,8 @@ def _run_pipeline(job: PipelineJobState) -> None:
     file_pattern = cfg["file_pattern"]
     run_normalize = cfg["run_normalize"]
     run_annotate = cfg["run_annotate"]
+    run_started_utc = pipeline_manifest.utc_now_iso()
+    manifest_doc: dict[str, Any] | None = None
 
     _log(job, "info", "[pipeline] starting run…")
     _log(job, "info", f"[config]   extractor: {extractor} · language: {language}")
@@ -236,6 +244,7 @@ def _run_pipeline(job: PipelineJobState) -> None:
     job.current_stage = "extract"
     job.progress_percent = 0
     _log(job, "accent", "[extract]  scanning source directory…")
+    extract_started_utc = pipeline_manifest.utc_now_iso()
 
     extractor_module = (
         "build_tools.pyphen_syllable_extractor"
@@ -258,10 +267,48 @@ def _run_pipeline(job: PipelineJobState) -> None:
             cmd.extend(["--lang", language])
 
     ok, stdout = _run_stage(job, cmd, "extract")
+    extract_ended_utc = pipeline_manifest.utc_now_iso()
     if not ok or job.status == "cancelled":
         if job.status != "cancelled":
             job.status = "failed"
             job.error_message = "Extraction failed"
+        # Best-effort manifest persistence for extraction failures/cancellations.
+        # If extractor created a run dir before failing, we still write a
+        # diagnostic manifest so History tooling has a concrete trace.
+        run_directory = _parse_run_directory(stdout, output_dir, extractor)
+        if run_directory is not None:
+            manifest_doc = pipeline_manifest.create_manifest(
+                run_id=run_directory.name,
+                extractor=extractor,
+                language=language,
+                source_path=source_path,
+                file_pattern=file_pattern,
+                min_syllable_length=int(min_syl),
+                max_syllable_length=int(max_syl),
+                run_normalize=run_normalize,
+                run_annotate=run_annotate,
+                created_at_utc=run_started_utc,
+            )
+            pipeline_manifest.upsert_stage(
+                manifest_doc,
+                name="extract",
+                status=job.status,
+                started_at_utc=extract_started_utc,
+                ended_at_utc=extract_ended_utc,
+            )
+            pipeline_manifest.refresh_metrics_and_artifacts(
+                manifest_doc,
+                run_directory=run_directory,
+                source_path=source_path,
+                file_pattern=file_pattern,
+            )
+            pipeline_manifest.set_terminal_status(
+                manifest_doc,
+                status=job.status,
+                completed_at_utc=pipeline_manifest.utc_now_iso(),
+                error_message=job.error_message,
+            )
+            pipeline_manifest.write_manifest(run_directory, manifest_doc)
         return
 
     # Progress is evenly distributed across stages, not weighted by actual
@@ -276,6 +323,28 @@ def _run_pipeline(job: PipelineJobState) -> None:
         _log(job, "error", "[pipeline] " + job.error_message)
         return
 
+    # Manifest starts once the canonical run directory is known.
+    manifest_doc = pipeline_manifest.create_manifest(
+        run_id=run_directory.name,
+        extractor=extractor,
+        language=language,
+        source_path=source_path,
+        file_pattern=file_pattern,
+        min_syllable_length=int(min_syl),
+        max_syllable_length=int(max_syl),
+        run_normalize=run_normalize,
+        run_annotate=run_annotate,
+        created_at_utc=run_started_utc,
+    )
+    pipeline_manifest.upsert_stage(
+        manifest_doc,
+        name="extract",
+        status="completed",
+        started_at_utc=extract_started_utc,
+        ended_at_utc=extract_ended_utc,
+    )
+    pipeline_manifest.write_manifest(run_directory, manifest_doc)
+
     job.output_path = run_directory
     _log(job, "info", f"[extract]  run directory: {run_directory.name}")
 
@@ -283,6 +352,14 @@ def _run_pipeline(job: PipelineJobState) -> None:
     if run_normalize:
         job.current_stage = "normalize"
         _log(job, "accent", "[normalize] deduplicating and cleaning…")
+        normalize_started_utc = pipeline_manifest.utc_now_iso()
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="normalize",
+            status="running",
+            started_at_utc=normalize_started_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
 
         normaliser_module = (
             "build_tools.pyphen_syllable_normaliser"
@@ -303,18 +380,55 @@ def _run_pipeline(job: PipelineJobState) -> None:
         ]
 
         ok, stdout = _run_stage(job, cmd, "normalize")
+        normalize_ended_utc = pipeline_manifest.utc_now_iso()
         if not ok or job.status == "cancelled":
             if job.status != "cancelled":
                 job.status = "failed"
                 job.error_message = "Normalization failed"
+            pipeline_manifest.upsert_stage(
+                manifest_doc,
+                name="normalize",
+                status=job.status,
+                started_at_utc=normalize_started_utc,
+                ended_at_utc=normalize_ended_utc,
+            )
+            pipeline_manifest.refresh_metrics_and_artifacts(
+                manifest_doc,
+                run_directory=run_directory,
+                source_path=source_path,
+                file_pattern=file_pattern,
+            )
+            pipeline_manifest.set_terminal_status(
+                manifest_doc,
+                status=job.status,
+                completed_at_utc=pipeline_manifest.utc_now_iso(),
+                error_message=job.error_message,
+            )
+            pipeline_manifest.write_manifest(run_directory, manifest_doc)
             return
 
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="normalize",
+            status="completed",
+            started_at_utc=normalize_started_utc,
+            ended_at_utc=normalize_ended_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
         job.progress_percent = int(200 / total_stages)
 
     # ── Stage 3: Annotation ──────────────────────────────────────────────
     if run_annotate and run_normalize:
         job.current_stage = "annotate"
         _log(job, "accent", "[annotate]  computing phonetic features…")
+        annotate_started_utc = pipeline_manifest.utc_now_iso()
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="annotate",
+            status="running",
+            started_at_utc=annotate_started_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
 
         prefix = "pyphen" if extractor == "pyphen" else "nltk"
         syllables_file = run_directory / f"{prefix}_syllables_unique.txt"
@@ -324,6 +438,26 @@ def _run_pipeline(job: PipelineJobState) -> None:
             job.status = "failed"
             job.error_message = f"Missing input files for annotation in {run_directory.name}"
             _log(job, "error", "[annotate] " + job.error_message)
+            pipeline_manifest.upsert_stage(
+                manifest_doc,
+                name="annotate",
+                status="failed",
+                started_at_utc=annotate_started_utc,
+                ended_at_utc=pipeline_manifest.utc_now_iso(),
+            )
+            pipeline_manifest.refresh_metrics_and_artifacts(
+                manifest_doc,
+                run_directory=run_directory,
+                source_path=source_path,
+                file_pattern=file_pattern,
+            )
+            pipeline_manifest.set_terminal_status(
+                manifest_doc,
+                status="failed",
+                completed_at_utc=pipeline_manifest.utc_now_iso(),
+                error_message=job.error_message,
+            )
+            pipeline_manifest.write_manifest(run_directory, manifest_doc)
             return
 
         cmd = [
@@ -337,17 +471,54 @@ def _run_pipeline(job: PipelineJobState) -> None:
         ]
 
         ok, stdout = _run_stage(job, cmd, "annotate")
+        annotate_ended_utc = pipeline_manifest.utc_now_iso()
         if not ok or job.status == "cancelled":
             if job.status != "cancelled":
                 job.status = "failed"
                 job.error_message = "Annotation failed"
+            pipeline_manifest.upsert_stage(
+                manifest_doc,
+                name="annotate",
+                status=job.status,
+                started_at_utc=annotate_started_utc,
+                ended_at_utc=annotate_ended_utc,
+            )
+            pipeline_manifest.refresh_metrics_and_artifacts(
+                manifest_doc,
+                run_directory=run_directory,
+                source_path=source_path,
+                file_pattern=file_pattern,
+            )
+            pipeline_manifest.set_terminal_status(
+                manifest_doc,
+                status=job.status,
+                completed_at_utc=pipeline_manifest.utc_now_iso(),
+                error_message=job.error_message,
+            )
+            pipeline_manifest.write_manifest(run_directory, manifest_doc)
             return
 
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="annotate",
+            status="completed",
+            started_at_utc=annotate_started_utc,
+            ended_at_utc=annotate_ended_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
         job.progress_percent = int(300 / total_stages)
 
         # ── Stage 4: Database build ──────────────────────────────────────
         job.current_stage = "database"
         _log(job, "accent", "[database] building SQLite index…")
+        database_started_utc = pipeline_manifest.utc_now_iso()
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="database",
+            status="running",
+            started_at_utc=database_started_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
 
         cmd = [
             sys.executable,
@@ -358,18 +529,59 @@ def _run_pipeline(job: PipelineJobState) -> None:
         ]
 
         ok, stdout = _run_stage(job, cmd, "database")
+        database_ended_utc = pipeline_manifest.utc_now_iso()
         if not ok or job.status == "cancelled":
             if job.status != "cancelled":
                 job.status = "failed"
                 job.error_message = "Database build failed"
+            pipeline_manifest.upsert_stage(
+                manifest_doc,
+                name="database",
+                status=job.status,
+                started_at_utc=database_started_utc,
+                ended_at_utc=database_ended_utc,
+            )
+            pipeline_manifest.refresh_metrics_and_artifacts(
+                manifest_doc,
+                run_directory=run_directory,
+                source_path=source_path,
+                file_pattern=file_pattern,
+            )
+            pipeline_manifest.set_terminal_status(
+                manifest_doc,
+                status=job.status,
+                completed_at_utc=pipeline_manifest.utc_now_iso(),
+                error_message=job.error_message,
+            )
+            pipeline_manifest.write_manifest(run_directory, manifest_doc)
             return
 
+        pipeline_manifest.upsert_stage(
+            manifest_doc,
+            name="database",
+            status="completed",
+            started_at_utc=database_started_utc,
+            ended_at_utc=database_ended_utc,
+        )
+        pipeline_manifest.write_manifest(run_directory, manifest_doc)
         job.progress_percent = 100
 
     # ── Done ─────────────────────────────────────────────────────────────
     job.current_stage = "complete"
     job.progress_percent = 100
     job.status = "completed"
+    pipeline_manifest.refresh_metrics_and_artifacts(
+        manifest_doc,
+        run_directory=run_directory,
+        source_path=source_path,
+        file_pattern=file_pattern,
+    )
+    pipeline_manifest.set_terminal_status(
+        manifest_doc,
+        status="completed",
+        completed_at_utc=pipeline_manifest.utc_now_iso(),
+    )
+    pipeline_manifest.write_manifest(run_directory, manifest_doc)
     _log(job, "ok", "[pipeline]  run complete ✓")
 
     # Log output summary

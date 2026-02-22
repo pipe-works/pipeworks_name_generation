@@ -36,6 +36,10 @@
 - Keep changes scoped and document any behavior changes.
 - Release Please: use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
   and/or squash PRs with a conventional title so release-please can open a release PR.
+- Release discipline (version control):
+  - Default to `fix:` for repairs, regressions, missing wiring, validation hardening, and docs/code alignment.
+  - Use `feat:` only for clearly user-visible net-new capability.
+  - If a PR mixes repairs and new capability, split changes (or commits) so release intent is explicit.
 - CI must run on PRs targeting `main` or `develop`:
   - Workflow: `.github/workflows/ci.yml` (reusable workflow in `pipe-works/.github`).
   - Triggers: `pull_request` to `main`/`develop`, `push` to `main`/`develop`/`release-please--*`,
