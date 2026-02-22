@@ -220,3 +220,52 @@ def test_write_manifest_persists_json_with_trailing_newline(tmp_path: Path) -> N
     assert raw.endswith("\n")
     assert loaded["run_id"] == run_dir.name
     assert loaded["status"] == "completed"
+
+
+def test_resolve_pipeworks_ipc_version_returns_unknown_when_package_missing(monkeypatch) -> None:
+    """Version resolution should gracefully fall back when metadata is unavailable."""
+
+    def _raise_package_not_found(_: str) -> str:
+        raise pipeline_manifest.PackageNotFoundError
+
+    monkeypatch.setattr(pipeline_manifest, "version", _raise_package_not_found)
+    assert pipeline_manifest._resolve_pipeworks_ipc_version() == "unknown"
+
+
+def test_detect_syllable_count_falls_back_to_json_when_db_query_fails(tmp_path: Path) -> None:
+    """DB query failures should not abort count detection if JSON output exists."""
+
+    run_dir = tmp_path / "20260222_123500_pyphen"
+    data_dir = run_dir / "data"
+    data_dir.mkdir(parents=True)
+    # Create an invalid sqlite file so sqlite3 raises before query completes.
+    (data_dir / "corpus.db").write_text("not-a-sqlite-db", encoding="utf-8")
+    (data_dir / "pyphen_syllables_annotated.json").write_text(
+        '[{"syllable":"ka"},{"syllable":"ri"},{"syllable":"na"}]',
+        encoding="utf-8",
+    )
+
+    assert pipeline_manifest._detect_syllable_count(run_dir) == 3
+
+
+def test_detect_syllable_count_ignores_invalid_json_payload(tmp_path: Path) -> None:
+    """Invalid JSON in annotated output should be ignored and return None when no fallback exists."""
+
+    run_dir = tmp_path / "20260222_123600_pyphen"
+    data_dir = run_dir / "data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "pyphen_syllables_annotated.json").write_text("{invalid", encoding="utf-8")
+
+    assert pipeline_manifest._detect_syllable_count(run_dir) is None
+
+
+def test_detect_files_processed_returns_none_when_source_is_missing() -> None:
+    """File-count detection should return None when no source path is configured."""
+
+    assert pipeline_manifest._detect_files_processed(None, "*.txt") is None
+
+
+def test_artifact_type_defaults_to_file_for_unknown_paths() -> None:
+    """Unknown artifact paths should use the generic file type."""
+
+    assert pipeline_manifest._artifact_type("data/custom_payload.bin") == "file"

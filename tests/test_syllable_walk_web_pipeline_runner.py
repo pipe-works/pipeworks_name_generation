@@ -234,6 +234,19 @@ class TestRunStage:
         assert ok is False
         assert stdout == ""
 
+    def test_skips_blank_output_lines(self, job):
+        """Blank subprocess output lines should be ignored in captured stdout."""
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(["\n", "   \n", "payload\n"])
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            ok, stdout = _run_stage(job, ["echo", "payload"], "extract")
+
+        assert ok is True
+        assert stdout == "payload"
+
 
 # ============================================================
 # _parse_run_directory
@@ -309,6 +322,12 @@ class TestParseRunDirectory:
         result = _parse_run_directory(stdout, str(tmp_path), "pyphen")
         assert result is None
 
+    def test_returns_none_when_output_parent_does_not_exist(self, tmp_path):
+        """Fallback scan should return None when output parent path does not exist."""
+        missing_parent = tmp_path / "does-not-exist"
+        result = _parse_run_directory("No output", str(missing_parent), "pyphen")
+        assert result is None
+
 
 # ============================================================
 # _run_pipeline (integration-style)
@@ -324,6 +343,9 @@ class TestRunPipeline:
 
         run_dir = tmp_path / "20260220_120000_pyphen"
         run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+        (data_dir / "corpus.db").write_text("placeholder", encoding="utf-8")
 
         job.status = "running"
         job.config = {
@@ -350,6 +372,7 @@ class TestRunPipeline:
         assert job.status == "completed"
         assert job.progress_percent == 100
         assert job.output_path == run_dir
+        assert any("[output]    corpus.db" in line["text"] for line in job.log_lines)
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
         assert manifest["status"] == "completed"
         assert manifest["run_id"] == run_dir.name
@@ -384,6 +407,42 @@ class TestRunPipeline:
 
         assert job.status == "failed"
         assert job.error_message is not None
+
+    def test_manifest_written_on_extraction_failure_when_run_dir_is_known(self, job, tmp_path):
+        """Extraction failure should still persist manifest when run directory can be inferred."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260220_130000_pyphen"
+        run_dir.mkdir()
+        (run_dir / "data").mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter([f"Run Directory: {run_dir}\n", "extract failed\n"])
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = 1
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert job.error_message == "Extraction failed"
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "failed"
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["extract"]["status"] == "failed"
 
     def test_cancellation_during_extraction(self, job, tmp_path):
         """Test pipeline handles cancellation during extraction."""
@@ -557,3 +616,196 @@ class TestRunPipeline:
         assert stage_by_name["normalize"]["status"] == "failed"
         assert _SHA256_RE.match(manifest["ipc"]["input_hash"])
         assert _SHA256_RE.match(manifest["ipc"]["output_hash"])
+
+    def test_extraction_uses_file_mode_and_explicit_language(self, job, tmp_path):
+        """Extraction command should use --file and --lang for file inputs in pyphen mode."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260222_150000_pyphen"
+        run_dir.mkdir()
+        source_file = tmp_path / "source.txt"
+        source_file.write_text("alpha beta", encoding="utf-8")
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "en_GB",
+            "source_path": str(source_file),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": False,
+            "run_annotate": False,
+        }
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner._run_stage",
+            return_value=(True, f"Run Directory: {run_dir}\n"),
+        ) as run_stage_mock:
+            _run_pipeline(job)
+
+        assert job.status == "completed"
+        extract_cmd = run_stage_mock.call_args_list[0].args[1]
+        assert "--file" in extract_cmd
+        assert str(source_file) in extract_cmd
+        assert "--lang" in extract_cmd
+        assert "en_GB" in extract_cmd
+
+    def test_manifest_written_on_annotation_input_file_gap(self, job, tmp_path):
+        """Manifest should capture a failed annotate stage when normalize outputs are missing."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260222_151000_pyphen"
+        run_dir.mkdir()
+        (run_dir / "data").mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        call_count = 0
+
+        def make_proc(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            proc = MagicMock()
+            if call_count == 1:
+                proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+            else:
+                proc.stdout = iter(["normalize ok\n"])
+            proc.returncode = 0
+            proc.wait.return_value = 0
+            return proc
+
+        with patch("subprocess.Popen", side_effect=make_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert "Missing input files for annotation" in (job.error_message or "")
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "failed"
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["extract"]["status"] == "completed"
+        assert stage_by_name["normalize"]["status"] == "completed"
+        assert stage_by_name["annotate"]["status"] == "failed"
+        assert "database" not in stage_by_name
+
+    def test_manifest_written_on_annotation_subprocess_failure(self, job, tmp_path):
+        """Manifest should capture annotate subprocess failure and terminal failed state."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260222_152000_pyphen"
+        run_dir.mkdir()
+        (run_dir / "pyphen_syllables_unique.txt").write_text("ka\nri\n", encoding="utf-8")
+        (run_dir / "pyphen_syllables_frequencies.json").write_text('{"ka": 1}', encoding="utf-8")
+        (run_dir / "data").mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        call_count = 0
+
+        def make_proc(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            proc = MagicMock()
+            if call_count == 1:
+                proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+                proc.returncode = 0
+                proc.wait.return_value = 0
+            elif call_count == 2:
+                proc.stdout = iter(["normalize ok\n"])
+                proc.returncode = 0
+                proc.wait.return_value = 0
+            else:
+                proc.stdout = iter(["annotate failed\n"])
+                proc.returncode = 1
+                proc.wait.return_value = 1
+            return proc
+
+        with patch("subprocess.Popen", side_effect=make_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert job.error_message == "Annotation failed"
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "failed"
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["annotate"]["status"] == "failed"
+        assert "database" not in stage_by_name
+
+    def test_manifest_written_on_database_subprocess_failure(self, job, tmp_path):
+        """Manifest should capture database subprocess failure with completed prior stages."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260222_153000_pyphen"
+        run_dir.mkdir()
+        (run_dir / "pyphen_syllables_unique.txt").write_text("ka\nri\n", encoding="utf-8")
+        (run_dir / "pyphen_syllables_frequencies.json").write_text('{"ka": 1}', encoding="utf-8")
+        (run_dir / "data").mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        call_count = 0
+
+        def make_proc(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            proc = MagicMock()
+            if call_count == 1:
+                proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+                proc.returncode = 0
+                proc.wait.return_value = 0
+            elif call_count in (2, 3):
+                proc.stdout = iter(["ok\n"])
+                proc.returncode = 0
+                proc.wait.return_value = 0
+            else:
+                proc.stdout = iter(["db failed\n"])
+                proc.returncode = 1
+                proc.wait.return_value = 1
+            return proc
+
+        with patch("subprocess.Popen", side_effect=make_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert job.error_message == "Database build failed"
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "failed"
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["extract"]["status"] == "completed"
+        assert stage_by_name["normalize"]["status"] == "completed"
+        assert stage_by_name["annotate"]["status"] == "completed"
+        assert stage_by_name["database"]["status"] == "failed"
