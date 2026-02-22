@@ -198,10 +198,25 @@ Corpus Loading and Walker Readiness
 
 1. **Synchronous data load**: uses ``services/corpus_loader.load_corpus``, which delegates to
    ``build_tools.syllable_walk.db.load_syllables`` (SQLite preferred, JSON fallback).
-2. **Background walker init**: builds ``SyllableWalker`` and pre-computes profile reaches.
+2. **Background walker init**: builds ``SyllableWalker`` and resolves profile reaches via
+   run-local IPC cache.
+
+Profile reach caching is run-directory local:
+
+- Cache path: ``<run_dir>/ipc/walker_profile_reaches.v1.json``
+- Cache schema: ``build_tools/syllable_walk_web/schemas/walker_profile_reaches.v1.schema.json``
+- Cache key material:
+  - manifest IPC output hash (from ``<run_dir>/manifest.json``)
+  - walker graph settings (neighbor distance, inertia, feature costs)
+  - reach settings (threshold + named profile parameters)
+- On cache hit, precomputed reaches are loaded.
+- On miss/invalid cache, reaches are recomputed and cache is rewritten.
 
 The frontend polls ``GET /api/walker/stats`` until ``walker_ready=true``. During load,
 ``loading_stage`` reports phase progress (e.g., building neighbor graph).
+The stats payload also includes ``reach_cache_status`` per patch
+(``hit`` | ``miss`` | ``invalid`` | ``error`` | ``none``) to make cache
+behavior explicit in diagnostics.
 
 Candidate Generation Modes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -255,7 +270,7 @@ API Endpoints
      - Browse a filesystem directory (for source/output selection)
    * - ``/api/walker/stats``
      - GET
-     - Get dual-patch state (loaded corpora, walker readiness)
+     - Get dual-patch state (loaded corpora, walker readiness, loader/cache status)
    * - ``/api/walker/analysis/{patch}``
      - GET
      - Corpus shape metrics for a patch (terrain scores, distributions)
