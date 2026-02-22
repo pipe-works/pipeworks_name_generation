@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
 from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
     _build_output_tree_lines,
+    _build_stage_statuses,
+    _discover_selections,
+    _extract_artifact_paths,
     _format_display_name,
     _format_processing_time,
     _load_manifest,
@@ -161,6 +165,27 @@ def test_manifest_required_key_validation() -> None:
     assert _manifest_has_required_keys(invalid) is False
 
 
+def test_manifest_required_key_validation_rejects_wrong_types() -> None:
+    """Validator should reject manifests when typed sections have wrong shape."""
+    valid = _manifest_payload("20260222_160100_pyphen")
+
+    bad_config = dict(valid)
+    bad_config["config"] = []
+    assert _manifest_has_required_keys(bad_config) is False
+
+    bad_metrics = dict(valid)
+    bad_metrics["metrics"] = []
+    assert _manifest_has_required_keys(bad_metrics) is False
+
+    bad_stages = dict(valid)
+    bad_stages["stages"] = {}
+    assert _manifest_has_required_keys(bad_stages) is False
+
+    bad_artifacts = dict(valid)
+    bad_artifacts["artifacts"] = {}
+    assert _manifest_has_required_keys(bad_artifacts) is False
+
+
 def test_parse_timestamp_and_duration_helpers() -> None:
     """Timestamp and duration helpers should parse/format expected values."""
     assert _parse_timestamp("20260222_160000") is not None
@@ -178,6 +203,42 @@ def test_parse_timestamp_and_duration_helpers() -> None:
     assert _format_processing_time(no_interval) == "4.00s"
 
 
+def test_format_processing_time_returns_none_for_invalid_timestamps() -> None:
+    """Duration helper should gracefully return None when timestamps are malformed."""
+    payload = _manifest_payload("20260222_160002_pyphen")
+    payload["created_at_utc"] = "bad-timestamp"
+    payload["completed_at_utc"] = "also-bad"
+    payload["stages"] = [{"name": "extract", "status": "completed", "duration_seconds": "n/a"}]
+    assert _format_processing_time(payload) is None
+
+
+def test_extract_artifact_paths_ignores_non_dict_and_non_string_entries() -> None:
+    """Artifact path extraction should ignore invalid entries and keep canonical paths."""
+    payload = {
+        "artifacts": [
+            "not-a-dict",
+            {"path": 123},
+            {"path": "data/corpus.db"},
+            {"path": "data/pyphen_syllables_annotated.json"},
+        ]
+    }
+    corpus_rel, annotated_rel = _extract_artifact_paths(payload)
+    assert corpus_rel == "data/corpus.db"
+    assert annotated_rel == "data/pyphen_syllables_annotated.json"
+
+
+def test_build_stage_statuses_ignores_non_dict_stages() -> None:
+    """Stage status map should skip malformed list entries."""
+    payload = {
+        "stages": [
+            "bad-entry",
+            {"name": "extract", "status": "completed"},
+        ]
+    }
+    statuses = _build_stage_statuses(payload)
+    assert statuses == {"extract": "completed"}
+
+
 def test_build_output_tree_lines_annotates_known_artifacts() -> None:
     """Tree builder should include deterministic notes for key artifacts."""
     lines = _build_output_tree_lines(
@@ -193,6 +254,21 @@ def test_build_output_tree_lines_annotates_known_artifacts() -> None:
     assert any("data/corpus.db  1,784 syllables" in line for line in lines)
     assert any("annotated data" in line for line in lines)
     assert any("meta/source.txt" in line for line in lines)
+
+
+def test_build_output_tree_lines_ignores_non_dict_artifacts() -> None:
+    """Tree builder should skip malformed artifact entries without failing."""
+    artifacts: list[object] = [
+        "bad-entry",
+        {"path": "data/corpus.db"},
+    ]
+    lines = _build_output_tree_lines(
+        "20260222_170001_pyphen",
+        cast(list[dict[str, Any]], artifacts),
+        10,
+    )
+    assert lines[0] == "20260222_170001_pyphen/"
+    assert any("data/corpus.db" in line for line in lines)
 
 
 def test_format_display_name_with_and_without_selections() -> None:
@@ -280,6 +356,53 @@ class TestDiscoverRuns:
         monkeypatch.chdir(tmp_path)
         assert discover_runs() == []
 
+    def test_discover_runs_skips_non_dirs_and_non_matching_folder_names(
+        self, tmp_path: Path
+    ) -> None:
+        """Discovery should ignore filesystem files and non-run folder names."""
+        (tmp_path / "note.txt").write_text("x", encoding="utf-8")
+        (tmp_path / "not_a_run").mkdir()
+
+        run_id = "20260222_170010_pyphen"
+        run_dir = tmp_path / run_id
+        _write_manifest(run_dir, _manifest_payload(run_id))
+        (run_dir / "data").mkdir(parents=True, exist_ok=True)
+
+        runs = discover_runs(tmp_path)
+        assert len(runs) == 1
+        assert runs[0].path.name == run_id
+
+    def test_discover_runs_skips_empty_extractor(self, tmp_path: Path) -> None:
+        """Run should be skipped when manifest extractor is empty."""
+        run_id = "20260222_170020_pyphen"
+        run_dir = tmp_path / run_id
+        payload = _manifest_payload(run_id)
+        payload["extractor"] = ""
+        _write_manifest(run_dir, payload)
+        assert discover_runs(tmp_path) == []
+
+    def test_discover_runs_normalises_optional_manifest_fields(self, tmp_path: Path) -> None:
+        """Discovery should normalize optional fields with invalid types to safe defaults."""
+        run_id = "20260222_170030_pyphen"
+        run_dir = tmp_path / run_id
+        payload = _manifest_payload(run_id)
+        payload["metrics"]["syllable_count_unique"] = "3"
+        payload["metrics"]["files_processed"] = "1"
+        payload["config"]["source_path"] = {"not": "a-string"}
+        payload["ipc"]["input_hash"] = 123
+        payload["ipc"]["output_hash"] = ["abc"]
+        _write_manifest(run_dir, payload)
+        (run_dir / "data").mkdir(parents=True, exist_ok=True)
+
+        runs = discover_runs(tmp_path)
+        assert len(runs) == 1
+        run = runs[0]
+        assert run.syllable_count == 0
+        assert run.source_path is None
+        assert run.files_processed is None
+        assert run.ipc_input_hash is None
+        assert run.ipc_output_hash is None
+
 
 class TestSelectionAndLookup:
     """Selection loading and run lookup behavior."""
@@ -307,3 +430,16 @@ class TestSelectionAndLookup:
     ) -> None:
         """Run lookup should return None when no run matches."""
         assert get_run_by_id("20260222_999999_pyphen", tmp_path) is None
+
+    def test_discover_selections_skips_meta_json(self, tmp_path: Path) -> None:
+        """Selection discovery should skip *_meta.json helper files."""
+        run_dir = tmp_path / "20260222_180000_pyphen"
+        selections_dir = run_dir / "selections"
+        selections_dir.mkdir(parents=True, exist_ok=True)
+        (selections_dir / "pyphen_first_name_2syl_meta.json").write_text("{}", encoding="utf-8")
+        (selections_dir / "pyphen_first_name_2syl.json").write_text(
+            '{"metadata":{},"selections":[]}', encoding="utf-8"
+        )
+
+        selections = _discover_selections(run_dir, "pyphen")
+        assert list(selections.keys()) == ["first_name"]
