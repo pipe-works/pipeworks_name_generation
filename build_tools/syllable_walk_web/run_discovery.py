@@ -21,6 +21,7 @@ class RunInfo:
 
     Attributes:
         path: Absolute path to the run directory
+        run_id: Canonical run identifier (matches directory name)
         extractor_type: Type of extractor ("nltk" or "pyphen")
         timestamp: Run timestamp in YYYYMMDD_HHMMSS format
         display_name: Human-readable display name
@@ -31,6 +32,7 @@ class RunInfo:
     """
 
     path: Path
+    run_id: str
     extractor_type: str
     timestamp: str
     display_name: str
@@ -57,6 +59,7 @@ class RunInfo:
         """
         return {
             "path": str(self.path),
+            "run_id": self.run_id,
             "extractor_type": self.extractor_type,
             "timestamp": self.timestamp,
             "display_name": self.display_name,
@@ -390,6 +393,7 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
         runs.append(
             RunInfo(
                 path=run_dir.resolve(),
+                run_id=run_id,
                 extractor_type=extractor_type,
                 timestamp=timestamp,
                 display_name=display_name,
@@ -459,6 +463,6 @@ def get_run_by_id(run_id: str, base_path: Path | None = None) -> RunInfo | None:
     """
     runs = discover_runs(base_path)
     for run in runs:
-        if run.path.name == run_id:
+        if run.run_id == run_id:
             return run
     return None

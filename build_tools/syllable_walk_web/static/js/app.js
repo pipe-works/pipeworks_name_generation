@@ -79,20 +79,40 @@ document.addEventListener('DOMContentLoaded', () => {
       ['a', 'b'].forEach(patch => {
         const info = data[`patch_${patch}`];
         if (!info || !info.corpus) return;
+        const P = patch.toUpperCase();
+        state[`corpus${P}`] = info.corpus;
 
         document.getElementById(`status-corpus-${patch}`).textContent = info.corpus;
+        const statusEl = document.getElementById(`corpus-status-${patch}`);
+        if (!statusEl) return;
+        statusEl.classList.remove('is-loaded', 'is-error');
 
-        /* If the walker is already ready, update status + reach inline. */
-        if (info.walker_ready) {
+        /* Hydrate all loader states so refresh preserves accurate UX gating/status. */
+        if (info.loader_status === 'error' || info.loading_error) {
+          statusEl.classList.add('is-error');
+          statusEl.textContent = `${info.corpus} · ${info.loading_error || 'walker initialisation failed'}`;
+          return;
+        }
+
+        if (info.walker_ready || info.loader_status === 'ready') {
           const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
-          const statusEl = document.getElementById(`corpus-status-${patch}`);
-          if (statusEl) {
-            statusEl.textContent = `${info.corpus} · ${count} syllables · walker ready ✓`;
-          }
+          statusEl.classList.add('is-loaded');
+          statusEl.textContent = `${info.corpus} · ${count} syllables · walker ready ✓`;
           if (info.reaches) {
             updateReachValues(patch, info.reaches);
           }
+          return;
         }
+
+        if (info.loader_status === 'loading' || info.loading_stage) {
+          const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
+          const stage = info.loading_stage || 'Loading corpus data';
+          statusEl.textContent = `${info.corpus} · ${count} syllables · ${stage}…`;
+          return;
+        }
+
+        const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
+        statusEl.textContent = `${info.corpus} · ${count} syllables`;
       });
     })
     .catch(() => { /* ignore */ });

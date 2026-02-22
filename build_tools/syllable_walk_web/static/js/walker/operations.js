@@ -16,6 +16,90 @@ import { downloadBlob } from '../core/files.js';
 let _ctx = null;
 
 /**
+ * Replace container contents with placeholder text.
+ *
+ * @param {HTMLElement | null} el - Target container.
+ * @param {string} message - Placeholder message.
+ * @returns {void}
+ */
+function setPlaceholder(el, message) {
+  if (!el) return;
+  el.replaceChildren();
+  const span = document.createElement('span');
+  span.className = 'placeholder-text';
+  span.textContent = message;
+  el.appendChild(span);
+}
+
+/**
+ * Create one meta-line block with key/value spans.
+ *
+ * @param {string} key - Left label.
+ * @param {string} value - Right text value.
+ * @param {'meta-val'|'meta-path'} [valueClass='meta-val'] - Value class.
+ * @returns {HTMLDivElement}
+ */
+function createMetaLine(key, value, valueClass = 'meta-val') {
+  const row = document.createElement('div');
+  const keyEl = document.createElement('span');
+  keyEl.className = 'meta-key';
+  keyEl.textContent = key;
+  const valueEl = document.createElement('span');
+  valueEl.className = valueClass;
+  valueEl.textContent = value;
+  row.append(keyEl, valueEl);
+  return row;
+}
+
+/**
+ * Render a compact walk table as DOM nodes (safe text rendering).
+ *
+ * @param {Array<{formatted: string, syllables?: string[]}>} walkData - Walk payload.
+ * @returns {HTMLTableElement}
+ */
+function renderWalksTable(walkData) {
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['#', 'Walk', 'Syl'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  walkData.forEach((w, i) => {
+    const tr = document.createElement('tr');
+    const indexTd = document.createElement('td');
+    indexTd.textContent = String(i + 1);
+    const walkTd = document.createElement('td');
+    walkTd.textContent = w.formatted || '';
+    const sylTd = document.createElement('td');
+    sylTd.textContent = String(w.syllables ? w.syllables.length : 0);
+    tr.append(indexTd, walkTd, sylTd);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+/**
+ * Humanise one API name-class key for selector option labels.
+ *
+ * @param {string} key - API name class key (e.g. ``first_name``).
+ * @returns {string}
+ */
+function humanizeNameClass(key) {
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+/**
  * Initialise all walker operation controls and handlers.
  *
  * @param {{
@@ -26,6 +110,7 @@ let _ctx = null;
  */
 export function initOperations(ctx) {
   _ctx = ctx;
+  initNameClassOptions();
   initGenerateWalks();
   initExportWalks();
   initGenerateCandidates();
@@ -33,6 +118,47 @@ export function initOperations(ctx) {
   initExportTxt();
   initRenderScreen();
   initPackageBuild();
+}
+
+/**
+ * Populate selector class dropdowns from API authority endpoint.
+ *
+ * @returns {void}
+ */
+function initNameClassOptions() {
+  fetch('/api/walker/name-classes')
+    .then(r => r.json())
+    .then(data => {
+      const classes = Array.isArray(data.classes) ? data.classes : [];
+      if (!classes.length) return;
+
+      ['a', 'b'].forEach(patch => {
+        const select = document.getElementById(`sel-class-${patch}`);
+        if (!select) return;
+
+        const previous = select.value;
+        select.replaceChildren();
+
+        classes.forEach(cls => {
+          if (!cls || typeof cls.name !== 'string') return;
+          const option = document.createElement('option');
+          option.value = cls.name;
+          option.textContent = humanizeNameClass(cls.name);
+          if (typeof cls.description === 'string' && cls.description.length > 0) {
+            option.title = cls.description;
+          }
+          select.appendChild(option);
+        });
+
+        const hasPrevious = Array.from(select.options).some(o => o.value === previous);
+        if (hasPrevious) {
+          select.value = previous;
+        } else if (Array.from(select.options).some(o => o.value === 'first_name')) {
+          select.value = 'first_name';
+        }
+      });
+    })
+    .catch(() => { /* keep existing fallback options */ });
 }
 
 /**
@@ -84,7 +210,7 @@ function initGenerateWalks() {
       }
 
       const out = document.getElementById(`walks-output-${patch}`);
-      out.innerHTML = '<span class="placeholder-text">Generating…</span>';
+      setPlaceholder(out, 'Generating…');
       btn.disabled = true;
 
       fetch('/api/walker/walk', {
@@ -108,7 +234,7 @@ function initGenerateWalks() {
         .then(data => {
           btn.disabled = false;
           if (data.error) {
-            out.innerHTML = `<span class="placeholder-text">${data.error}</span>`;
+            setPlaceholder(out, String(data.error));
             _ctx.setStatus(`Patch ${P}: ${data.error}`);
             return;
           }
@@ -118,31 +244,21 @@ function initGenerateWalks() {
           _ctx.state[`walks${P}`] = walks;
           _ctx.state[`walkData${P}`] = walkData;
 
-          out.innerHTML = renderWalksTable(walkData);
+          out.replaceChildren();
+          if (!walkData.length) {
+            setPlaceholder(out, '(No walks generated)');
+          } else {
+            out.appendChild(renderWalksTable(walkData));
+          }
           _ctx.setStatus(`Patch ${P}: ${walks.length} walk${walks.length !== 1 ? 's' : ''} generated`);
         })
         .catch(err => {
           btn.disabled = false;
-          out.innerHTML = `<span class="placeholder-text">Error: ${err.message}</span>`;
+          setPlaceholder(out, `Error: ${err.message}`);
           _ctx.setStatus(`Patch ${P}: walk generation failed`);
         });
     });
   });
-}
-
-/**
- * Render walk results into a compact table.
- *
- * @param {Array<{formatted: string, syllables?: string[]}>} walkData - Walk payload.
- * @returns {string}
- */
-function renderWalksTable(walkData) {
-  if (!walkData || !walkData.length) return '';
-  const rows = walkData.map((w, i) => {
-    const sylCount = w.syllables ? w.syllables.length : 0;
-    return `<tr><td>${i + 1}</td><td>${w.formatted}</td><td>${sylCount}</td></tr>`;
-  }).join('');
-  return `<table><thead><tr><th>#</th><th>Walk</th><th>Syl</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 /**
@@ -274,7 +390,7 @@ function initGenerateCandidates() {
       }
 
       const out = document.getElementById(`comb-output-${patch}`);
-      out.innerHTML = '<span class="placeholder-text">Generating candidates…</span>';
+      setPlaceholder(out, 'Generating candidates…');
       btn.disabled = true;
 
       fetch('/api/walker/combine', {
@@ -286,7 +402,7 @@ function initGenerateCandidates() {
         .then(data => {
           btn.disabled = false;
           if (data.error) {
-            out.innerHTML = `<span class="placeholder-text">${data.error}</span>`;
+            setPlaceholder(out, String(data.error));
             _ctx.setStatus(`Patch ${P}: ${data.error}`);
             return;
           }
@@ -294,19 +410,21 @@ function initGenerateCandidates() {
           /* Store unique count so the selector can use it in "unique" count mode */
           _ctx.state[`uniqueCandidates${P}`] = data.unique || 0;
 
-          out.innerHTML = [
-            `<span class="meta-key">generated  </span><span class="meta-val">${(data.generated || 0).toLocaleString()}</span>`,
-            `<span class="meta-key">unique     </span><span class="meta-val">${(data.unique || 0).toLocaleString()}</span>`,
-            `<span class="meta-key">duplicates </span><span class="meta-val">${(data.duplicates || 0).toLocaleString()}</span>`,
-            `<span class="meta-key">syllables  </span><span class="meta-val">${Array.isArray(data.syllables) ? data.syllables.join(', ') : (data.syllables || sylls)}</span>`,
-            `<span class="meta-key">source     </span><span class="meta-path">${data.source || _ctx.state[`corpus${P}`]}</span>`,
-          ].join('<br/>');
+          out.replaceChildren();
+          const syllableSummary = Array.isArray(data.syllables)
+            ? data.syllables.join(', ')
+            : String(data.syllables || sylls);
+          out.appendChild(createMetaLine('generated  ', (data.generated || 0).toLocaleString()));
+          out.appendChild(createMetaLine('unique     ', (data.unique || 0).toLocaleString()));
+          out.appendChild(createMetaLine('duplicates ', (data.duplicates || 0).toLocaleString()));
+          out.appendChild(createMetaLine('syllables  ', syllableSummary));
+          out.appendChild(createMetaLine('source     ', String(data.source || _ctx.state[`corpus${P}`]), 'meta-path'));
 
           _ctx.setStatus(`Patch ${P}: ${(data.unique || 0).toLocaleString()} unique candidates generated`);
         })
         .catch(err => {
           btn.disabled = false;
-          out.innerHTML = `<span class="placeholder-text">Error: ${err.message}</span>`;
+          setPlaceholder(out, `Error: ${err.message}`);
           _ctx.setStatus(`Patch ${P}: combiner failed`);
         });
     });
@@ -345,8 +463,8 @@ function initSelectNames() {
       const metaEl = document.querySelector(`#sel-output-${patch} .selector-output__meta`);
       const listEl = document.getElementById(`sel-names-${patch}`);
 
-      metaEl.innerHTML = '<span class="placeholder-text">Selecting…</span>';
-      listEl.innerHTML = '';
+      setPlaceholder(metaEl, 'Selecting…');
+      listEl.replaceChildren();
       btn.disabled = true;
 
       fetch('/api/walker/select', {
@@ -365,7 +483,7 @@ function initSelectNames() {
         .then(data => {
           btn.disabled = false;
           if (data.error) {
-            metaEl.innerHTML = `<span class="placeholder-text">${data.error}</span>`;
+            setPlaceholder(metaEl, String(data.error));
             _ctx.setStatus(`Patch ${P}: ${data.error}`);
             return;
           }
@@ -373,19 +491,24 @@ function initSelectNames() {
           const names = data.names || [];
           _ctx.state[`names${P}`] = names;
 
-          metaEl.innerHTML = [
-            `<span class="meta-key">selected   </span><span class="meta-val">${data.count || names.length}</span>`,
-            `<span class="meta-key">requested  </span><span class="meta-val">${data.requested || count}</span>`,
-            `<span class="meta-key">class      </span><span class="meta-val">${data.name_class || cls}</span>`,
-            `<span class="meta-key">patch      </span><span class="meta-path">${P}</span>`,
-          ].join('<br/>');
+          metaEl.replaceChildren();
+          metaEl.appendChild(createMetaLine('selected   ', String(data.count || names.length)));
+          metaEl.appendChild(createMetaLine('requested  ', String(data.requested || count)));
+          metaEl.appendChild(createMetaLine('class      ', String(data.name_class || cls)));
+          metaEl.appendChild(createMetaLine('patch      ', P, 'meta-path'));
 
-          listEl.innerHTML = names.map(n => `<span class="name-item">${n}</span>`).join('');
+          listEl.replaceChildren();
+          names.forEach(name => {
+            const nameEl = document.createElement('span');
+            nameEl.className = 'name-item';
+            nameEl.textContent = name;
+            listEl.appendChild(nameEl);
+          });
           _ctx.setStatus(`Patch ${P}: ${names.length} names selected`);
         })
         .catch(err => {
           btn.disabled = false;
-          metaEl.innerHTML = `<span class="placeholder-text">Error: ${err.message}</span>`;
+          setPlaceholder(metaEl, `Error: ${err.message}`);
           _ctx.setStatus(`Patch ${P}: selector failed`);
         });
     });
@@ -459,10 +582,16 @@ export function populateRender() {
     const el = document.getElementById(`render-names-${patch}`);
     if (!el) return;
     if (!names || !names.length) {
-      el.innerHTML = '<p class="placeholder-text">(Select names in the Walk screen first)</p>';
+      setPlaceholder(el, '(Select names in the Walk screen first)');
       return;
     }
-    el.innerHTML = names.map(n => `<span class="render-name">${applyStyle(n)}</span>`).join('');
+    el.replaceChildren();
+    names.forEach(name => {
+      const nameEl = document.createElement('span');
+      nameEl.className = 'render-name';
+      nameEl.textContent = applyStyle(name);
+      el.appendChild(nameEl);
+    });
   });
 
   if (combine) {
@@ -471,12 +600,18 @@ export function populateRender() {
     const A = _ctx.state.namesA || [];
     const B = _ctx.state.namesB || [];
     if (!A.length || !B.length) {
-      el.innerHTML = '<p class="placeholder-text">(Select names for both patches first)</p>';
+      setPlaceholder(el, '(Select names for both patches first)');
       return;
     }
     const combined = A.slice(0, Math.min(A.length, B.length))
       .map((a, i) => `${applyStyle(a)} ${applyStyle(B[i])}`);
-    el.innerHTML = combined.map(n => `<span class="render-name">${n}</span>`).join('');
+    el.replaceChildren();
+    combined.forEach(name => {
+      const nameEl = document.createElement('span');
+      nameEl.className = 'render-name';
+      nameEl.textContent = name;
+      el.appendChild(nameEl);
+    });
   }
 }
 
@@ -502,7 +637,7 @@ function initPackageBuild() {
       include_selections: document.getElementById('pkg-selections')?.checked ?? true,
     };
 
-    out.innerHTML = '<span class="placeholder-text">Building package…</span>';
+    setPlaceholder(out, 'Building package…');
     btn.disabled = true;
     _ctx.setStatus('Building package…');
 
@@ -530,7 +665,7 @@ function initPackageBuild() {
           /* Show contents summary */
           const kb = (blob.size / 1024).toFixed(1);
           const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-          out.innerHTML = '';
+          out.replaceChildren();
           out.textContent = [
             `${filename}  (${kb} KB)`,
             ``,
@@ -541,7 +676,7 @@ function initPackageBuild() {
         });
       })
       .catch(err => {
-        out.innerHTML = '';
+        out.replaceChildren();
         out.textContent = `Error: ${err.message}`;
         _ctx.setStatus(`Package failed: ${err.message}`);
       })
@@ -606,7 +741,15 @@ export function populateAnalysis() {
           const barEl = document.getElementById(`an-${patch}-${axis}-bar`);
           if (barEl) barEl.style.width = `${t.pct}%`;
           const labelEl = document.getElementById(`an-${patch}-${axis}-label`);
-          if (labelEl) labelEl.innerHTML = `${t.label} <span class="u-accent">${sign}${t.score.toFixed(3)}</span>`;
+          if (labelEl) {
+            labelEl.replaceChildren();
+            const labelText = document.createElement('span');
+            labelText.textContent = `${t.label} `;
+            const scoreText = document.createElement('span');
+            scoreText.className = 'u-accent';
+            scoreText.textContent = `${sign}${t.score.toFixed(3)}`;
+            labelEl.append(labelText, scoreText);
+          }
           const exEl = document.getElementById(`an-${patch}-${axis}-ex`);
           if (exEl && t.exemplars && t.exemplars.length) {
             exEl.textContent = t.exemplars.join(', ');

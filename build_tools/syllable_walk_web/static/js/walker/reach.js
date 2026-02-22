@@ -25,6 +25,22 @@ const _reachData = {};
 const _combineReachLines = { a: null, b: null };
 
 /**
+ * Replace container contents with placeholder text.
+ *
+ * @param {HTMLElement | null} el - Target container.
+ * @param {string} message - Placeholder text.
+ * @returns {void}
+ */
+function setPlaceholder(el, message) {
+  if (!el) return;
+  el.replaceChildren();
+  const p = document.createElement('p');
+  p.className = 'placeholder-text';
+  p.textContent = message;
+  el.appendChild(p);
+}
+
+/**
  * Initialise reach-related UI systems.
  *
  * @param {{
@@ -94,11 +110,11 @@ function loadReachSyllables(patch, profile) {
 
   /* Check if reach data is available. */
   if (!_reachData[key]) {
-    container.innerHTML = '<p class="placeholder-text">(Load a corpus to view reachable syllables)</p>';
+    setPlaceholder(container, '(Load a corpus to view reachable syllables)');
     return;
   }
 
-  container.innerHTML = '<p class="placeholder-text">Loading syllables…</p>';
+  setPlaceholder(container, 'Loading syllables…');
 
   fetch('/api/walker/reach-syllables', {
     method: 'POST',
@@ -108,7 +124,7 @@ function loadReachSyllables(patch, profile) {
     .then(r => r.json())
     .then(data => {
       if (data.error) {
-        container.innerHTML = `<p class="placeholder-text">${data.error}</p>`;
+        setPlaceholder(container, String(data.error));
         return;
       }
 
@@ -116,7 +132,7 @@ function loadReachSyllables(patch, profile) {
       renderReachSyllables(container, data);
     })
     .catch(err => {
-      container.innerHTML = `<p class="placeholder-text">Error: ${err.message}</p>`;
+      setPlaceholder(container, `Error: ${err.message}`);
     });
 }
 
@@ -174,27 +190,67 @@ function renderReachSyllables(container, data) {
   const profile = data.profile;
   const pfx = `reach-${patch}-${profile}`;
 
-  const header = `<div class="reach-syllables__header">` +
-    `<span class="u-accent">${profile}</span>` +
-    `<span class="u-muted">— top ${count.toLocaleString()} / ${data.total.toLocaleString()} syllables by reachability</span>` +
-    `</div>`;
+  container.replaceChildren();
 
-  const exportBar = `<div class="reach-syllables__export-bar">` +
-    `<button class="btn btn--secondary btn--sm" id="${pfx}-copy-txt">Copy TXT</button>` +
-    `<button class="btn btn--secondary btn--sm" id="${pfx}-copy-md">Copy MD</button>` +
-    `<button class="btn btn--secondary btn--sm" id="${pfx}-export-txt">Export TXT</button>` +
-    `<button class="btn btn--secondary btn--sm" id="${pfx}-export-md">Export MD</button>` +
-    `</div>`;
+  const header = document.createElement('div');
+  header.className = 'reach-syllables__header';
+  const profileEl = document.createElement('span');
+  profileEl.className = 'u-accent';
+  profileEl.textContent = profile;
+  const summaryEl = document.createElement('span');
+  summaryEl.className = 'u-muted';
+  summaryEl.textContent = `— top ${count.toLocaleString()} / ${data.total.toLocaleString()} syllables by reachability`;
+  header.append(profileEl, summaryEl);
+  container.appendChild(header);
 
-  const rows = syllables.map((s, i) =>
-    `<tr><td>${i + 1}</td><td>${s.syllable}</td><td>${s.frequency.toLocaleString()}</td><td>${s.reachability.toLocaleString()}</td></tr>`
-  ).join('');
+  const exportBar = document.createElement('div');
+  exportBar.className = 'reach-syllables__export-bar';
+  const buttonDefs = [
+    { id: `${pfx}-copy-txt`, label: 'Copy TXT' },
+    { id: `${pfx}-copy-md`, label: 'Copy MD' },
+    { id: `${pfx}-export-txt`, label: 'Export TXT' },
+    { id: `${pfx}-export-md`, label: 'Export MD' },
+  ];
+  buttonDefs.forEach(def => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn--secondary btn--sm';
+    btn.id = def.id;
+    btn.textContent = def.label;
+    exportBar.appendChild(btn);
+  });
+  container.appendChild(exportBar);
 
-  container.innerHTML = header + exportBar +
-    `<div class="reach-syllables__scroll">` +
-    `<table class="reach-syllables__table">` +
-    `<thead><tr><th>#</th><th>Syllable</th><th>Freq</th><th>Nodes</th></tr></thead>` +
-    `<tbody>${rows}</tbody></table></div>`;
+  const scrollWrap = document.createElement('div');
+  scrollWrap.className = 'reach-syllables__scroll';
+  const table = document.createElement('table');
+  table.className = 'reach-syllables__table';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['#', 'Syllable', 'Freq', 'Nodes'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  syllables.forEach((s, i) => {
+    const row = document.createElement('tr');
+    const indexTd = document.createElement('td');
+    indexTd.textContent = String(i + 1);
+    const syllableTd = document.createElement('td');
+    syllableTd.textContent = s.syllable;
+    const freqTd = document.createElement('td');
+    freqTd.textContent = s.frequency.toLocaleString();
+    const reachTd = document.createElement('td');
+    reachTd.textContent = s.reachability.toLocaleString();
+    row.append(indexTd, syllableTd, freqTd, reachTd);
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  scrollWrap.appendChild(table);
+  container.appendChild(scrollWrap);
 
   /* Wire button handlers with visual feedback */
   document.getElementById(`${pfx}-copy-txt`)?.addEventListener('click', function () {
@@ -311,10 +367,19 @@ function showReachTooltip(anchor, key) {
     'and seed-independent.';
 
   /* Parameter grid */
-  paramsEl.innerHTML =
-    `<dt>reach</dt><dd>≈${info.reach.toLocaleString()} / ${info.total.toLocaleString()}</dd>` +
-    `<dt>threshold</dt><dd>${info.threshold}</dd>` +
-    `<dt>computed in</dt><dd>${info.computation_ms.toFixed(0)} ms</dd>`;
+  paramsEl.replaceChildren();
+  const rows = [
+    ['reach', `≈${info.reach.toLocaleString()} / ${info.total.toLocaleString()}`],
+    ['threshold', String(info.threshold)],
+    ['computed in', `${info.computation_ms.toFixed(0)} ms`],
+  ];
+  rows.forEach(([term, value]) => {
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    paramsEl.append(dt, dd);
+  });
 
   /* Position above the anchor element */
   const rect = anchor.getBoundingClientRect();

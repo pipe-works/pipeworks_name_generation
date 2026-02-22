@@ -29,6 +29,35 @@ let _selectedHistoryRunId = null;
 let _historyRequestSeq = 0;
 
 /**
+ * Replace an element's content with one placeholder paragraph.
+ *
+ * @param {HTMLElement} el - Container element.
+ * @param {string} message - Placeholder message.
+ * @returns {void}
+ */
+function setPlaceholder(el, message) {
+  if (!el) return;
+  el.replaceChildren();
+  const p = document.createElement('p');
+  p.className = 'placeholder-text';
+  p.textContent = message;
+  el.appendChild(p);
+}
+
+/**
+ * Resolve canonical run id from one run payload.
+ *
+ * @param {{run_id?: string, path?: string}} run - Run metadata from API.
+ * @returns {string}
+ */
+function getRunId(run) {
+  if (run && typeof run.run_id === 'string' && run.run_id.length > 0) {
+    return run.run_id;
+  }
+  return '';
+}
+
+/**
  * Initialise all pipeline tool behaviors.
  *
  * @param {{
@@ -164,7 +193,7 @@ function initDirModal() {
 function browseTo(dirPath) {
   const browser = document.getElementById('dir-browser');
   if (!browser) return;
-  browser.innerHTML = '<p class="placeholder-text">Loading…</p>';
+  setPlaceholder(browser, 'Loading…');
 
   const selectBtn = document.getElementById('dir-modal-select');
 
@@ -176,7 +205,7 @@ function browseTo(dirPath) {
     .then(r => r.json())
     .then(data => {
       if (data.error) {
-        browser.innerHTML = `<p class="placeholder-text">${data.error}</p>`;
+        setPlaceholder(browser, String(data.error));
         return;
       }
       _dirModalCurrentPath = data.path;
@@ -188,7 +217,7 @@ function browseTo(dirPath) {
       } else {
         selectBtn.disabled = true;  /* file mode: wait for a file click */
       }
-      browser.innerHTML = '';
+      browser.replaceChildren();
 
       /* Breadcrumb with current path */
       const pathEl = document.createElement('div');
@@ -201,7 +230,13 @@ function browseTo(dirPath) {
       if (data.parent) {
         const parentEl = document.createElement('div');
         parentEl.className = 'corpus-browser__item';
-        parentEl.innerHTML = '<span class="u-accent u-mono">../</span><span class="u-muted">parent directory</span>';
+        const parentPath = document.createElement('span');
+        parentPath.className = 'u-accent u-mono';
+        parentPath.textContent = '../';
+        const parentLabel = document.createElement('span');
+        parentLabel.className = 'u-muted';
+        parentLabel.textContent = 'parent directory';
+        parentEl.append(parentPath, parentLabel);
         parentEl.addEventListener('click', () => browseTo(data.parent));
         browser.appendChild(parentEl);
       }
@@ -211,11 +246,20 @@ function browseTo(dirPath) {
         const el = document.createElement('div');
         el.className = 'corpus-browser__item';
         if (entry.type === 'directory') {
-          el.innerHTML = `<span class="u-accent u-mono">${entry.name}/</span>`;
+          const nameEl = document.createElement('span');
+          nameEl.className = 'u-accent u-mono';
+          nameEl.textContent = `${entry.name}/`;
+          el.appendChild(nameEl);
           el.addEventListener('click', () => browseTo(entry.path));
         } else {
           const kb = entry.size ? ` · ${(entry.size / 1024).toFixed(1)} KB` : '';
-          el.innerHTML = `<span class="u-mono">${entry.name}</span><span class="u-muted">${kb}</span>`;
+          const nameEl = document.createElement('span');
+          nameEl.className = 'u-mono';
+          nameEl.textContent = entry.name;
+          const kbEl = document.createElement('span');
+          kbEl.className = 'u-muted';
+          kbEl.textContent = kb;
+          el.append(nameEl, kbEl);
 
           /* In file mode, clicking a file selects it */
           if (_dirModalMode === 'file') {
@@ -241,7 +285,7 @@ function browseTo(dirPath) {
       }
     })
     .catch(err => {
-      browser.innerHTML = `<p class="placeholder-text">Error: ${err.message}</p>`;
+      setPlaceholder(browser, `Error: ${err.message}`);
     });
 }
 
@@ -602,11 +646,11 @@ function loadHistoryRuns(opts = {}) {
     .then(data => {
       if (requestSeq !== _historyRequestSeq) return;
       _historyRuns = data.runs || [];
-      container.innerHTML = '';
+      container.replaceChildren();
 
       if (_historyRuns.length === 0) {
         _selectedHistoryRunId = null;
-        container.innerHTML = '<p class="placeholder-text">No pipeline runs found.</p>';
+        setPlaceholder(container, 'No pipeline runs found.');
         clearHistoryDetail();
         return;
       }
@@ -617,18 +661,23 @@ function loadHistoryRuns(opts = {}) {
         const dateStr = ts.length >= 13
           ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}`
           : ts;
-        const runId = run.path.split('/').pop();
+        const runId = getRunId(run);
         const isSelected = preferredRunId ? runId === preferredRunId : idx === 0;
         if (isSelected && !selectedRun) selectedRun = run;
 
         const row = document.createElement('div');
         row.className = 'history-run' + (isSelected ? ' is-selected' : '');
         row.dataset.runId = runId;
-        row.innerHTML = [
-          `<span class="history-run__date u-muted">${dateStr}</span>`,
-          `<span class="history-run__name u-accent">${run.extractor_type}</span>`,
-          `<span class="badge badge--success">${run.syllable_count.toLocaleString()} syl</span>`,
-        ].join('');
+        const dateEl = document.createElement('span');
+        dateEl.className = 'history-run__date u-muted';
+        dateEl.textContent = dateStr;
+        const nameEl = document.createElement('span');
+        nameEl.className = 'history-run__name u-accent';
+        nameEl.textContent = run.extractor_type;
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'badge badge--success';
+        badgeEl.textContent = `${run.syllable_count.toLocaleString()} syl`;
+        row.append(dateEl, nameEl, badgeEl);
 
         row.addEventListener('click', () => {
           container.querySelectorAll('.history-run').forEach(r => r.classList.remove('is-selected'));
@@ -644,13 +693,13 @@ function loadHistoryRuns(opts = {}) {
         selectedRun = _historyRuns[0];
       }
       if (selectedRun) {
-        _selectedHistoryRunId = selectedRun.path.split('/').pop();
+        _selectedHistoryRunId = getRunId(selectedRun);
         populateHistoryDetail(selectedRun);
       }
     })
     .catch(() => {
       if (requestSeq !== _historyRequestSeq) return;
-      container.innerHTML = '<p class="placeholder-text">Failed to load runs.</p>';
+      setPlaceholder(container, 'Failed to load runs.');
     });
 }
 
@@ -676,7 +725,7 @@ function clearHistoryDetail() {
   document.getElementById('hd-ipc-output').removeAttribute('title');
   const treeEl = document.getElementById('history-output-tree');
   if (treeEl) {
-    treeEl.innerHTML = '<span class="placeholder-text">(Select a run to view details)</span>';
+    treeEl.textContent = '(Select a run to view details)';
   }
 }
 
@@ -701,7 +750,7 @@ function compactHash(value) {
 function populateHistoryDetail(run) {
   if (!run) return;
 
-  const dirName = run.path.split('/').pop();
+  const dirName = getRunId(run) || 'unknown';
   const ts = run.timestamp || '';
   const startedUtc = typeof run.created_at_utc === 'string' ? run.created_at_utc : null;
   const dateStr = ts.length >= 13
