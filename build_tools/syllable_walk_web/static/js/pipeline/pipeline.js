@@ -670,10 +670,26 @@ function clearHistoryDetail() {
   document.getElementById('hd-files').textContent = '—';
   document.getElementById('hd-output').textContent = '—';
   document.getElementById('hd-syllables').textContent = '—';
+  document.getElementById('hd-ipc-input').textContent = '—';
+  document.getElementById('hd-ipc-input').removeAttribute('title');
+  document.getElementById('hd-ipc-output').textContent = '—';
+  document.getElementById('hd-ipc-output').removeAttribute('title');
   const treeEl = document.getElementById('history-output-tree');
   if (treeEl) {
     treeEl.innerHTML = '<span class="placeholder-text">(Select a run to view details)</span>';
   }
+}
+
+/**
+ * Build a compact display form for long hash strings.
+ *
+ * @param {string | null | undefined} value - Hash value to render.
+ * @returns {string} Compact hash text for UI.
+ */
+function compactHash(value) {
+  if (typeof value !== 'string' || value.length === 0) return 'n/a';
+  if (value.length <= 24) return value;
+  return `${value.slice(0, 12)}...${value.slice(-12)}`;
 }
 
 /**
@@ -687,13 +703,17 @@ function populateHistoryDetail(run) {
 
   const dirName = run.path.split('/').pop();
   const ts = run.timestamp || '';
+  const startedUtc = typeof run.created_at_utc === 'string' ? run.created_at_utc : null;
   const dateStr = ts.length >= 13
     ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
     : ts;
+  const startedDisplay = startedUtc && startedUtc.length >= 19
+    ? startedUtc.replace('T', ' ').replace('Z', '')
+    : dateStr;
 
   document.getElementById('history-detail-name').textContent = dirName;
-  document.getElementById('hd-status').textContent = 'completed';
-  document.getElementById('hd-started').textContent = dateStr;
+  document.getElementById('hd-status').textContent = run.status || 'unknown';
+  document.getElementById('hd-started').textContent = startedDisplay;
   document.getElementById('hd-duration').textContent = run.processing_time || 'n/a';
   document.getElementById('hd-extractor').textContent = run.extractor_type;
   const sourceEl = document.getElementById('hd-source');
@@ -713,13 +733,31 @@ function populateHistoryDetail(run) {
   }
   document.getElementById('hd-output').textContent = run.path;
   document.getElementById('hd-syllables').textContent = `${run.syllable_count.toLocaleString()} unique`;
+  const ipcInputEl = document.getElementById('hd-ipc-input');
+  const ipcOutputEl = document.getElementById('hd-ipc-output');
+  ipcInputEl.textContent = compactHash(run.ipc_input_hash);
+  ipcOutputEl.textContent = compactHash(run.ipc_output_hash);
+  if (typeof run.ipc_input_hash === 'string' && run.ipc_input_hash.length > 0) {
+    ipcInputEl.title = run.ipc_input_hash;
+  } else {
+    ipcInputEl.removeAttribute('title');
+  }
+  if (typeof run.ipc_output_hash === 'string' && run.ipc_output_hash.length > 0) {
+    ipcOutputEl.title = run.ipc_output_hash;
+  } else {
+    ipcOutputEl.removeAttribute('title');
+  }
 
-  /* Stage indicators — all discovered runs completed all stages */
+  /* Stage indicators come from manifest stage_statuses */
   const stageEls = document.querySelectorAll('.history-stages .stage-indicator');
-  const hasDatabase = !!run.corpus_db_path;
   const stageNames = ['Extract', 'Normalize', 'Annotate', 'Database'];
+  const stageKeys = ['extract', 'normalize', 'annotate', 'database'];
   stageEls.forEach((el, i) => {
-    const done = i < 3 || (i === 3 && hasDatabase);
+    const stageKey = stageKeys[i];
+    const stageStatus = run.stage_statuses && typeof run.stage_statuses === 'object'
+      ? run.stage_statuses[stageKey]
+      : null;
+    const done = stageStatus === 'completed';
     el.className = done ? 'stage-indicator is-done' : 'stage-indicator';
     el.querySelector('.stage-indicator__label').textContent = stageNames[i];
   });
@@ -727,27 +765,8 @@ function populateHistoryDetail(run) {
   /* Output tree */
   const treeEl = document.getElementById('history-output-tree');
   if (treeEl) {
-    if (Array.isArray(run.output_tree_lines) && run.output_tree_lines.length > 0) {
-      treeEl.textContent = run.output_tree_lines.join('\n');
-    } else {
-      const dbLine = run.corpus_db_path
-        ? `│   ├── corpus.db         ${run.syllable_count.toLocaleString()} syllables`
-        : `│   ├── corpus.db         (not present)`;
-      const annotatedName = run.annotated_json_path
-        ? run.annotated_json_path.split('/').pop()
-        : '*_annotated.json';
-      const annotatedLine = run.annotated_json_path
-        ? `│   └── ${annotatedName}  annotated data`
-        : `│   └── ${annotatedName}  (not present)`;
-      const selCount = run.selection_count || 0;
-      const selLine = selCount > 0 ? `\n├── selections/           ${selCount} name classes` : '';
-      treeEl.textContent = [
-        `${dirName}/`,
-        `├── data/`,
-        dbLine,
-        annotatedLine,
-        selLine,
-      ].filter(Boolean).join('\n');
-    }
+    treeEl.textContent = Array.isArray(run.output_tree_lines) && run.output_tree_lines.length > 0
+      ? run.output_tree_lines.join('\n')
+      : '(No manifest artifact tree available)';
   }
 }

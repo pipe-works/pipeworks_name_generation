@@ -190,6 +190,36 @@ def test_refresh_metrics_and_artifacts_keeps_deterministic_output_hash(tmp_path:
     assert _SHA256_RE.match(first_hash)
 
 
+def test_refresh_ipc_changes_input_hash_when_relevant_input_changes(tmp_path: Path) -> None:
+    """Input hash should change when canonical configuration fields change."""
+
+    run_dir = tmp_path / "20260222_123001_nltk"
+    data_dir = run_dir / "data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "nltk_syllables_annotated.json").write_text("[]", encoding="utf-8")
+
+    manifest = pipeline_manifest.create_manifest(
+        run_id=run_dir.name,
+        extractor="nltk",
+        language="auto",
+        source_path=str(tmp_path / "source-a.txt"),
+        file_pattern="*.txt",
+        min_syllable_length=2,
+        max_syllable_length=8,
+        run_normalize=True,
+        run_annotate=True,
+        created_at_utc="2026-02-22T12:30:00Z",
+    )
+    baseline = manifest["ipc"]["input_hash"]
+
+    manifest["config"]["max_syllable_length"] = 9
+    pipeline_manifest.refresh_ipc(manifest)
+    updated = manifest["ipc"]["input_hash"]
+
+    assert baseline != updated
+    assert _SHA256_RE.match(updated)
+
+
 def test_write_manifest_persists_json_with_trailing_newline(tmp_path: Path) -> None:
     """write_manifest should atomically persist a valid JSON document."""
 

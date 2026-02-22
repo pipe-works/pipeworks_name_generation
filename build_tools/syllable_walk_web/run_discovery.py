@@ -1,14 +1,8 @@
-"""Run directory discovery for the simplified syllable walker web interface.
+"""Run directory discovery for the syllable-walk web pipeline history.
 
-This module discovers complete pipeline run directories in _working/output/,
-including their SQLite databases, annotated JSON files, and selection outputs.
-
-The discovery system provides a unified view of all pipeline runs with their
-associated data, making it easy to browse and select runs in the web interface.
-
-Functions:
-    discover_runs: Scan _working/output/ for complete pipeline runs
-    get_selection_data: Load selection data from a specific file
+History discovery is manifest-driven: a run is discoverable only when
+``manifest.json`` exists and is parseable. This keeps the run directory itself as
+the single source of truth and avoids legacy text-file parsing heuristics.
 """
 
 from __future__ import annotations
@@ -16,22 +10,23 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class RunInfo:
-    """Metadata about a complete pipeline run directory.
+    """Metadata about one manifest-backed pipeline run directory.
 
     Attributes:
         path: Absolute path to the run directory
         extractor_type: Type of extractor ("nltk" or "pyphen")
         timestamp: Run timestamp in YYYYMMDD_HHMMSS format
         display_name: Human-readable display name
-        corpus_db_path: Path to corpus.db if it exists, None otherwise
-        annotated_json_path: Path to annotated JSON if it exists
-        syllable_count: Number of syllables (from DB or JSON)
+        corpus_db_path: Path to corpus.db artifact if present and exists
+        annotated_json_path: Path to annotated JSON artifact if present and exists
+        syllable_count: Number of unique syllables from manifest metrics
         selections: Dict mapping name class to selection file path
     """
 
@@ -47,6 +42,12 @@ class RunInfo:
     processing_time: str | None = None
     output_tree_lines: list[str] = field(default_factory=list)
     selections: dict[str, Path] = field(default_factory=dict)
+    status: str = "unknown"
+    created_at_utc: str | None = None
+    completed_at_utc: str | None = None
+    stage_statuses: dict[str, str] = field(default_factory=dict)
+    ipc_input_hash: str | None = None
+    ipc_output_hash: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization.
@@ -70,102 +71,62 @@ class RunInfo:
             "output_tree_lines": self.output_tree_lines,
             "selections": {k: str(v) for k, v in self.selections.items()},
             "selection_count": len(self.selections),
+            "status": self.status,
+            "created_at_utc": self.created_at_utc,
+            "completed_at_utc": self.completed_at_utc,
+            "stage_statuses": self.stage_statuses,
+            "ipc_input_hash": self.ipc_input_hash,
+            "ipc_output_hash": self.ipc_output_hash,
         }
 
 
-def _parse_history_metadata(
-    run_dir: Path, extractor_type: str
-) -> tuple[str | None, int | None, str | None]:
-    """Parse source/file-count/duration metadata from run artifacts."""
-    source_path: str | None = None
-    files_processed: int | None = None
-    processing_time: str | None = None
-
-    # Extractor metadata (source path)
-    meta_dir = run_dir / "meta"
-    if meta_dir.exists():
-        for meta_file in sorted(meta_dir.glob("*.txt")):
-            try:
-                with open(meta_file, encoding="utf-8") as f:
-                    for line in f:
-                        stripped = line.strip()
-                        if stripped.startswith("Input File:"):
-                            source_path = stripped.split(":", 1)[1].strip()
-                            break
-                        if stripped.startswith("Input Directory:"):
-                            source_path = stripped.split(":", 1)[1].strip()
-                            break
-                if source_path:
-                    break
-            except (OSError, UnicodeDecodeError):
-                continue
-
-    # Normalization metadata (files processed + processing time)
-    norm_meta = run_dir / f"{extractor_type}_normalization_meta.txt"
-    if not norm_meta.exists():
-        fallback = sorted(run_dir.glob("*_normalization_meta.txt"))
-        norm_meta = fallback[0] if fallback else norm_meta
-    if norm_meta.exists():
-        try:
-            with open(norm_meta, encoding="utf-8") as f:
-                for line in f:
-                    stripped = line.strip()
-                    if stripped.startswith("Input Files:"):
-                        m = re.search(r"(\d+)", stripped)
-                        if m:
-                            files_processed = int(m.group(1))
-                    elif stripped.startswith("Processing Time:"):
-                        processing_time = stripped.split(":", 1)[1].strip()
-        except (OSError, UnicodeDecodeError):
-            pass
-
-    # Fallback for file count when metadata line is unavailable
-    if files_processed is None:
-        syllables_dir = run_dir / "syllables"
-        if syllables_dir.exists():
-            txt_count = len(list(syllables_dir.glob("*.txt")))
-            if txt_count > 0:
-                files_processed = txt_count
-
-    return source_path, files_processed, processing_time
+_TIMESTAMP_RUN_RE = re.compile(r"^(\d{8}_\d{6})_(.+)$")
 
 
-def _get_syllable_count_from_db(db_path: Path) -> int:
-    """Get syllable count from SQLite database.
+def _load_manifest(run_dir: Path) -> dict[str, Any] | None:
+    """Load ``manifest.json`` for one run directory.
 
-    Args:
-        db_path: Path to corpus.db
-
-    Returns:
-        Number of syllables in database, or 0 if error
+    Returns ``None`` when the manifest file is missing or malformed.
     """
-    import sqlite3
-
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.exists():
+        return None
     try:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        cursor = conn.execute("SELECT COUNT(*) FROM syllables")
-        count: int = cursor.fetchone()[0]
-        conn.close()
-        return count
-    except Exception:
-        return 0
+        raw = manifest_path.read_text(encoding="utf-8")
+        payload = json.loads(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
-def _get_syllable_count_from_json(json_path: Path) -> int:
-    """Get syllable count from annotated JSON file.
+def _looks_like_run_directory_name(name: str) -> bool:
+    """Return True when folder name follows ``YYYYMMDD_HHMMSS_<extractor>``."""
+    return _TIMESTAMP_RUN_RE.match(name) is not None
 
-    Args:
-        json_path: Path to annotated JSON file
 
-    Returns:
-        Number of syllables in file, or 0 if error
-    """
-    try:
-        with open(json_path, encoding="utf-8") as f:
-            data = json.load(f)
-        return len(data) if isinstance(data, list) else 0
-    except Exception:
-        return 0
+def _manifest_has_required_keys(manifest: dict[str, Any]) -> bool:
+    """Validate required manifest structure used by the History API."""
+    required = (
+        "manifest_version",
+        "run_id",
+        "status",
+        "extractor",
+        "config",
+        "metrics",
+        "stages",
+        "artifacts",
+    )
+    if any(key not in manifest for key in required):
+        return False
+    if not isinstance(manifest.get("config"), dict):
+        return False
+    if not isinstance(manifest.get("metrics"), dict):
+        return False
+    if not isinstance(manifest.get("stages"), list):
+        return False
+    if not isinstance(manifest.get("artifacts"), list):
+        return False
+    return True
 
 
 def _parse_timestamp(timestamp_str: str) -> datetime | None:
@@ -181,6 +142,71 @@ def _parse_timestamp(timestamp_str: str) -> datetime | None:
         return datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
     except ValueError:
         return None
+
+
+def _parse_iso_utc(timestamp: str | None) -> datetime | None:
+    """Parse ``YYYY-MM-DDTHH:MM:SSZ`` timestamp into aware UTC datetime."""
+    if not timestamp or not isinstance(timestamp, str):
+        return None
+    try:
+        parsed = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=UTC)
+
+
+def _format_processing_time(manifest: dict[str, Any]) -> str | None:
+    """Build a history-friendly duration string from manifest timestamps.
+
+    Prefers run-level ``created_at_utc``/``completed_at_utc`` and falls back to
+    summing stage durations when a complete run-level interval is unavailable.
+    """
+    created = _parse_iso_utc(manifest.get("created_at_utc"))
+    completed = _parse_iso_utc(manifest.get("completed_at_utc"))
+    if created and completed:
+        seconds = max((completed - created).total_seconds(), 0.0)
+        return f"{seconds:.2f}s"
+
+    durations = [
+        stage.get("duration_seconds")
+        for stage in manifest.get("stages", [])
+        if isinstance(stage, dict)
+    ]
+    numeric = [value for value in durations if isinstance(value, (int, float))]
+    if numeric:
+        return f"{sum(float(v) for v in numeric):.2f}s"
+    return None
+
+
+def _extract_artifact_paths(manifest: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Extract canonical corpus DB and annotated JSON artifact paths."""
+    corpus_rel: str | None = None
+    annotated_rel: str | None = None
+    for artifact in manifest.get("artifacts", []):
+        if not isinstance(artifact, dict):
+            continue
+        rel_path = artifact.get("path")
+        if not isinstance(rel_path, str):
+            continue
+        if rel_path == "data/corpus.db":
+            corpus_rel = rel_path
+        if rel_path.startswith("data/") and rel_path.endswith("_syllables_annotated.json"):
+            if annotated_rel is None:
+                annotated_rel = rel_path
+    return corpus_rel, annotated_rel
+
+
+def _build_stage_statuses(manifest: dict[str, Any]) -> dict[str, str]:
+    """Return stage status map keyed by stage name."""
+    stage_statuses: dict[str, str] = {}
+    for stage in manifest.get("stages", []):
+        if not isinstance(stage, dict):
+            continue
+        name = stage.get("name")
+        status = stage.get("status")
+        if isinstance(name, str) and isinstance(status, str):
+            stage_statuses[name] = status
+    return stage_statuses
 
 
 def _format_display_name(
@@ -245,70 +271,29 @@ def _discover_selections(run_dir: Path, extractor_type: str) -> dict[str, Path]:
 
 
 def _build_output_tree_lines(
-    run_dir: Path,
+    run_name: str,
+    artifacts: list[dict[str, Any]],
     syllable_count: int,
-    max_depth: int = 1,
-    max_entries_per_dir: int = 24,
 ) -> list[str]:
-    """Build a deterministic, compact filesystem tree for History output."""
-    lines: list[str] = [f"{run_dir.name}/"]
+    """Build a deterministic compact tree from manifest artifact paths."""
+    lines: list[str] = [f"{run_name}/"]
+    normalized_paths: list[str] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        rel_path = artifact.get("path")
+        if isinstance(rel_path, str):
+            normalized_paths.append(rel_path)
 
-    def _annotation(relative_path: str) -> str | None:
-        if relative_path == "data/corpus.db":
-            return f"{syllable_count:,} syllables"
-        if relative_path.startswith("data/") and relative_path.endswith(
-            "_syllables_annotated.json"
-        ):
-            return "annotated data"
-        return None
-
-    def _children(dir_path: Path) -> list[Path]:
-        try:
-            entries = list(dir_path.iterdir())
-        except Exception:
-            return []
-
-        filtered = [
-            p
-            for p in entries
-            if p.name != ".DS_Store"
-            and not p.name.endswith(".db-shm")
-            and not p.name.endswith(".db-wal")
-        ]
-        return sorted(filtered, key=lambda p: (not p.is_dir(), p.name.lower(), p.name))
-
-    def _render_dir(dir_path: Path, prefix: str, depth: int) -> None:
-        entries = _children(dir_path)
-        if not entries:
-            return
-
-        visible = entries[:max_entries_per_dir]
-        hidden_count = len(entries) - len(visible)
-        display_items: list[Path | str] = list(visible)
-        if hidden_count > 0:
-            display_items.append(f"... (+{hidden_count} more entries)")
-
-        for i, item in enumerate(display_items):
-            is_last = i == len(display_items) - 1
-            connector = "└── " if is_last else "├── "
-
-            if isinstance(item, str):
-                lines.append(f"{prefix}{connector}{item}")
-                continue
-
-            child = item
-            rel = child.relative_to(run_dir).as_posix()
-            label = f"{child.name}/" if child.is_dir() else child.name
-            note = _annotation(rel)
-            if note:
-                label = f"{label}  {note}"
-            lines.append(f"{prefix}{connector}{label}")
-
-            if child.is_dir() and depth < max_depth:
-                next_prefix = prefix + ("    " if is_last else "│   ")
-                _render_dir(child, next_prefix, depth + 1)
-
-    _render_dir(run_dir, "", 0)
+    unique_paths = sorted(set(normalized_paths))
+    for idx, rel_path in enumerate(unique_paths):
+        connector = "└── " if idx == len(unique_paths) - 1 else "├── "
+        note = ""
+        if rel_path == "data/corpus.db":
+            note = f"  {syllable_count:,} syllables"
+        elif rel_path.startswith("data/") and rel_path.endswith("_syllables_annotated.json"):
+            note = "  annotated data"
+        lines.append(f"{connector}{rel_path}{note}")
     return lines
 
 
@@ -344,62 +329,63 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
         if not run_dir.is_dir():
             continue
 
-        # Pipeline run directories follow the convention
-        # YYYYMMDD_HHMMSS_{extractor}, e.g. "20260121_084017_nltk".
         dir_name = run_dir.name
-        parts = dir_name.split("_")
-
-        if len(parts) < 3:
+        if not _looks_like_run_directory_name(dir_name):
             continue
 
-        # First two parts must be numeric (date and time).
-        if not (parts[0].isdigit() and parts[1].isdigit()):
+        manifest = _load_manifest(run_dir)
+        if manifest is None or not _manifest_has_required_keys(manifest):
             continue
 
-        timestamp = f"{parts[0]}_{parts[1]}"
-        # parts[2:] is joined to handle multi-word extractors like
-        # "custom_extractor".
-        extractor_type = "_".join(parts[2:])
+        run_id = manifest.get("run_id")
+        if not isinstance(run_id, str) or run_id != dir_name:
+            continue
 
-        # DB in data/ is the canonical post-pipeline-v2 location for the
-        # indexed corpus.
-        data_dir = run_dir / "data"
-        corpus_db_path = data_dir / "corpus.db" if data_dir.exists() else None
+        extractor_type = manifest.get("extractor")
+        if not isinstance(extractor_type, str) or not extractor_type:
+            continue
+
+        timestamp_match = _TIMESTAMP_RUN_RE.match(run_id)
+        if timestamp_match is None:
+            continue
+        timestamp = timestamp_match.group(1)
+
+        metrics = manifest.get("metrics", {})
+        config = manifest.get("config", {})
+        syllable_count = metrics.get("syllable_count_unique")
+        if not isinstance(syllable_count, int) or syllable_count < 0:
+            syllable_count = 0
+
+        source_path = config.get("source_path")
+        if not isinstance(source_path, str):
+            source_path = None
+        files_processed = metrics.get("files_processed")
+        if not isinstance(files_processed, int):
+            files_processed = None
+
+        processing_time = _format_processing_time(manifest)
+        selections = _discover_selections(run_dir, extractor_type)
+        artifacts = manifest.get("artifacts", [])
+        output_tree_lines = _build_output_tree_lines(run_id, artifacts, syllable_count)
+
+        corpus_rel, annotated_rel = _extract_artifact_paths(manifest)
+        corpus_db_path = (run_dir / corpus_rel) if corpus_rel else None
         if corpus_db_path and not corpus_db_path.exists():
             corpus_db_path = None
+        annotated_json_path = (run_dir / annotated_rel) if annotated_rel else None
+        if annotated_json_path and not annotated_json_path.exists():
+            annotated_json_path = None
 
-        # Glob with the extractor prefix to match only the correct file and
-        # avoid cross-contamination if multiple extractors share a directory.
-        annotated_json_path = None
-        if data_dir.exists():
-            for json_file in data_dir.glob(f"{extractor_type}_syllables_annotated.json"):
-                annotated_json_path = json_file
-                break
-
-        # Prefer DB for syllable count — the database has the authoritative
-        # indexed count after the corpus_sqlite_builder stage.  Fall back to
-        # JSON for runs that skipped the database stage.
-        syllable_count = 0
-        if corpus_db_path:
-            syllable_count = _get_syllable_count_from_db(corpus_db_path)
-        elif annotated_json_path:
-            syllable_count = _get_syllable_count_from_json(annotated_json_path)
-
-        # Skip runs with no data
-        if syllable_count == 0 and not corpus_db_path and not annotated_json_path:
-            continue
-
-        # Discover selections
-        selections = _discover_selections(run_dir, extractor_type)
-        source_path, files_processed, processing_time = _parse_history_metadata(
-            run_dir, extractor_type
-        )
-        output_tree_lines = _build_output_tree_lines(run_dir, syllable_count)
-
-        # Create display name using actual folder name
         display_name = _format_display_name(
             dir_name, extractor_type, syllable_count, len(selections)
         )
+        ipc = manifest.get("ipc", {})
+        ipc_input_hash = ipc.get("input_hash") if isinstance(ipc, dict) else None
+        ipc_output_hash = ipc.get("output_hash") if isinstance(ipc, dict) else None
+        if not isinstance(ipc_input_hash, str):
+            ipc_input_hash = None
+        if not isinstance(ipc_output_hash, str):
+            ipc_output_hash = None
 
         runs.append(
             RunInfo(
@@ -417,6 +403,20 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
                 processing_time=processing_time,
                 output_tree_lines=output_tree_lines,
                 selections=selections,
+                status=str(manifest.get("status", "unknown")),
+                created_at_utc=(
+                    manifest.get("created_at_utc")
+                    if isinstance(manifest.get("created_at_utc"), str)
+                    else None
+                ),
+                completed_at_utc=(
+                    manifest.get("completed_at_utc")
+                    if isinstance(manifest.get("completed_at_utc"), str)
+                    else None
+                ),
+                stage_statuses=_build_stage_statuses(manifest),
+                ipc_input_hash=ipc_input_hash,
+                ipc_output_hash=ipc_output_hash,
             )
         )
 

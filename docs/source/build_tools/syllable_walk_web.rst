@@ -44,7 +44,8 @@ It produces file outputs in two places:
    - Filesystem browser for source directory/file selection
    - Extractor selection (Pyphen or NLTK), pyphen language selection
    - Live monitor for stage progress and subprocess logs
-   - Run history view backed by discovered run directories (refreshes on tab entry and after run completion)
+   - Run history view backed by manifest-discovered run directories
+     (refreshes on tab entry and after run completion)
 
 2. **Walker tab** — Dual-patch corpus exploration and name generation:
 
@@ -135,7 +136,8 @@ The module is organised into four layers:
 
 **Discovery layer**:
 
-- ``run_discovery.py`` — Timestamped run discovery, SQLite/JSON syllable count, selection discovery
+- ``run_discovery.py`` — Manifest-driven run discovery, selection discovery,
+  and History payload shaping (status, timings, stage state, IPC hashes)
 
 **State** (``state.py``):
 
@@ -155,18 +157,25 @@ Run Discovery
 The server scans a base directory for run folders matching:
 ``YYYYMMDD_HHMMSS_{extractor}``.
 
-- ``GET /api/pipeline/runs`` uses ``output_base`` by default
-- ``GET /api/pipeline/runs?patch=a`` and ``?patch=b`` use ``corpus_dir_a`` / ``corpus_dir_b``
-  when configured
+- ``GET /api/pipeline/runs`` uses ``output_base`` by default.
+- ``GET /api/pipeline/runs?patch=a`` and ``?patch=b`` use ``corpus_dir_a`` /
+  ``corpus_dir_b`` when configured.
 
-For each run, discovery reports:
+Discovery is strict and manifest-first:
 
-- Folder/run id (e.g., ``20260121_084017_nltk``)
-- Extractor type parsed from folder name
-- ``corpus_db_path`` when ``data/corpus.db`` exists
-- ``annotated_json_path`` when ``data/{extractor}_syllables_annotated.json`` exists
-- Syllable count (prefers SQLite ``COUNT(*)``; falls back to JSON length)
-- Selection file map by name class
+- Run folders must contain ``manifest.json``.
+- ``manifest.json`` must include required keys and ``run_id`` must match folder name.
+- Missing/corrupt/non-conformant manifests are skipped (no legacy fallback parsing).
+
+For each valid run, discovery reports:
+
+- folder/run id and extractor type
+- status and run timestamps
+- stage status map (extract/normalize/annotate/database)
+- manifest-derived metrics (including syllable count and processed-file count)
+- artifact paths (including ``corpus_db_path`` / annotated JSON when present)
+- IPC hashes (input/output) from manifest
+- selection file map by name class
 
 Pipeline Execution Model
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -365,13 +374,51 @@ Monitor and History views consume pipeline API responses as follows:
    * - Monitor stage chips
      - ``current_stage`` + requested stage toggles from start payload
    * - History run list
-     - ``GET /api/pipeline/runs``: ``path``, ``timestamp``, ``extractor_type``, ``syllable_count``
+     - ``GET /api/pipeline/runs``:
+       ``path``, ``timestamp``, ``extractor_type``, ``syllable_count``, ``status``
    * - History run detail metadata
-     - ``source_path``, ``files_processed``, ``processing_time`` (parsed from run metadata when available)
+     - ``source_path``, ``files_processed``, ``processing_time``,
+       ``created_at_utc``, ``completed_at_utc`` (from ``manifest.json``)
    * - History output tree
-     - ``output_tree_lines`` (filesystem-derived tree for the run; fallback uses ``corpus_db_path``/``annotated_json_path``/``selection_count``)
+     - ``output_tree_lines`` (manifest artifact list rendered as a deterministic tree)
    * - History database stage chip
-     - ``corpus_db_path`` presence determines done/not present
+     - ``stage_statuses.database``
+   * - History stage chips (all stages)
+     - ``stage_statuses.extract|normalize|annotate|database``
+   * - History IPC hash fields
+     - ``ipc_input_hash``, ``ipc_output_hash`` (compact display + full tooltip)
+
+History Manifest Contract
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+History discovery is strict manifest-first (no legacy fallback parsing):
+
+- Run directory must contain ``manifest.json``.
+- Manifest must include required contract keys:
+  ``manifest_version``, ``run_id``, ``status``, ``extractor``,
+  ``config``, ``metrics``, ``stages``, ``artifacts``.
+- ``run_id`` must match the run directory name.
+- Missing/corrupt/non-conformant manifests are skipped by discovery.
+
+This keeps the run directory as the single source of truth and avoids
+cross-file drift between legacy metadata files and API payloads.
+
+Pipeline Manifest and IPC
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each pipeline run writes ``<run_dir>/manifest.json`` as the canonical run record.
+
+High-value fields used by History and diagnostics:
+
+- ``status`` plus ``created_at_utc`` / ``completed_at_utc``
+- ``config`` and ``metrics`` (including ``files_processed`` and unique syllable count)
+- ``stages`` (per-stage status and duration)
+- ``artifacts`` (deterministic run output inventory)
+- ``ipc`` block:
+
+  - ``input_hash`` from canonical run configuration
+  - ``output_hash`` from canonical artifact+metric payload
+  - library metadata (version/ref) for provenance
 
 Notes
 -----
@@ -402,7 +449,7 @@ with ``--port`` and is unavailable, the server will fail with an error message.
 If no runs are discovered in the Walker tab, ensure you have pipeline output directories
 in the configured output base, or use the Pipeline tab to run an extraction first.
 If patch-specific run roots are configured (``corpus_dir_a`` / ``corpus_dir_b``),
-verify those paths contain timestamped run directories.
+verify those paths contain timestamped run directories with valid ``manifest.json`` files.
 
 .. code-block:: bash
 
