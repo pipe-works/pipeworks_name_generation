@@ -12,6 +12,8 @@ from typing import Any
 
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
+_MISSING = object()
+
 
 def _resolve_patch_state(
     body: dict[str, Any],
@@ -36,6 +38,30 @@ def _resolve_patch_state(
 
     patch = state.patch_a if patch_key == "a" else state.patch_b
     return patch_key, patch
+
+
+def _coerce_optional_constraint_int(
+    body: dict[str, Any],
+    field_name: str,
+    *,
+    default: int,
+) -> tuple[int | None, str | None]:
+    """Coerce one optional constraint field from request payload.
+
+    Semantics:
+    - Field missing: use provided default for backward compatibility.
+    - Field set to null: disable the constraint (returns ``None``).
+    - Field set to value: coerce to integer.
+    """
+    raw = body.get(field_name, _MISSING)
+    if raw is _MISSING:
+        return default, None
+    if raw is None:
+        return None, None
+    try:
+        return int(raw), None
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be an integer or null."
 
 
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
@@ -226,13 +252,24 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
         count = int(body.get("count", 2))
         steps = int(body.get("steps", 5))
         max_flips = int(body.get("max_flips", 2))
-        neighbor_limit = int(body.get("neighbor_limit", 10))
-        min_length = int(body.get("min_length", 2))
-        max_length = int(body.get("max_length", 5))
         temperature = float(body.get("temperature", 0.7))
         frequency_weight = float(body.get("frequency_weight", 0.0))
     except (TypeError, ValueError):
         return {"error": "Invalid walk parameters: expected numeric values."}
+
+    neighbor_limit, neighbor_err = _coerce_optional_constraint_int(
+        body, "neighbor_limit", default=10
+    )
+    if neighbor_err:
+        return {"error": neighbor_err}
+
+    min_length, min_err = _coerce_optional_constraint_int(body, "min_length", default=2)
+    if min_err:
+        return {"error": min_err}
+
+    max_length, max_err = _coerce_optional_constraint_int(body, "max_length", default=5)
+    if max_err:
+        return {"error": max_err}
 
     seed_raw = body.get("seed")
     try:
@@ -246,13 +283,13 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
         return {"error": "steps must be >= 0."}
     if max_flips < 1:
         return {"error": "max_flips must be >= 1."}
-    if neighbor_limit < 1:
+    if neighbor_limit is not None and neighbor_limit < 1:
         return {"error": "neighbor_limit must be >= 1."}
-    if min_length < 1:
+    if min_length is not None and min_length < 1:
         return {"error": "min_length must be >= 1."}
-    if max_length < 1:
+    if max_length is not None and max_length < 1:
         return {"error": "max_length must be >= 1."}
-    if min_length > max_length:
+    if min_length is not None and max_length is not None and min_length > max_length:
         return {"error": "min_length must be <= max_length."}
     if temperature <= 0:
         return {"error": "temperature must be > 0."}

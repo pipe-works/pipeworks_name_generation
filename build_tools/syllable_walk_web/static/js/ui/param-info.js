@@ -21,17 +21,27 @@
 const PARAM_INFO = {
   'min-length': {
     signal: 'min chars',
-    tooltip: 'Minimum syllable length allowed for start selection and step-to-step candidates.',
+    tooltip: 'ON enforces a minimum start/transition syllable length; OFF removes this runtime bound (null).',
     modal: {
       title: 'Min Length (chars)',
       rows: [
         ['Definition',
          'Minimum character length accepted during random start pick and each transition.'],
+        ['Toggle (ON/OFF)',
+         '<ul>' +
+         '<li>ON: sends numeric <code>min_length</code> to the API.</li>' +
+         '<li>OFF: sends <code>min_length = null</code> (constraint disabled).</li>' +
+         '</ul>'],
         ['Effect on Structure',
          '<ul>' +
          '<li>Filters out short syllables at runtime.</li>' +
          '<li>Can narrow available transitions.</li>' +
          '<li>May increase repetition when options are sparse.</li>' +
+         '</ul>'],
+        ['Deterministic vs Stochastic',
+         '<ul>' +
+         '<li>Toggle state deterministically changes the allowed candidate space.</li>' +
+         '<li>Sampling within that space is still stochastic unless seed is fixed.</li>' +
          '</ul>'],
         ['Interpretation',
          '<ul>' +
@@ -45,17 +55,27 @@ const PARAM_INFO = {
   },
   'max-length': {
     signal: 'max chars',
-    tooltip: 'Maximum syllable length allowed for start selection and transition candidates.',
+    tooltip: 'ON enforces a maximum start/transition syllable length; OFF removes this runtime bound (null).',
     modal: {
       title: 'Max Length (chars)',
       rows: [
         ['Definition',
          'Upper character-length bound applied during start pick and each walk step.'],
+        ['Toggle (ON/OFF)',
+         '<ul>' +
+         '<li>ON: sends numeric <code>max_length</code> to the API.</li>' +
+         '<li>OFF: sends <code>max_length = null</code> (constraint disabled).</li>' +
+         '</ul>'],
         ['Effect on Structure',
          '<ul>' +
          '<li>Excludes longer syllables from candidate selection.</li>' +
          '<li>Can simplify walk output rhythm.</li>' +
          '<li>May reduce transition diversity when set low.</li>' +
+         '</ul>'],
+        ['Deterministic vs Stochastic',
+         '<ul>' +
+         '<li>Toggle state deterministically reshapes the reachable candidate set per step.</li>' +
+         '<li>Transition choice remains probabilistic unless seed is fixed.</li>' +
          '</ul>'],
         ['Interpretation',
          '<ul>' +
@@ -149,20 +169,29 @@ const PARAM_INFO = {
   },
   'neighbors': {
     signal: 'branch cap',
-    tooltip: 'Caps how many precomputed neighbors are evaluated at each step.',
+    tooltip: 'ON applies a per-step neighbour cap; OFF removes the cap and evaluates the full precomputed list.',
     modal: {
       title: 'Neighbors (max)',
       rows: [
         ['Definition',
          'Limits per-step neighbor evaluation to the first N entries from the precomputed list.'],
+        ['Toggle (ON/OFF)',
+         '<ul>' +
+         '<li>ON: sends numeric <code>neighbor_limit</code> to the API.</li>' +
+         '<li>OFF: sends <code>neighbor_limit = null</code> (no cap).</li>' +
+         '</ul>'],
         ['Effect on Structure',
          '<ul>' +
          '<li>Lower cap narrows branching during sampling.</li>' +
          '<li>Higher cap exposes more transition options.</li>' +
          '<li>Can materially change walk outcomes and diversity.</li>' +
          '</ul>'],
-        ['Determinism Note',
-         'Neighbor cap is deterministic for a fixed corpus and seed.'],
+        ['Deterministic vs Stochastic',
+         '<ul>' +
+         '<li>Cap setting deterministically constrains the branch surface.</li>' +
+         '<li>Actual next-step selection is stochastic probability sampling.</li>' +
+         '<li>With fixed seed + same settings, walk output is reproducible.</li>' +
+         '</ul>'],
       ],
     },
   },

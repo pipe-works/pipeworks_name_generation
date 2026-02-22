@@ -607,6 +607,30 @@ class TestHandleWalk:
         assert kwargs["min_length"] == 2
         assert kwargs["max_length"] == 6
 
+    def test_walk_allows_null_optional_constraints(self, loaded_state):
+        """Null min/max/neighbor values disable optional runtime constraints."""
+        mock_walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
+        with patch(
+            "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+            return_value=mock_walks,
+        ) as mock_generate:
+            result = handle_walk(
+                {
+                    "patch": "a",
+                    "count": 1,
+                    "neighbor_limit": None,
+                    "min_length": None,
+                    "max_length": None,
+                },
+                loaded_state,
+            )
+
+        assert "error" not in result
+        _, kwargs = mock_generate.call_args
+        assert kwargs["neighbor_limit"] is None
+        assert kwargs["min_length"] is None
+        assert kwargs["max_length"] is None
+
     def test_walk_rejects_min_length_greater_than_max_length(self, loaded_state):
         """API validation rejects impossible length constraints."""
         result = handle_walk(
@@ -631,6 +655,14 @@ class TestHandleWalk:
         result = handle_walk({"patch": "a", "seed": "bad-seed"}, loaded_state)
         assert "error" in result
         assert "Invalid seed" in result["error"]
+
+    @pytest.mark.parametrize("field_name", ["neighbor_limit", "min_length", "max_length"])
+    def test_walk_rejects_non_numeric_optional_constraint(self, loaded_state, field_name):
+        """Optional constraints must be integer or null when provided."""
+        body = {"patch": "a", field_name: "not-an-int"}
+        result = handle_walk(body, loaded_state)
+        assert "error" in result
+        assert f"{field_name} must be an integer or null" in result["error"]
 
     @pytest.mark.parametrize(
         ("payload", "expected"),

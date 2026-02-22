@@ -188,23 +188,33 @@ function initGenerateWalks() {
       const temperature = parseFloat(document.getElementById(`temperature-${patch}`)?.value) || 0.7;
       const frequencyWeight = parseFloat(document.getElementById(`freq-weight-${patch}`)?.value) || 0.0;
       const maxFlips = parseInt(document.getElementById(`max-flips-${patch}`)?.value) || 2;
-      const minLength = parseInt(document.getElementById(`min-length-${patch}`)?.value) || 2;
-      const maxLength = parseInt(document.getElementById(`max-length-${patch}`)?.value) || 5;
-      const neighborLimit = parseInt(document.getElementById(`neighbors-${patch}`)?.value) || 10;
+      const minEnabled = document.getElementById(`toggle-min-length-${patch}`)?.checked ?? true;
+      const maxEnabled = document.getElementById(`toggle-max-length-${patch}`)?.checked ?? true;
+      const neighborsEnabled = document.getElementById(`toggle-neighbors-${patch}`)?.checked ?? true;
+      const minParsed = parseInt(document.getElementById(`min-length-${patch}`)?.value, 10);
+      const maxParsed = parseInt(document.getElementById(`max-length-${patch}`)?.value, 10);
+      const neighborsParsed = parseInt(document.getElementById(`neighbors-${patch}`)?.value, 10);
+      const minLength = minEnabled ? (Number.isNaN(minParsed) ? 2 : minParsed) : null;
+      const maxLength = maxEnabled ? (Number.isNaN(maxParsed) ? 5 : maxParsed) : null;
+      const neighborLimit = neighborsEnabled ? (Number.isNaN(neighborsParsed) ? 10 : neighborsParsed) : null;
 
       /* Read seed */
       const seedStr = document.getElementById(`seed-${patch}`)?.value;
       const seed = seedStr ? parseInt(seedStr, 16) : null;
 
-      if (minLength < 1 || maxLength < 1) {
-        _ctx.setStatus(`Patch ${P}: min/max length must be >= 1`);
+      if (minLength !== null && minLength < 1) {
+        _ctx.setStatus(`Patch ${P}: min length must be >= 1`);
         return;
       }
-      if (minLength > maxLength) {
+      if (maxLength !== null && maxLength < 1) {
+        _ctx.setStatus(`Patch ${P}: max length must be >= 1`);
+        return;
+      }
+      if (minLength !== null && maxLength !== null && minLength > maxLength) {
         _ctx.setStatus(`Patch ${P}: min length must be <= max length`);
         return;
       }
-      if (neighborLimit < 1) {
+      if (neighborLimit !== null && neighborLimit < 1) {
         _ctx.setStatus(`Patch ${P}: neighbors must be >= 1`);
         return;
       }
