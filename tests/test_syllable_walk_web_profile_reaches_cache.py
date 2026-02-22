@@ -187,6 +187,43 @@ def test_read_cached_profile_reach_hashes_returns_hashes_after_write(tmp_path: P
     assert isinstance(out_hash, str) and len(out_hash) == 64
 
 
+def test_read_cached_profile_reach_hashes_returns_none_for_malformed_json(tmp_path: Path) -> None:
+    """Malformed cache JSON should be tolerated and reported as empty hashes."""
+
+    run_dir = tmp_path / "20260222_155258_nltk"
+    cache_file = profile_reaches_cache.cache_path(run_dir)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text("{bad-json", encoding="utf-8")
+
+    assert profile_reaches_cache.read_cached_profile_reach_hashes(run_dir) == (None, None)
+
+
+def test_read_cached_profile_reach_hashes_returns_none_when_payload_not_object(
+    tmp_path: Path,
+) -> None:
+    """Non-object cache payload should return empty hash tuple."""
+
+    run_dir = tmp_path / "20260222_155258_nltk"
+    cache_file = profile_reaches_cache.cache_path(run_dir)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text("[]", encoding="utf-8")
+
+    assert profile_reaches_cache.read_cached_profile_reach_hashes(run_dir) == (None, None)
+
+
+def test_read_cached_profile_reach_hashes_returns_none_when_ipc_block_missing(
+    tmp_path: Path,
+) -> None:
+    """Cache payload without dict-valued ipc block should return empty hashes."""
+
+    run_dir = tmp_path / "20260222_155258_nltk"
+    cache_file = profile_reaches_cache.cache_path(run_dir)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps({"ipc": []}), encoding="utf-8")
+
+    assert profile_reaches_cache.read_cached_profile_reach_hashes(run_dir) == (None, None)
+
+
 def test_load_returns_invalid_when_manifest_output_hash_changes(tmp_path: Path) -> None:
     """Manifest IPC output hash drift should invalidate existing cache."""
 

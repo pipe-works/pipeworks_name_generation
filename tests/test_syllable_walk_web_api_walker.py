@@ -17,6 +17,7 @@ import pytest
 
 from build_tools.syllable_walk.reach import ReachResult
 from build_tools.syllable_walk_web.api.walker import (
+    _reach_cache_verification_from_read,
     handle_analysis,
     handle_combine,
     handle_export,
@@ -32,6 +33,65 @@ from build_tools.syllable_walk_web.services.pipeline_manifest import (
 )
 from build_tools.syllable_walk_web.services.profile_reaches_cache import CacheReadResult
 from build_tools.syllable_walk_web.state import ServerState
+
+# ============================================================
+# _reach_cache_verification_from_read
+# ============================================================
+
+
+class TestReachCacheVerificationMapping:
+    """Unit tests for cache-status to verification-status mapping."""
+
+    def test_none_status_returns_unset(self):
+        """None cache status should keep verification state unset."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status=None,
+            cache_message=None,
+            input_hash=None,
+            output_hash=None,
+        )
+        assert status is None
+        assert reason is None
+
+    @pytest.mark.parametrize(
+        ("cache_status", "cache_message", "expected_status", "expected_reason"),
+        [
+            ("invalid", None, "mismatch", "cache-invalid"),
+            ("invalid", "ipc-tampered", "mismatch", "ipc-tampered"),
+            ("error", None, "error", "cache-read-error"),
+            ("error", "io-failure", "error", "io-failure"),
+            ("none", None, "missing", "manifest-ipc-missing"),
+            ("miss", None, "missing", "cache-miss"),
+            ("unexpected", None, "error", "cache-status-unknown"),
+        ],
+    )
+    def test_non_hit_statuses_map_to_expected_reason(
+        self, cache_status, cache_message, expected_status, expected_reason
+    ):
+        """Each non-hit cache status should map to deterministic UI semantics."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status=cache_status,
+            cache_message=cache_message,
+            input_hash=None,
+            output_hash=None,
+        )
+        assert status == expected_status
+        assert reason == expected_reason
+
+    def test_hit_with_missing_hashes_maps_to_error(self):
+        """Hit without canonical hashes should be flagged as verification error."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status="hit",
+            cache_message=None,
+            input_hash=None,
+            output_hash="b" * 64,
+        )
+        assert status == "error"
+        assert reason == "cache-hit-missing-hashes"
+
 
 # ============================================================
 # Fixtures
