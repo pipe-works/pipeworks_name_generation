@@ -476,6 +476,45 @@ class TestRunPipeline:
 
         assert job.status == "cancelled"
 
+    def test_manifest_written_on_extraction_cancellation_when_run_dir_is_known(self, job, tmp_path):
+        """Cancellation should persist a cancelled manifest when run directory is discoverable."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260220_130001_pyphen"
+        run_dir.mkdir()
+        (run_dir / "data").mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": True,
+        }
+
+        def stdout_with_cancel():
+            yield "processing...\n"
+            job.status = "cancelled"
+            yield "more output\n"
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = stdout_with_cancel()
+        mock_proc.returncode = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            _run_pipeline(job)
+
+        assert job.status == "cancelled"
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "cancelled"
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["extract"]["status"] == "cancelled"
+
     def test_no_run_directory_found(self, job, tmp_path):
         """Test pipeline fails when run directory can't be determined."""
         from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline

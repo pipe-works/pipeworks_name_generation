@@ -116,11 +116,13 @@ Syllable Walk Web Integration
 
 2. **Run discovery and listing**
 
-   - The web run discovery scans output runs and checks for
-     ``data/corpus.db``.
-   - When present, syllable counts are read from SQLite via
-     ``SELECT COUNT(*) FROM syllables``.
-   - If no database exists, run discovery falls back to the annotated JSON file.
+   - The web History flow is manifest-driven: run discovery requires
+     ``<run_dir>/manifest.json``.
+   - ``corpus_db_path`` is surfaced when ``data/corpus.db`` is listed in manifest
+     artifacts and the file exists.
+   - Syllable counts in History come from manifest metrics
+     (``metrics.syllable_count_unique``), not ad-hoc DB/JSON recounting.
+   - Runs without a valid manifest are excluded from History.
 
 3. **Corpus loading for Walker API**
 

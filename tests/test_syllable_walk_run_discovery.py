@@ -1,627 +1,445 @@
-"""Tests for syllable walker run discovery module.
+"""Tests for manifest-driven run discovery in syllable_walk_web."""
 
-This module tests the run directory discovery functions:
-- RunInfo: Dataclass for run metadata
-- _get_syllable_count_from_db: Count syllables from database
-- _get_syllable_count_from_json: Count syllables from JSON
-- _parse_timestamp: Parse timestamp strings
-- _format_display_name: Format human-readable display names
-- _discover_selections: Find selection files
-- discover_runs: Discover all pipeline runs
-- get_selection_data: Load selection data
-- get_run_by_id: Get specific run by ID
-"""
+from __future__ import annotations
 
 import json
-import sqlite3
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
 from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
     _build_output_tree_lines,
+    _build_stage_statuses,
     _discover_selections,
+    _extract_artifact_paths,
     _format_display_name,
-    _get_syllable_count_from_db,
-    _get_syllable_count_from_json,
-    _parse_history_metadata,
+    _format_processing_time,
+    _load_manifest,
+    _manifest_has_required_keys,
     _parse_timestamp,
     discover_runs,
     get_run_by_id,
     get_selection_data,
 )
 
-# ============================================================
-# Fixtures
-# ============================================================
+
+def _write_manifest(run_dir: Path, payload: dict) -> None:
+    """Write a manifest payload to one run directory."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _manifest_payload(run_id: str, extractor: str = "pyphen") -> dict:
+    """Return a minimal valid v1 manifest payload for tests."""
+    return {
+        "manifest_version": 1,
+        "run_id": run_id,
+        "status": "completed",
+        "created_at_utc": "2026-02-22T15:00:00Z",
+        "completed_at_utc": "2026-02-22T15:00:03Z",
+        "extractor": extractor,
+        "language": "auto",
+        "config": {
+            "source_path": "/tmp/source.txt",
+            "file_pattern": "*.txt",
+            "min_syllable_length": 2,
+            "max_syllable_length": 8,
+            "run_normalize": True,
+            "run_annotate": True,
+        },
+        "metrics": {
+            "syllable_count_unique": 3,
+            "files_processed": 1,
+        },
+        "stages": [
+            {
+                "name": "extract",
+                "status": "completed",
+                "started_at_utc": "2026-02-22T15:00:00Z",
+                "ended_at_utc": "2026-02-22T15:00:01Z",
+                "duration_seconds": 1.0,
+            },
+            {
+                "name": "normalize",
+                "status": "completed",
+                "started_at_utc": "2026-02-22T15:00:01Z",
+                "ended_at_utc": "2026-02-22T15:00:02Z",
+                "duration_seconds": 1.0,
+            },
+            {
+                "name": "annotate",
+                "status": "completed",
+                "started_at_utc": "2026-02-22T15:00:02Z",
+                "ended_at_utc": "2026-02-22T15:00:03Z",
+                "duration_seconds": 1.0,
+            },
+        ],
+        "artifacts": [
+            {"path": "data/corpus.db", "type": "sqlite", "size_bytes": 128},
+            {
+                "path": f"data/{extractor}_syllables_annotated.json",
+                "type": "annotated_json",
+                "size_bytes": 256,
+            },
+        ],
+        "ipc": {
+            "version": 1,
+            "library": "pipeworks-ipc",
+            "library_ref": "pipeworks-ipc-v0.1.1",
+            "input_hash": "a" * 64,
+            "output_hash": "b" * 64,
+        },
+        "errors": [],
+    }
 
 
 @pytest.fixture
-def sample_run_dir(tmp_path):
-    """Create a sample run directory structure."""
-    run_dir = tmp_path / "20260121_084017_nltk"
-    run_dir.mkdir()
-
-    # Create data directory
-    data_dir = run_dir / "data"
-    data_dir.mkdir()
-
-    # Create annotated JSON
-    json_data = [
-        {"syllable": "ka", "frequency": 100, "features": {}},
-        {"syllable": "an", "frequency": 80, "features": {}},
-        {"syllable": "ba", "frequency": 60, "features": {}},
-    ]
-    json_path = data_dir / "nltk_syllables_annotated.json"
-    with open(json_path, "w") as f:
-        json.dump(json_data, f)
-
-    # Create selections directory
+def manifest_run(tmp_path: Path) -> Path:
+    """Create one valid run directory with manifest and expected artifacts."""
+    run_id = "20260222_150000_pyphen"
+    run_dir = tmp_path / run_id
+    payload = _manifest_payload(run_id, extractor="pyphen")
+    _write_manifest(run_dir, payload)
+    (run_dir / "data").mkdir(parents=True, exist_ok=True)
+    (run_dir / "data" / "corpus.db").write_text("sqlite", encoding="utf-8")
+    (run_dir / "data" / "pyphen_syllables_annotated.json").write_text("[]", encoding="utf-8")
     selections_dir = run_dir / "selections"
     selections_dir.mkdir()
-
-    # Create selection files
-    selection_data = {
-        "metadata": {"name_class": "first_name", "admitted": 10},
-        "selections": [{"name": "kaan", "score": 5}],
-    }
-    with open(selections_dir / "nltk_first_name_2syl.json", "w") as f:
-        json.dump(selection_data, f)
-
-    with open(selections_dir / "nltk_last_name_2syl.json", "w") as f:
-        json.dump(selection_data, f)
-
-    # Create a meta file that should be skipped
-    with open(selections_dir / "nltk_selector_meta.json", "w") as f:
-        json.dump({"meta": True}, f)
-
+    (selections_dir / "pyphen_first_name_2syl.json").write_text(
+        '{"metadata":{},"selections":[]}', encoding="utf-8"
+    )
     return run_dir
 
 
-@pytest.fixture
-def sample_db(tmp_path):
-    """Create a sample SQLite database."""
-    db_path = tmp_path / "corpus.db"
-
-    conn = sqlite3.connect(db_path)
-    conn.execute("""
-        CREATE TABLE syllables (
-            syllable TEXT PRIMARY KEY,
-            frequency INTEGER
-        )
-    """)
-    conn.executemany(
-        "INSERT INTO syllables VALUES (?, ?)",
-        [("ka", 100), ("an", 80), ("ba", 60), ("da", 40)],
-    )
-    conn.commit()
-    conn.close()
-
-    return db_path
-
-
-@pytest.fixture
-def output_dir(tmp_path, sample_run_dir):
-    """Create an output directory with the sample run."""
-    output = tmp_path / "output"
-    output.mkdir()
-
-    # Move sample_run_dir into output
-    import shutil
-
-    dest = output / sample_run_dir.name
-    shutil.copytree(sample_run_dir, dest)
-
-    return output
-
-
-# ============================================================
-# RunInfo Tests
-# ============================================================
-
-
 class TestRunInfo:
-    """Test RunInfo dataclass."""
+    """RunInfo serialization contract tests."""
 
-    def test_to_dict(self, tmp_path):
-        """Test to_dict serialization."""
+    def test_to_dict_includes_manifest_fields(self, tmp_path: Path) -> None:
+        """RunInfo.to_dict should include additive manifest and IPC fields."""
         run_info = RunInfo(
-            path=tmp_path / "run",
-            extractor_type="nltk",
-            timestamp="20260121_084017",
-            display_name="Test Run",
-            corpus_db_path=tmp_path / "corpus.db",
-            annotated_json_path=tmp_path / "annotated.json",
-            syllable_count=100,
-            selections={"first_name": tmp_path / "first.json"},
-        )
-
-        result = run_info.to_dict()
-
-        assert result["extractor_type"] == "nltk"
-        assert result["timestamp"] == "20260121_084017"
-        assert result["display_name"] == "Test Run"
-        assert result["syllable_count"] == 100
-        assert result["selection_count"] == 1
-        assert "corpus_db_path" in result
-        assert "annotated_json_path" in result
-        assert result["output_tree_lines"] == []
-
-    def test_to_dict_with_none_paths(self, tmp_path):
-        """Test to_dict with None paths."""
-        run_info = RunInfo(
-            path=tmp_path / "run",
+            path=tmp_path / "20260222_150000_pyphen",
             extractor_type="pyphen",
-            timestamp="20260121_084017",
-            display_name="Test Run",
+            timestamp="20260222_150000",
+            display_name="run",
             corpus_db_path=None,
             annotated_json_path=None,
-            syllable_count=0,
+            syllable_count=3,
+            status="completed",
+            created_at_utc="2026-02-22T15:00:00Z",
+            completed_at_utc="2026-02-22T15:00:03Z",
+            stage_statuses={"extract": "completed"},
+            ipc_input_hash="a" * 64,
+            ipc_output_hash="b" * 64,
         )
-
-        result = run_info.to_dict()
-
-        assert result["corpus_db_path"] is None
-        assert result["annotated_json_path"] is None
-        assert result["selection_count"] == 0
-        assert result["output_tree_lines"] == []
+        payload = run_info.to_dict()
+        assert payload["status"] == "completed"
+        assert payload["created_at_utc"] == "2026-02-22T15:00:00Z"
+        assert payload["stage_statuses"]["extract"] == "completed"
+        assert payload["ipc_input_hash"] == "a" * 64
 
 
-# ============================================================
-# Syllable Count Tests
-# ============================================================
+def test_load_manifest_handles_missing_and_invalid(tmp_path: Path) -> None:
+    """Manifest loader should return None for missing/corrupt files."""
+    missing = tmp_path / "20260222_000000_pyphen"
+    missing.mkdir()
+    assert _load_manifest(missing) is None
+
+    invalid = tmp_path / "20260222_000001_pyphen"
+    invalid.mkdir()
+    (invalid / "manifest.json").write_text("{oops", encoding="utf-8")
+    assert _load_manifest(invalid) is None
 
 
-class TestGetSyllableCountFromDb:
-    """Test _get_syllable_count_from_db function."""
+def test_manifest_required_key_validation() -> None:
+    """Manifest schema validator should reject partial payloads."""
+    valid = _manifest_payload("20260222_160000_pyphen")
+    assert _manifest_has_required_keys(valid) is True
 
-    def test_returns_correct_count(self, sample_db):
-        """Test counting syllables from database."""
-        count = _get_syllable_count_from_db(sample_db)
-        assert count == 4
-
-    def test_returns_zero_for_nonexistent(self, tmp_path):
-        """Test returns 0 for nonexistent database."""
-        count = _get_syllable_count_from_db(tmp_path / "nonexistent.db")
-        assert count == 0
-
-    def test_returns_zero_for_invalid_db(self, tmp_path):
-        """Test returns 0 for invalid database."""
-        invalid_db = tmp_path / "invalid.db"
-        invalid_db.write_text("not a database")
-
-        count = _get_syllable_count_from_db(invalid_db)
-        assert count == 0
+    invalid = dict(valid)
+    invalid.pop("metrics")
+    assert _manifest_has_required_keys(invalid) is False
 
 
-class TestGetSyllableCountFromJson:
-    """Test _get_syllable_count_from_json function."""
+def test_manifest_required_key_validation_rejects_wrong_types() -> None:
+    """Validator should reject manifests when typed sections have wrong shape."""
+    valid = _manifest_payload("20260222_160100_pyphen")
 
-    def test_returns_correct_count(self, tmp_path):
-        """Test counting syllables from JSON."""
-        json_path = tmp_path / "syllables.json"
-        with open(json_path, "w") as f:
-            json.dump([{"syllable": "a"}, {"syllable": "b"}, {"syllable": "c"}], f)
+    bad_config = dict(valid)
+    bad_config["config"] = []
+    assert _manifest_has_required_keys(bad_config) is False
 
-        count = _get_syllable_count_from_json(json_path)
-        assert count == 3
+    bad_metrics = dict(valid)
+    bad_metrics["metrics"] = []
+    assert _manifest_has_required_keys(bad_metrics) is False
 
-    def test_returns_zero_for_nonexistent(self, tmp_path):
-        """Test returns 0 for nonexistent file."""
-        count = _get_syllable_count_from_json(tmp_path / "nonexistent.json")
-        assert count == 0
+    bad_stages = dict(valid)
+    bad_stages["stages"] = {}
+    assert _manifest_has_required_keys(bad_stages) is False
 
-    def test_returns_zero_for_non_list(self, tmp_path):
-        """Test returns 0 for non-list JSON."""
-        json_path = tmp_path / "object.json"
-        with open(json_path, "w") as f:
-            json.dump({"key": "value"}, f)
-
-        count = _get_syllable_count_from_json(json_path)
-        assert count == 0
-
-    def test_returns_zero_for_invalid_json(self, tmp_path):
-        """Test returns 0 for invalid JSON."""
-        json_path = tmp_path / "invalid.json"
-        json_path.write_text("not valid json")
-
-        count = _get_syllable_count_from_json(json_path)
-        assert count == 0
+    bad_artifacts = dict(valid)
+    bad_artifacts["artifacts"] = {}
+    assert _manifest_has_required_keys(bad_artifacts) is False
 
 
-# ============================================================
-# Parse Timestamp Tests
-# ============================================================
+def test_parse_timestamp_and_duration_helpers() -> None:
+    """Timestamp and duration helpers should parse/format expected values."""
+    assert _parse_timestamp("20260222_160000") is not None
+    assert _parse_timestamp("bad") is None
+
+    from_interval = _format_processing_time(_manifest_payload("20260222_160000_pyphen"))
+    assert from_interval == "3.00s"
+
+    no_interval = _manifest_payload("20260222_160001_pyphen")
+    no_interval["completed_at_utc"] = None
+    no_interval["stages"] = [
+        {"name": "extract", "status": "completed", "duration_seconds": 1.5},
+        {"name": "normalize", "status": "completed", "duration_seconds": 2.5},
+    ]
+    assert _format_processing_time(no_interval) == "4.00s"
 
 
-class TestParseTimestamp:
-    """Test _parse_timestamp function."""
-
-    def test_parses_valid_timestamp(self):
-        """Test parsing valid timestamp."""
-        result = _parse_timestamp("20260121_084017")
-
-        assert result is not None
-        assert result.year == 2026
-        assert result.month == 1
-        assert result.day == 21
-        assert result.hour == 8
-        assert result.minute == 40
-        assert result.second == 17
-
-    def test_returns_none_for_invalid(self):
-        """Test returns None for invalid timestamp."""
-        assert _parse_timestamp("invalid") is None
-        assert _parse_timestamp("2026-01-21") is None
-        assert _parse_timestamp("") is None
+def test_format_processing_time_returns_none_for_invalid_timestamps() -> None:
+    """Duration helper should gracefully return None when timestamps are malformed."""
+    payload = _manifest_payload("20260222_160002_pyphen")
+    payload["created_at_utc"] = "bad-timestamp"
+    payload["completed_at_utc"] = "also-bad"
+    payload["stages"] = [{"name": "extract", "status": "completed", "duration_seconds": "n/a"}]
+    assert _format_processing_time(payload) is None
 
 
-# ============================================================
-# Format Display Name Tests
-# ============================================================
+def test_extract_artifact_paths_ignores_non_dict_and_non_string_entries() -> None:
+    """Artifact path extraction should ignore invalid entries and keep canonical paths."""
+    payload = {
+        "artifacts": [
+            "not-a-dict",
+            {"path": 123},
+            {"path": "data/corpus.db"},
+            {"path": "data/pyphen_syllables_annotated.json"},
+        ]
+    }
+    corpus_rel, annotated_rel = _extract_artifact_paths(payload)
+    assert corpus_rel == "data/corpus.db"
+    assert annotated_rel == "data/pyphen_syllables_annotated.json"
 
 
-class TestFormatDisplayName:
-    """Test _format_display_name function."""
-
-    def test_format_without_selections(self):
-        """Test formatting without selections."""
-        result = _format_display_name("20260121_084017_nltk", "nltk", 1000, 0)
-        assert result == "20260121_084017_nltk (1,000 syllables)"
-
-    def test_format_with_selections(self):
-        """Test formatting with selections."""
-        result = _format_display_name("20260121_084017_nltk", "nltk", 1000, 3)
-        assert result == "20260121_084017_nltk (1,000 syllables, 3 selections)"
-
-    def test_format_large_number(self):
-        """Test formatting with large syllable count."""
-        result = _format_display_name("20260121_084017_pyphen", "pyphen", 1234567, 5)
-        assert "1,234,567" in result
+def test_build_stage_statuses_ignores_non_dict_stages() -> None:
+    """Stage status map should skip malformed list entries."""
+    payload = {
+        "stages": [
+            "bad-entry",
+            {"name": "extract", "status": "completed"},
+        ]
+    }
+    statuses = _build_stage_statuses(payload)
+    assert statuses == {"extract": "completed"}
 
 
-# ============================================================
-# Discover Selections Tests
-# ============================================================
+def test_build_output_tree_lines_annotates_known_artifacts() -> None:
+    """Tree builder should include deterministic notes for key artifacts."""
+    lines = _build_output_tree_lines(
+        "20260222_170000_pyphen",
+        [
+            {"path": "data/corpus.db"},
+            {"path": "data/pyphen_syllables_annotated.json"},
+            {"path": "meta/source.txt"},
+        ],
+        1784,
+    )
+    assert lines[0] == "20260222_170000_pyphen/"
+    assert any("data/corpus.db  1,784 syllables" in line for line in lines)
+    assert any("annotated data" in line for line in lines)
+    assert any("meta/source.txt" in line for line in lines)
 
 
-class TestDiscoverSelections:
-    """Test _discover_selections function."""
-
-    def test_discovers_selection_files(self, sample_run_dir):
-        """Test discovering selection files."""
-        selections = _discover_selections(sample_run_dir, "nltk")
-
-        assert "first_name" in selections
-        assert "last_name" in selections
-        assert len(selections) == 2
-
-    def test_skips_meta_files(self, sample_run_dir):
-        """Test that meta files are skipped."""
-        selections = _discover_selections(sample_run_dir, "nltk")
-
-        # meta file should not be included
-        for name_class in selections:
-            assert "meta" not in name_class
-
-    def test_returns_empty_for_no_selections_dir(self, tmp_path):
-        """Test returns empty dict when no selections directory."""
-        run_dir = tmp_path / "run"
-        run_dir.mkdir()
-
-        selections = _discover_selections(run_dir, "nltk")
-        assert selections == {}
-
-    def test_returns_empty_for_wrong_prefix(self, sample_run_dir):
-        """Test returns empty for wrong extractor prefix."""
-        selections = _discover_selections(sample_run_dir, "pyphen")
-        assert selections == {}
+def test_build_output_tree_lines_ignores_non_dict_artifacts() -> None:
+    """Tree builder should skip malformed artifact entries without failing."""
+    artifacts: list[object] = [
+        "bad-entry",
+        {"path": "data/corpus.db"},
+    ]
+    lines = _build_output_tree_lines(
+        "20260222_170001_pyphen",
+        cast(list[dict[str, Any]], artifacts),
+        10,
+    )
+    assert lines[0] == "20260222_170001_pyphen/"
+    assert any("data/corpus.db" in line for line in lines)
 
 
-# ============================================================
-# Discover Runs Tests
-# ============================================================
+def test_format_display_name_with_and_without_selections() -> None:
+    """Display name format should include selection suffix only when present."""
+    assert (
+        _format_display_name("20260222_170000_pyphen", "pyphen", 1000, 0)
+        == "20260222_170000_pyphen (1,000 syllables)"
+    )
+    assert (
+        _format_display_name("20260222_170000_pyphen", "pyphen", 1000, 2)
+        == "20260222_170000_pyphen (1,000 syllables, 2 selections)"
+    )
 
 
 class TestDiscoverRuns:
-    """Test discover_runs function."""
+    """Manifest-driven run discovery behavior tests."""
 
-    def test_discovers_runs(self, output_dir):
-        """Test discovering run directories."""
-        runs = discover_runs(output_dir)
-
-        assert len(runs) == 1
-        assert runs[0].extractor_type == "nltk"
-        assert runs[0].timestamp == "20260121_084017"
-
-    def test_returns_empty_for_nonexistent_dir(self, tmp_path):
-        """Test returns empty list for nonexistent directory."""
-        runs = discover_runs(tmp_path / "nonexistent")
+    def test_discover_runs_requires_manifest(self, tmp_path: Path) -> None:
+        """Runs without manifest should be skipped entirely."""
+        (tmp_path / "20260222_150000_pyphen").mkdir()
+        runs = discover_runs(tmp_path)
         assert runs == []
 
-    def test_skips_files(self, output_dir):
-        """Test that files are skipped."""
-        # Create a file in output dir
-        (output_dir / "some_file.txt").write_text("content")
+    def test_discover_runs_skips_corrupt_and_partial_manifest(self, tmp_path: Path) -> None:
+        """Corrupt or incomplete manifests should be ignored."""
+        bad_json = tmp_path / "20260222_150001_pyphen"
+        bad_json.mkdir()
+        (bad_json / "manifest.json").write_text("{bad", encoding="utf-8")
 
-        runs = discover_runs(output_dir)
-        assert len(runs) == 1  # Only the directory
+        partial = tmp_path / "20260222_150002_pyphen"
+        partial.mkdir()
+        _write_manifest(partial, {"run_id": partial.name})
 
-    def test_skips_invalid_dir_names(self, output_dir):
-        """Test that invalid directory names are skipped."""
-        # Create directories with invalid names
-        (output_dir / "invalid").mkdir()
-        (output_dir / "also_invalid").mkdir()
-        (output_dir / "abc_def").mkdir()
+        runs = discover_runs(tmp_path)
+        assert runs == []
 
-        runs = discover_runs(output_dir)
-        assert len(runs) == 1  # Only the valid run
-
-    def test_skips_non_timestamp_dirs(self, output_dir):
-        """Test that non-timestamp directories are skipped."""
-        # Create directory without numeric timestamp
-        (output_dir / "abc_def_nltk").mkdir()
-
-        runs = discover_runs(output_dir)
+    def test_discover_runs_reads_manifest_fields(self, manifest_run: Path, tmp_path: Path) -> None:
+        """Discovery should populate history fields directly from manifest."""
+        runs = discover_runs(tmp_path)
         assert len(runs) == 1
+        run = runs[0]
+        payload = run.to_dict()
+        assert payload["status"] == "completed"
+        assert payload["source_path"] == "/tmp/source.txt"
+        assert payload["files_processed"] == 1
+        assert payload["processing_time"] == "3.00s"
+        assert payload["syllable_count"] == 3
+        assert payload["stage_statuses"]["extract"] == "completed"
+        assert payload["ipc_input_hash"] == "a" * 64
+        assert payload["ipc_output_hash"] == "b" * 64
+        assert payload["selection_count"] == 1
+        assert payload["corpus_db_path"] is not None
+        assert payload["annotated_json_path"] is not None
 
-    def test_sorted_by_timestamp(self, output_dir):
-        """Test runs are sorted by timestamp descending."""
-        # Create another older run
-        older_run = output_dir / "20260120_084017_nltk"
-        older_run.mkdir()
-        data_dir = older_run / "data"
-        data_dir.mkdir()
-        with open(data_dir / "nltk_syllables_annotated.json", "w") as f:
-            json.dump([{"syllable": "x"}], f)
+    def test_discover_runs_skips_run_id_mismatch(self, tmp_path: Path) -> None:
+        """Manifest run_id must match directory name for strict contract mode."""
+        run_dir = tmp_path / "20260222_150010_pyphen"
+        payload = _manifest_payload("20260222_150011_pyphen")
+        _write_manifest(run_dir, payload)
+        runs = discover_runs(tmp_path)
+        assert runs == []
 
-        runs = discover_runs(output_dir)
+    def test_discover_runs_sorts_by_timestamp_desc_then_name(self, tmp_path: Path) -> None:
+        """Runs should keep deterministic newest-first ordering."""
+        for run_id in (
+            "20260222_090000_nltk",
+            "20260222_090000_pyphen",
+            "20260222_100000_pyphen",
+        ):
+            run_dir = tmp_path / run_id
+            extractor = run_id.split("_", 2)[2]
+            payload = _manifest_payload(run_id, extractor=extractor)
+            _write_manifest(run_dir, payload)
+            (run_dir / "data").mkdir(parents=True, exist_ok=True)
 
-        assert len(runs) == 2
-        assert runs[0].timestamp == "20260121_084017"  # Newer first
-        assert runs[1].timestamp == "20260120_084017"
+        names = [run.path.name for run in discover_runs(tmp_path)]
+        assert names == [
+            "20260222_100000_pyphen",
+            "20260222_090000_nltk",
+            "20260222_090000_pyphen",
+        ]
 
-    def test_stable_order_for_tied_timestamps(self, output_dir):
-        """Test deterministic name ordering when timestamps are equal."""
-        run_nltk = output_dir / "20260122_120000_nltk"
-        run_pyphen = output_dir / "20260122_120000_pyphen"
-        for run_dir, stem in ((run_nltk, "nltk"), (run_pyphen, "pyphen")):
-            run_dir.mkdir()
-            data_dir = run_dir / "data"
-            data_dir.mkdir()
-            with open(data_dir / f"{stem}_syllables_annotated.json", "w") as f:
-                json.dump([{"syllable": "x"}], f)
-
-        runs = discover_runs(output_dir)
-        tied = [r.path.name for r in runs if r.timestamp == "20260122_120000"]
-        assert tied == ["20260122_120000_nltk", "20260122_120000_pyphen"]
-
-    def test_multi_word_extractor(self, output_dir):
-        """Test handling multi-word extractor types."""
-        # Create run with multi-word extractor
-        run_dir = output_dir / "20260122_084017_custom_extractor"
-        run_dir.mkdir()
-        data_dir = run_dir / "data"
-        data_dir.mkdir()
-        with open(data_dir / "custom_extractor_syllables_annotated.json", "w") as f:
-            json.dump([{"syllable": "x"}], f)
-
-        runs = discover_runs(output_dir)
-
-        custom_run = next((r for r in runs if r.extractor_type == "custom_extractor"), None)
-        assert custom_run is not None
-
-    def test_prefers_db_over_json(self, output_dir, sample_db):
-        """Test that database count is preferred over JSON."""
-        import shutil
-
-        run_dir = output_dir / "20260121_084017_nltk"
-        data_dir = run_dir / "data"
-
-        # Copy sample_db to data dir
-        shutil.copy(sample_db, data_dir / "corpus.db")
-
-        runs = discover_runs(output_dir)
-
-        assert runs[0].syllable_count == 4  # From DB, not JSON (which has 3)
-
-    def test_skips_empty_runs(self, output_dir):
-        """Test that runs with no data are skipped."""
-        # Create a run with no data directory
-        empty_run = output_dir / "20260122_084017_empty"
-        empty_run.mkdir()
-
-        runs = discover_runs(output_dir)
-
-        # Should not include the empty run
-        assert all(r.path.name != "20260122_084017_empty" for r in runs)
-
-    def test_extracts_history_metadata_fields(self, output_dir):
-        """Test source/files/duration metadata extraction for history detail."""
-        run_dir = output_dir / "20260123_101010_nltk"
-        run_dir.mkdir()
-        data_dir = run_dir / "data"
-        data_dir.mkdir()
-        with open(data_dir / "nltk_syllables_annotated.json", "w") as f:
-            json.dump([{"syllable": "x"}], f)
-        meta_dir = run_dir / "meta"
-        meta_dir.mkdir()
-        with open(meta_dir / "sample.txt", "w") as f:
-            f.write("Input File: /tmp/source/sample.txt\n")
-        with open(run_dir / "nltk_normalization_meta.txt", "w") as f:
-            f.write("Input Files:         3 files processed\n")
-            f.write("Processing Time:         0.42s\n")
-
-        runs = discover_runs(output_dir)
-        run = next((r for r in runs if r.path.name == "20260123_101010_nltk"), None)
-        assert run is not None
-        assert run.source_path == "/tmp/source/sample.txt"
-        assert run.files_processed == 3
-        assert run.processing_time == "0.42s"
-
-    def test_build_output_tree_lines_lists_run_contents(self, tmp_path):
-        """Test output tree includes top-level and one-level nested entries."""
-        run_dir = tmp_path / "20260123_111111_pyphen"
-        run_dir.mkdir()
-        data_dir = run_dir / "data"
-        data_dir.mkdir()
-        (data_dir / "corpus.db").write_text("stub")
-        (data_dir / "pyphen_syllables_annotated.json").write_text("[]")
-        (run_dir / "pyphen_normalization_meta.txt").write_text("meta")
-        meta_dir = run_dir / "meta"
-        meta_dir.mkdir()
-        (meta_dir / "source.txt").write_text("src")
-
-        lines = _build_output_tree_lines(run_dir, 1784)
-
-        assert lines[0] == "20260123_111111_pyphen/"
-        assert any("data/" in line for line in lines)
-        assert any("corpus.db  1,784 syllables" in line for line in lines)
-        assert any("pyphen_syllables_annotated.json  annotated data" in line for line in lines)
-        assert any("meta/" in line for line in lines)
-
-    def test_discover_runs_includes_output_tree_lines(self, output_dir):
-        """Test run payload contains output tree lines for History renderer."""
-        runs = discover_runs(output_dir)
-        assert len(runs) == 1
-        assert isinstance(runs[0].output_tree_lines, list)
-        assert len(runs[0].output_tree_lines) > 0
-
-    def test_parse_history_metadata_input_directory_branch(self, tmp_path):
-        """Test source path can come from 'Input Directory:' metadata."""
-        run_dir = tmp_path / "20260123_121212_pyphen"
-        run_dir.mkdir()
-        meta_dir = run_dir / "meta"
-        meta_dir.mkdir()
-        (meta_dir / "source.txt").write_text("Input Directory: /tmp/source-dir\n", encoding="utf-8")
-        (run_dir / "pyphen_normalization_meta.txt").write_text(
-            "Input Files: 2 files processed\nProcessing Time: 0.10s\n",
-            encoding="utf-8",
-        )
-
-        source_path, files_processed, processing_time = _parse_history_metadata(run_dir, "pyphen")
-        assert source_path == "/tmp/source-dir"
-        assert files_processed == 2
-        assert processing_time == "0.10s"
-
-    def test_parse_history_metadata_fallbacks_and_open_errors(self, tmp_path, monkeypatch):
-        """Test metadata parser tolerates open failures and falls back to syllables count."""
-        import builtins
-
-        run_dir = tmp_path / "20260123_131313_nltk"
-        run_dir.mkdir()
-        meta_dir = run_dir / "meta"
-        meta_dir.mkdir()
-        bad_meta = meta_dir / "bad.txt"
-        bad_meta.write_text("Input File: /tmp/ignored.txt\n", encoding="utf-8")
-        bad_norm = run_dir / "nltk_normalization_meta.txt"
-        bad_norm.write_text("Input Files: 99 files processed\n", encoding="utf-8")
-
-        syllables_dir = run_dir / "syllables"
-        syllables_dir.mkdir()
-        (syllables_dir / "a.txt").write_text("a", encoding="utf-8")
-        (syllables_dir / "b.txt").write_text("b", encoding="utf-8")
-        (syllables_dir / "c.txt").write_text("c", encoding="utf-8")
-
-        real_open = builtins.open
-
-        def _patched_open(file, *args, **kwargs):
-            file_str = str(file)
-            if file_str == str(bad_meta) or file_str == str(bad_norm):
-                raise OSError("simulated read error")
-            return real_open(file, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "open", _patched_open)
-
-        source_path, files_processed, processing_time = _parse_history_metadata(run_dir, "nltk")
-        assert source_path is None
-        assert files_processed == 3
-        assert processing_time is None
-
-    def test_build_output_tree_lines_truncates_large_dirs(self, tmp_path):
-        """Test output tree appends a hidden-entry summary when entries are truncated."""
-        run_dir = tmp_path / "20260123_141414_pyphen"
-        run_dir.mkdir()
-        for name in ("a.txt", "b.txt", "c.txt"):
-            (run_dir / name).write_text("x", encoding="utf-8")
-
-        lines = _build_output_tree_lines(run_dir, 7, max_entries_per_dir=1)
-        assert any("... (+2 more entries)" in line for line in lines)
-
-    def test_build_output_tree_lines_handles_iterdir_exception(self, tmp_path, monkeypatch):
-        """Test output tree builder survives Path.iterdir failures."""
-        from pathlib import Path
-
-        run_dir = tmp_path / "20260123_151515_pyphen"
-        run_dir.mkdir()
-        real_iterdir = Path.iterdir
-
-        def _raising_iterdir(self):
-            if self == run_dir:
-                raise OSError("simulated listdir error")
-            return real_iterdir(self)
-
-        monkeypatch.setattr(Path, "iterdir", _raising_iterdir)
-        lines = _build_output_tree_lines(run_dir, 0)
-        assert lines == [f"{run_dir.name}/"]
-
-    def test_discover_runs_default_base_path_when_cwd_has_no_working_output(
-        self, tmp_path, monkeypatch
-    ):
-        """Test discover_runs() default path branch when _working/output is absent."""
+    def test_discover_runs_default_base_path_branch(self, tmp_path: Path, monkeypatch) -> None:
+        """discover_runs() should return empty when default _working/output is absent."""
         monkeypatch.chdir(tmp_path)
-        runs = discover_runs()
-        assert runs == []
+        assert discover_runs() == []
+
+    def test_discover_runs_skips_non_dirs_and_non_matching_folder_names(
+        self, tmp_path: Path
+    ) -> None:
+        """Discovery should ignore filesystem files and non-run folder names."""
+        (tmp_path / "note.txt").write_text("x", encoding="utf-8")
+        (tmp_path / "not_a_run").mkdir()
+
+        run_id = "20260222_170010_pyphen"
+        run_dir = tmp_path / run_id
+        _write_manifest(run_dir, _manifest_payload(run_id))
+        (run_dir / "data").mkdir(parents=True, exist_ok=True)
+
+        runs = discover_runs(tmp_path)
+        assert len(runs) == 1
+        assert runs[0].path.name == run_id
+
+    def test_discover_runs_skips_empty_extractor(self, tmp_path: Path) -> None:
+        """Run should be skipped when manifest extractor is empty."""
+        run_id = "20260222_170020_pyphen"
+        run_dir = tmp_path / run_id
+        payload = _manifest_payload(run_id)
+        payload["extractor"] = ""
+        _write_manifest(run_dir, payload)
+        assert discover_runs(tmp_path) == []
+
+    def test_discover_runs_normalises_optional_manifest_fields(self, tmp_path: Path) -> None:
+        """Discovery should normalize optional fields with invalid types to safe defaults."""
+        run_id = "20260222_170030_pyphen"
+        run_dir = tmp_path / run_id
+        payload = _manifest_payload(run_id)
+        payload["metrics"]["syllable_count_unique"] = "3"
+        payload["metrics"]["files_processed"] = "1"
+        payload["config"]["source_path"] = {"not": "a-string"}
+        payload["ipc"]["input_hash"] = 123
+        payload["ipc"]["output_hash"] = ["abc"]
+        _write_manifest(run_dir, payload)
+        (run_dir / "data").mkdir(parents=True, exist_ok=True)
+
+        runs = discover_runs(tmp_path)
+        assert len(runs) == 1
+        run = runs[0]
+        assert run.syllable_count == 0
+        assert run.source_path is None
+        assert run.files_processed is None
+        assert run.ipc_input_hash is None
+        assert run.ipc_output_hash is None
 
 
-# ============================================================
-# Get Selection Data Tests
-# ============================================================
+class TestSelectionAndLookup:
+    """Selection loading and run lookup behavior."""
 
-
-class TestGetSelectionData:
-    """Test get_selection_data function."""
-
-    def test_loads_selection_data(self, sample_run_dir):
-        """Test loading selection data."""
-        selection_path = sample_run_dir / "selections" / "nltk_first_name_2syl.json"
-
-        data = get_selection_data(selection_path)
-
+    def test_get_selection_data_reads_json(self, manifest_run: Path) -> None:
+        """Selection loader should deserialize valid JSON payload."""
+        data = get_selection_data(manifest_run / "selections" / "pyphen_first_name_2syl.json")
+        assert isinstance(data, dict)
         assert "metadata" in data
         assert "selections" in data
-        assert data["metadata"]["name_class"] == "first_name"
 
-    def test_raises_for_nonexistent(self, tmp_path):
-        """Test raises FileNotFoundError for nonexistent file."""
+    def test_get_selection_data_raises_for_missing(self, tmp_path: Path) -> None:
+        """Selection loader should raise FileNotFoundError for missing files."""
         with pytest.raises(FileNotFoundError):
-            get_selection_data(tmp_path / "nonexistent.json")
+            get_selection_data(tmp_path / "missing.json")
 
-
-# ============================================================
-# Get Run By ID Tests
-# ============================================================
-
-
-class TestGetRunById:
-    """Test get_run_by_id function."""
-
-    def test_finds_existing_run(self, output_dir):
-        """Test finding existing run by ID."""
-        run = get_run_by_id("20260121_084017_nltk", output_dir)
-
+    def test_get_run_by_id_returns_run(self, manifest_run: Path, tmp_path: Path) -> None:
+        """Run lookup should return the matching discovered run."""
+        run = get_run_by_id(manifest_run.name, tmp_path)
         assert run is not None
-        assert run.extractor_type == "nltk"
+        assert run.path.name == manifest_run.name
 
-    def test_returns_none_for_nonexistent(self, output_dir):
-        """Test returns None for nonexistent run."""
-        run = get_run_by_id("nonexistent_run", output_dir)
-        assert run is None
+    def test_get_run_by_id_returns_none_when_missing(
+        self, manifest_run: Path, tmp_path: Path
+    ) -> None:
+        """Run lookup should return None when no run matches."""
+        assert get_run_by_id("20260222_999999_pyphen", tmp_path) is None
 
-    def test_returns_none_for_empty_dir(self, tmp_path):
-        """Test returns None when no runs exist."""
-        empty_output = tmp_path / "empty_output"
-        empty_output.mkdir()
+    def test_discover_selections_skips_meta_json(self, tmp_path: Path) -> None:
+        """Selection discovery should skip *_meta.json helper files."""
+        run_dir = tmp_path / "20260222_180000_pyphen"
+        selections_dir = run_dir / "selections"
+        selections_dir.mkdir(parents=True, exist_ok=True)
+        (selections_dir / "pyphen_first_name_2syl_meta.json").write_text("{}", encoding="utf-8")
+        (selections_dir / "pyphen_first_name_2syl.json").write_text(
+            '{"metadata":{},"selections":[]}', encoding="utf-8"
+        )
 
-        run = get_run_by_id("any_id", empty_output)
-        assert run is None
+        selections = _discover_selections(run_dir, "pyphen")
+        assert list(selections.keys()) == ["first_name"]
