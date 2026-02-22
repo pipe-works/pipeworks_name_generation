@@ -9,6 +9,8 @@ This module tests pipeline execution orchestration:
 - _parse_run_directory: stdout parsing and fallback heuristics
 """
 
+import json
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,6 +24,8 @@ from build_tools.syllable_walk_web.services.pipeline_runner import (
     start_pipeline,
 )
 from build_tools.syllable_walk_web.state import PipelineJobState
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 # ============================================================
 # Fixtures
@@ -346,6 +350,12 @@ class TestRunPipeline:
         assert job.status == "completed"
         assert job.progress_percent == 100
         assert job.output_path == run_dir
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "completed"
+        assert manifest["run_id"] == run_dir.name
+        assert [s["name"] for s in manifest["stages"]] == ["extract"]
+        assert _SHA256_RE.match(manifest["ipc"]["input_hash"])
+        assert _SHA256_RE.match(manifest["ipc"]["output_hash"])
 
     def test_extraction_failure(self, job, tmp_path):
         """Test pipeline fails if extraction stage fails."""
@@ -484,3 +494,66 @@ class TestRunPipeline:
         assert job.progress_percent == 100
         # 4 stages: extract, normalize, annotate, database
         assert call_count == 4
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "completed"
+        assert [s["name"] for s in manifest["stages"]] == [
+            "extract",
+            "normalize",
+            "annotate",
+            "database",
+        ]
+        assert all(s["status"] == "completed" for s in manifest["stages"])
+        assert _SHA256_RE.match(manifest["ipc"]["input_hash"])
+        assert _SHA256_RE.match(manifest["ipc"]["output_hash"])
+
+    def test_manifest_written_on_normalization_failure(self, job, tmp_path):
+        """Test manifest captures failed terminal state when normalize stage fails."""
+        from build_tools.syllable_walk_web.services.pipeline_runner import _run_pipeline
+
+        run_dir = tmp_path / "20260220_120000_pyphen"
+        run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+
+        job.status = "running"
+        job.config = {
+            "extractor": "pyphen",
+            "language": "auto",
+            "source_path": str(tmp_path / "source"),
+            "output_dir": str(tmp_path),
+            "min_syllable_length": "2",
+            "max_syllable_length": "8",
+            "file_pattern": "*.txt",
+            "run_normalize": True,
+            "run_annotate": False,
+        }
+
+        call_count = 0
+
+        def make_proc(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            proc = MagicMock()
+            if call_count == 1:
+                proc.stdout = iter([f"Run Directory: {run_dir}\n"])
+                proc.returncode = 0
+                proc.wait.return_value = 0
+            else:
+                proc.stdout = iter(["normalize failed\n"])
+                proc.returncode = 1
+                proc.wait.return_value = 1
+            return proc
+
+        with patch("subprocess.Popen", side_effect=make_proc):
+            _run_pipeline(job)
+
+        assert job.status == "failed"
+        assert job.error_message == "Normalization failed"
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "failed"
+        assert any(err["message"] == "Normalization failed" for err in manifest["errors"])
+        stage_by_name = {stage["name"]: stage for stage in manifest["stages"]}
+        assert stage_by_name["extract"]["status"] == "completed"
+        assert stage_by_name["normalize"]["status"] == "failed"
+        assert _SHA256_RE.match(manifest["ipc"]["input_hash"])
+        assert _SHA256_RE.match(manifest["ipc"]["output_hash"])
