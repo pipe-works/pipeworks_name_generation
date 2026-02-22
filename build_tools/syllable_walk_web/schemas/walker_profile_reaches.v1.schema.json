@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pipeworks:schema:walker-profile-reaches-cache:v1",
+  "title": "Walker Profile Reaches Cache (v1)",
+  "description": "Run-directory IPC cache artifact for precomputed initial profile tables used by syllable_walk_web.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cache_kind",
+    "run_id",
+    "created_at_utc",
+    "manifest",
+    "graph_settings",
+    "reach_settings",
+    "ipc",
+    "profile_reaches"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Cache schema version for migration and compatibility checks."
+    },
+    "cache_kind": {
+      "type": "string",
+      "const": "walker_profile_reaches",
+      "description": "Artifact discriminator."
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}_[0-9]{6}_.+$",
+      "description": "Canonical run identifier matching run directory name."
+    },
+    "created_at_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when this cache artifact was created."
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relative_path",
+        "manifest_version",
+        "ipc_input_hash",
+        "ipc_output_hash"
+      ],
+      "properties": {
+        "relative_path": {
+          "type": "string",
+          "const": "manifest.json"
+        },
+        "manifest_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ipc_input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Mirror of manifest.ipc.input_hash at cache write time."
+        },
+        "ipc_output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Mirror of manifest.ipc.output_hash at cache write time."
+        }
+      }
+    },
+    "graph_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "walker_impl",
+        "max_neighbor_distance",
+        "inertia_cost",
+        "feature_costs"
+      ],
+      "properties": {
+        "walker_impl": {
+          "type": "string",
+          "description": "Qualified implementation id, e.g. build_tools.syllable_walk.walker.SyllableWalker"
+        },
+        "max_neighbor_distance": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "inertia_cost": {
+          "type": "number"
+        },
+        "feature_costs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "minProperties": 1,
+          "description": "Exact feature cost map used by walker at compute time."
+        }
+      }
+    },
+    "reach_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "threshold",
+        "profiles"
+      ],
+      "properties": {
+        "threshold": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Probability threshold used by compute_all_reaches."
+        },
+        "profiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clerical",
+            "dialect",
+            "goblin",
+            "ritual"
+          ],
+          "properties": {
+            "clerical": { "$ref": "#/$defs/profileDefinition" },
+            "dialect": { "$ref": "#/$defs/profileDefinition" },
+            "goblin": { "$ref": "#/$defs/profileDefinition" },
+            "ritual": { "$ref": "#/$defs/profileDefinition" }
+          }
+        }
+      }
+    },
+    "ipc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "library",
+        "library_ref",
+        "input_hash",
+        "output_hash",
+        "input_payload",
+        "output_payload"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "library": {
+          "type": "string",
+          "const": "pipeworks-ipc"
+        },
+        "library_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "output_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "manifest_ipc_output_hash",
+            "graph_settings",
+            "reach_settings"
+          ],
+          "properties": {
+            "run_id": {
+              "type": "string",
+              "pattern": "^[0-9]{8}_[0-9]{6}_.+$"
+            },
+            "manifest_ipc_output_hash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "graph_settings": {
+              "$ref": "#/$defs/hashableGraphSettings"
+            },
+            "reach_settings": {
+              "$ref": "#/$defs/hashableReachSettings"
+            }
+          }
+        },
+        "output_payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profiles"
+          ],
+          "properties": {
+            "profiles": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "clerical",
+                "dialect",
+                "goblin",
+                "ritual"
+              ],
+              "properties": {
+                "clerical": { "$ref": "#/$defs/reachOutputSummary" },
+                "dialect": { "$ref": "#/$defs/reachOutputSummary" },
+                "goblin": { "$ref": "#/$defs/reachOutputSummary" },
+                "ritual": { "$ref": "#/$defs/reachOutputSummary" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "profile_reaches": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clerical",
+        "dialect",
+        "goblin",
+        "ritual"
+      ],
+      "properties": {
+        "clerical": { "$ref": "#/$defs/reachRecord" },
+        "dialect": { "$ref": "#/$defs/reachRecord" },
+        "goblin": { "$ref": "#/$defs/reachRecord" },
+        "ritual": { "$ref": "#/$defs/reachRecord" }
+      }
+    }
+  },
+  "$defs": {
+    "profileDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_flips",
+        "temperature",
+        "frequency_weight"
+      ],
+      "properties": {
+        "max_flips": { "type": "integer", "minimum": 1 },
+        "temperature": { "type": "number", "exclusiveMinimum": 0 },
+        "frequency_weight": { "type": "number" }
+      }
+    },
+    "hashableGraphSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_neighbor_distance",
+        "inertia_cost",
+        "feature_costs"
+      ],
+      "properties": {
+        "max_neighbor_distance": { "type": "integer", "minimum": 1 },
+        "inertia_cost": { "type": "number" },
+        "feature_costs": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "minProperties": 1
+        }
+      }
+    },
+    "hashableReachSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "threshold",
+        "profiles"
+      ],
+      "properties": {
+        "threshold": { "type": "number", "exclusiveMinimum": 0 },
+        "profiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clerical",
+            "dialect",
+            "goblin",
+            "ritual"
+          ],
+          "properties": {
+            "clerical": { "$ref": "#/$defs/profileDefinition" },
+            "dialect": { "$ref": "#/$defs/profileDefinition" },
+            "goblin": { "$ref": "#/$defs/profileDefinition" },
+            "ritual": { "$ref": "#/$defs/profileDefinition" }
+          }
+        }
+      }
+    },
+    "reachOutputSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reach",
+        "total",
+        "unique_reachable"
+      ],
+      "properties": {
+        "reach": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "unique_reachable": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reachableIndexEntry": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "integer", "minimum": 0 }
+      ],
+      "items": false,
+      "description": "[syllable_index, reachability_count]"
+    },
+    "reachRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_name",
+        "reach",
+        "total",
+        "threshold",
+        "max_flips",
+        "temperature",
+        "frequency_weight",
+        "computation_ms",
+        "unique_reachable",
+        "reachable_indices"
+      ],
+      "properties": {
+        "profile_name": { "type": "string" },
+        "reach": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "threshold": { "type": "number", "exclusiveMinimum": 0 },
+        "max_flips": { "type": "integer", "minimum": 1 },
+        "temperature": { "type": "number", "exclusiveMinimum": 0 },
+        "frequency_weight": { "type": "number" },
+        "computation_ms": { "type": "number", "minimum": 0 },
+        "unique_reachable": { "type": "integer", "minimum": 0 },
+        "reachable_indices": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reachableIndexEntry" }
+        }
+      }
+    }
+  }
+}
