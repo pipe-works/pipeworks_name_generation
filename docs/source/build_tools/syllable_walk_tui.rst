@@ -761,7 +761,7 @@ This is a build-time exploration tool - not used during runtime name generation.
 **Related Documentation:**
 
 - :doc:`syllable_walk` - Command-line syllable walker (batch generation)
-- :doc:`syllable_walk_web` - Web interface for browsing selections
+- :doc:`syllable_walk_web` - Browser-based Pipeline + Walker interface with dual-patch comparison
 - :doc:`syllable_feature_annotator` - Generates input data with phonetic features
 - :doc:`name_combiner` - Generates name candidates (used by Generator Panel)
 - :doc:`name_selector` - Selects names by policy (used by Generator Panel)

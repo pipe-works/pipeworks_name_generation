@@ -10,10 +10,10 @@ This is a **build-time tool only** — not used during runtime name generation.
 Features:
     - Pipeline tool: extraction, normalization, annotation with live monitoring
     - Walker tool: dual-patch syllable walking, name combiner, name selector
-    - Corpus analysis with terrain visualization
-    - Name rendering and package export (ZIP with manifest)
+    - Corpus analysis with terrain visualization and profile reach deep-dives
+    - Name rendering and package export (ZIP with manifest + disk metadata persistence)
     - Dark/light theme support
-    - 16 API endpoints across Pipeline, Walker, Browse, and Settings groups
+    - 18 API endpoints across Pipeline, Walker, Browse, Settings, and Version groups
 
 Architecture:
     - ``api/``: Request handlers (``browse``, ``pipeline``, ``walker``)

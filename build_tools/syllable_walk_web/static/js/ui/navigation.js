@@ -141,4 +141,8 @@ export function navigateToScreen(screenId) {
   /* Populate screens that need it */
   if (screenId === 'walker-render') _ctx.populateRender();
   if (screenId === 'walker-analysis') _ctx.populateAnalysis();
+
+  window.dispatchEvent(new CustomEvent('pw:screen-changed', {
+    detail: { screenId, tool },
+  }));
 }

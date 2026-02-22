@@ -19,10 +19,12 @@ import pytest
 
 from build_tools.syllable_walk_web.run_discovery import (
     RunInfo,
+    _build_output_tree_lines,
     _discover_selections,
     _format_display_name,
     _get_syllable_count_from_db,
     _get_syllable_count_from_json,
+    _parse_history_metadata,
     _parse_timestamp,
     discover_runs,
     get_run_by_id,
@@ -143,6 +145,7 @@ class TestRunInfo:
         assert result["selection_count"] == 1
         assert "corpus_db_path" in result
         assert "annotated_json_path" in result
+        assert result["output_tree_lines"] == []
 
     def test_to_dict_with_none_paths(self, tmp_path):
         """Test to_dict with None paths."""
@@ -161,6 +164,7 @@ class TestRunInfo:
         assert result["corpus_db_path"] is None
         assert result["annotated_json_path"] is None
         assert result["selection_count"] == 0
+        assert result["output_tree_lines"] == []
 
 
 # ============================================================
@@ -377,6 +381,21 @@ class TestDiscoverRuns:
         assert runs[0].timestamp == "20260121_084017"  # Newer first
         assert runs[1].timestamp == "20260120_084017"
 
+    def test_stable_order_for_tied_timestamps(self, output_dir):
+        """Test deterministic name ordering when timestamps are equal."""
+        run_nltk = output_dir / "20260122_120000_nltk"
+        run_pyphen = output_dir / "20260122_120000_pyphen"
+        for run_dir, stem in ((run_nltk, "nltk"), (run_pyphen, "pyphen")):
+            run_dir.mkdir()
+            data_dir = run_dir / "data"
+            data_dir.mkdir()
+            with open(data_dir / f"{stem}_syllables_annotated.json", "w") as f:
+                json.dump([{"syllable": "x"}], f)
+
+        runs = discover_runs(output_dir)
+        tied = [r.path.name for r in runs if r.timestamp == "20260122_120000"]
+        assert tied == ["20260122_120000_nltk", "20260122_120000_pyphen"]
+
     def test_multi_word_extractor(self, output_dir):
         """Test handling multi-word extractor types."""
         # Create run with multi-word extractor
@@ -416,6 +435,143 @@ class TestDiscoverRuns:
 
         # Should not include the empty run
         assert all(r.path.name != "20260122_084017_empty" for r in runs)
+
+    def test_extracts_history_metadata_fields(self, output_dir):
+        """Test source/files/duration metadata extraction for history detail."""
+        run_dir = output_dir / "20260123_101010_nltk"
+        run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+        with open(data_dir / "nltk_syllables_annotated.json", "w") as f:
+            json.dump([{"syllable": "x"}], f)
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        with open(meta_dir / "sample.txt", "w") as f:
+            f.write("Input File: /tmp/source/sample.txt\n")
+        with open(run_dir / "nltk_normalization_meta.txt", "w") as f:
+            f.write("Input Files:         3 files processed\n")
+            f.write("Processing Time:         0.42s\n")
+
+        runs = discover_runs(output_dir)
+        run = next((r for r in runs if r.path.name == "20260123_101010_nltk"), None)
+        assert run is not None
+        assert run.source_path == "/tmp/source/sample.txt"
+        assert run.files_processed == 3
+        assert run.processing_time == "0.42s"
+
+    def test_build_output_tree_lines_lists_run_contents(self, tmp_path):
+        """Test output tree includes top-level and one-level nested entries."""
+        run_dir = tmp_path / "20260123_111111_pyphen"
+        run_dir.mkdir()
+        data_dir = run_dir / "data"
+        data_dir.mkdir()
+        (data_dir / "corpus.db").write_text("stub")
+        (data_dir / "pyphen_syllables_annotated.json").write_text("[]")
+        (run_dir / "pyphen_normalization_meta.txt").write_text("meta")
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        (meta_dir / "source.txt").write_text("src")
+
+        lines = _build_output_tree_lines(run_dir, 1784)
+
+        assert lines[0] == "20260123_111111_pyphen/"
+        assert any("data/" in line for line in lines)
+        assert any("corpus.db  1,784 syllables" in line for line in lines)
+        assert any("pyphen_syllables_annotated.json  annotated data" in line for line in lines)
+        assert any("meta/" in line for line in lines)
+
+    def test_discover_runs_includes_output_tree_lines(self, output_dir):
+        """Test run payload contains output tree lines for History renderer."""
+        runs = discover_runs(output_dir)
+        assert len(runs) == 1
+        assert isinstance(runs[0].output_tree_lines, list)
+        assert len(runs[0].output_tree_lines) > 0
+
+    def test_parse_history_metadata_input_directory_branch(self, tmp_path):
+        """Test source path can come from 'Input Directory:' metadata."""
+        run_dir = tmp_path / "20260123_121212_pyphen"
+        run_dir.mkdir()
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        (meta_dir / "source.txt").write_text("Input Directory: /tmp/source-dir\n", encoding="utf-8")
+        (run_dir / "pyphen_normalization_meta.txt").write_text(
+            "Input Files: 2 files processed\nProcessing Time: 0.10s\n",
+            encoding="utf-8",
+        )
+
+        source_path, files_processed, processing_time = _parse_history_metadata(run_dir, "pyphen")
+        assert source_path == "/tmp/source-dir"
+        assert files_processed == 2
+        assert processing_time == "0.10s"
+
+    def test_parse_history_metadata_fallbacks_and_open_errors(self, tmp_path, monkeypatch):
+        """Test metadata parser tolerates open failures and falls back to syllables count."""
+        import builtins
+
+        run_dir = tmp_path / "20260123_131313_nltk"
+        run_dir.mkdir()
+        meta_dir = run_dir / "meta"
+        meta_dir.mkdir()
+        bad_meta = meta_dir / "bad.txt"
+        bad_meta.write_text("Input File: /tmp/ignored.txt\n", encoding="utf-8")
+        bad_norm = run_dir / "nltk_normalization_meta.txt"
+        bad_norm.write_text("Input Files: 99 files processed\n", encoding="utf-8")
+
+        syllables_dir = run_dir / "syllables"
+        syllables_dir.mkdir()
+        (syllables_dir / "a.txt").write_text("a", encoding="utf-8")
+        (syllables_dir / "b.txt").write_text("b", encoding="utf-8")
+        (syllables_dir / "c.txt").write_text("c", encoding="utf-8")
+
+        real_open = builtins.open
+
+        def _patched_open(file, *args, **kwargs):
+            file_str = str(file)
+            if file_str == str(bad_meta) or file_str == str(bad_norm):
+                raise OSError("simulated read error")
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", _patched_open)
+
+        source_path, files_processed, processing_time = _parse_history_metadata(run_dir, "nltk")
+        assert source_path is None
+        assert files_processed == 3
+        assert processing_time is None
+
+    def test_build_output_tree_lines_truncates_large_dirs(self, tmp_path):
+        """Test output tree appends a hidden-entry summary when entries are truncated."""
+        run_dir = tmp_path / "20260123_141414_pyphen"
+        run_dir.mkdir()
+        for name in ("a.txt", "b.txt", "c.txt"):
+            (run_dir / name).write_text("x", encoding="utf-8")
+
+        lines = _build_output_tree_lines(run_dir, 7, max_entries_per_dir=1)
+        assert any("... (+2 more entries)" in line for line in lines)
+
+    def test_build_output_tree_lines_handles_iterdir_exception(self, tmp_path, monkeypatch):
+        """Test output tree builder survives Path.iterdir failures."""
+        from pathlib import Path
+
+        run_dir = tmp_path / "20260123_151515_pyphen"
+        run_dir.mkdir()
+        real_iterdir = Path.iterdir
+
+        def _raising_iterdir(self):
+            if self == run_dir:
+                raise OSError("simulated listdir error")
+            return real_iterdir(self)
+
+        monkeypatch.setattr(Path, "iterdir", _raising_iterdir)
+        lines = _build_output_tree_lines(run_dir, 0)
+        assert lines == [f"{run_dir.name}/"]
+
+    def test_discover_runs_default_base_path_when_cwd_has_no_working_output(
+        self, tmp_path, monkeypatch
+    ):
+        """Test discover_runs() default path branch when _working/output is absent."""
+        monkeypatch.chdir(tmp_path)
+        runs = discover_runs()
+        assert runs == []
 
 
 # ============================================================

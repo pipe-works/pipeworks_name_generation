@@ -14,6 +14,7 @@ Functions:
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,10 @@ class RunInfo:
     corpus_db_path: Path | None
     annotated_json_path: Path | None
     syllable_count: int
+    source_path: str | None = None
+    files_processed: int | None = None
+    processing_time: str | None = None
+    output_tree_lines: list[str] = field(default_factory=list)
     selections: dict[str, Path] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -59,9 +64,70 @@ class RunInfo:
                 str(self.annotated_json_path) if self.annotated_json_path else None
             ),
             "syllable_count": self.syllable_count,
+            "source_path": self.source_path,
+            "files_processed": self.files_processed,
+            "processing_time": self.processing_time,
+            "output_tree_lines": self.output_tree_lines,
             "selections": {k: str(v) for k, v in self.selections.items()},
             "selection_count": len(self.selections),
         }
+
+
+def _parse_history_metadata(
+    run_dir: Path, extractor_type: str
+) -> tuple[str | None, int | None, str | None]:
+    """Parse source/file-count/duration metadata from run artifacts."""
+    source_path: str | None = None
+    files_processed: int | None = None
+    processing_time: str | None = None
+
+    # Extractor metadata (source path)
+    meta_dir = run_dir / "meta"
+    if meta_dir.exists():
+        for meta_file in sorted(meta_dir.glob("*.txt")):
+            try:
+                with open(meta_file, encoding="utf-8") as f:
+                    for line in f:
+                        stripped = line.strip()
+                        if stripped.startswith("Input File:"):
+                            source_path = stripped.split(":", 1)[1].strip()
+                            break
+                        if stripped.startswith("Input Directory:"):
+                            source_path = stripped.split(":", 1)[1].strip()
+                            break
+                if source_path:
+                    break
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    # Normalization metadata (files processed + processing time)
+    norm_meta = run_dir / f"{extractor_type}_normalization_meta.txt"
+    if not norm_meta.exists():
+        fallback = sorted(run_dir.glob("*_normalization_meta.txt"))
+        norm_meta = fallback[0] if fallback else norm_meta
+    if norm_meta.exists():
+        try:
+            with open(norm_meta, encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("Input Files:"):
+                        m = re.search(r"(\d+)", stripped)
+                        if m:
+                            files_processed = int(m.group(1))
+                    elif stripped.startswith("Processing Time:"):
+                        processing_time = stripped.split(":", 1)[1].strip()
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    # Fallback for file count when metadata line is unavailable
+    if files_processed is None:
+        syllables_dir = run_dir / "syllables"
+        if syllables_dir.exists():
+            txt_count = len(list(syllables_dir.glob("*.txt")))
+            if txt_count > 0:
+                files_processed = txt_count
+
+    return source_path, files_processed, processing_time
 
 
 def _get_syllable_count_from_db(db_path: Path) -> int:
@@ -178,6 +244,74 @@ def _discover_selections(run_dir: Path, extractor_type: str) -> dict[str, Path]:
     return selections
 
 
+def _build_output_tree_lines(
+    run_dir: Path,
+    syllable_count: int,
+    max_depth: int = 1,
+    max_entries_per_dir: int = 24,
+) -> list[str]:
+    """Build a deterministic, compact filesystem tree for History output."""
+    lines: list[str] = [f"{run_dir.name}/"]
+
+    def _annotation(relative_path: str) -> str | None:
+        if relative_path == "data/corpus.db":
+            return f"{syllable_count:,} syllables"
+        if relative_path.startswith("data/") and relative_path.endswith(
+            "_syllables_annotated.json"
+        ):
+            return "annotated data"
+        return None
+
+    def _children(dir_path: Path) -> list[Path]:
+        try:
+            entries = list(dir_path.iterdir())
+        except Exception:
+            return []
+
+        filtered = [
+            p
+            for p in entries
+            if p.name != ".DS_Store"
+            and not p.name.endswith(".db-shm")
+            and not p.name.endswith(".db-wal")
+        ]
+        return sorted(filtered, key=lambda p: (not p.is_dir(), p.name.lower(), p.name))
+
+    def _render_dir(dir_path: Path, prefix: str, depth: int) -> None:
+        entries = _children(dir_path)
+        if not entries:
+            return
+
+        visible = entries[:max_entries_per_dir]
+        hidden_count = len(entries) - len(visible)
+        display_items: list[Path | str] = list(visible)
+        if hidden_count > 0:
+            display_items.append(f"... (+{hidden_count} more entries)")
+
+        for i, item in enumerate(display_items):
+            is_last = i == len(display_items) - 1
+            connector = "└── " if is_last else "├── "
+
+            if isinstance(item, str):
+                lines.append(f"{prefix}{connector}{item}")
+                continue
+
+            child = item
+            rel = child.relative_to(run_dir).as_posix()
+            label = f"{child.name}/" if child.is_dir() else child.name
+            note = _annotation(rel)
+            if note:
+                label = f"{label}  {note}"
+            lines.append(f"{prefix}{connector}{label}")
+
+            if child.is_dir() and depth < max_depth:
+                next_prefix = prefix + ("    " if is_last else "│   ")
+                _render_dir(child, next_prefix, depth + 1)
+
+    _render_dir(run_dir, "", 0)
+    return lines
+
+
 def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
     """Discover all pipeline run directories.
 
@@ -257,6 +391,10 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
 
         # Discover selections
         selections = _discover_selections(run_dir, extractor_type)
+        source_path, files_processed, processing_time = _parse_history_metadata(
+            run_dir, extractor_type
+        )
+        output_tree_lines = _build_output_tree_lines(run_dir, syllable_count)
 
         # Create display name using actual folder name
         display_name = _format_display_name(
@@ -274,11 +412,18 @@ def discover_runs(base_path: Path | None = None) -> list[RunInfo]:
                     annotated_json_path.resolve() if annotated_json_path else None
                 ),
                 syllable_count=syllable_count,
+                source_path=source_path,
+                files_processed=files_processed,
+                processing_time=processing_time,
+                output_tree_lines=output_tree_lines,
                 selections=selections,
             )
         )
 
-    # Sort by timestamp (newest first)
+    # Deterministic ordering:
+    # 1) timestamp descending (newest first)
+    # 2) folder name ascending when timestamps match
+    runs.sort(key=lambda r: r.path.name)
     runs.sort(key=lambda r: r.timestamp, reverse=True)
 
     return runs

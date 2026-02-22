@@ -23,6 +23,10 @@ let _dirModalSelectedFile = null;   /* full path of selected file (file mode onl
 
 let _pipelinePoller = null;
 let _lastLogOffset = 0;
+let _activePipelineStages = ['extract', 'normalize', 'annotate', 'database'];
+let _defaultOutputBase = null;
+let _selectedHistoryRunId = null;
+let _historyRequestSeq = 0;
 
 /**
  * Initialise all pipeline tool behaviors.
@@ -36,9 +40,34 @@ let _lastLogOffset = 0;
  */
 export function initPipeline(ctx) {
   _ctx = ctx;
+  initPipelineSettings();
   initDirModal();
   initPipelineConfigureRun();
+  initPipelineStageToggles();
   initHistorySelection();
+}
+
+/**
+ * Load server-side pipeline defaults used by the Configure panel.
+ *
+ * @returns {void}
+ */
+function initPipelineSettings() {
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(data => {
+      if (!data || data.error || !data.output_base) return;
+      _defaultOutputBase = data.output_base;
+      if (!_ctx.state.pipeOutput) {
+        const el = document.getElementById('pipe-output-path');
+        if (el) {
+          el.textContent = `${_defaultOutputBase} (default)`;
+          el.classList.add('is-set');
+        }
+      }
+      checkPipelineReady();
+    })
+    .catch(() => { /* fallback to server defaults at run time */ });
 }
 
 /**
@@ -222,12 +251,13 @@ function browseTo(dirPath) {
  * @returns {void}
  */
 export function checkPipelineReady() {
-  const ready = !!(_ctx.state.pipeSource && _ctx.state.pipeOutput);
+  const ready = !!_ctx.state.pipeSource;
   const runBtn = document.getElementById('pipe-run-btn');
   if (runBtn) runBtn.disabled = !ready;
   if (ready) {
+    const outputLabel = _ctx.state.pipeOutput || _defaultOutputBase || '(server default)';
     document.getElementById('pipe-status-text').textContent =
-      `Ready — ${_ctx.state.pipeSource.split('/').pop()} → ${_ctx.state.pipeOutput.split('/').pop()}`;
+      `Ready — ${_ctx.state.pipeSource.split('/').pop()} → ${outputLabel.split('/').pop()}`;
   }
 }
 
@@ -242,6 +272,52 @@ function initPipelineConfigureRun() {
 }
 
 /**
+ * Enforce stage dependency in Configure UI.
+ *
+ * Annotate requires Normalize output. When Normalize is unchecked,
+ * Annotate is auto-unchecked and disabled.
+ *
+ * @returns {void}
+ */
+function initPipelineStageToggles() {
+  const normalizeEl = document.getElementById('stage-normalize');
+  const annotateEl = document.getElementById('stage-annotate');
+
+  if (!normalizeEl || !annotateEl) return;
+
+  const sync = () => {
+    if (!normalizeEl.checked) {
+      annotateEl.checked = false;
+      annotateEl.disabled = true;
+    } else {
+      annotateEl.disabled = false;
+    }
+  };
+
+  normalizeEl.addEventListener('change', sync);
+  sync();
+}
+
+/**
+ * Read selected language for pipeline start.
+ *
+ * For pyphen, a non-empty custom language code overrides the radio selection.
+ * For nltk, language is forced to "auto" (backend extractor ignores pyphen locales).
+ *
+ * @param {string} extractor - Selected extractor ("pyphen" or "nltk")
+ * @returns {string}
+ */
+function readPipelineLanguage(extractor) {
+  if (extractor !== 'pyphen') return 'auto';
+
+  const custom = document.getElementById('custom-lang')?.value?.trim();
+  if (custom) return custom;
+
+  const langEl = document.querySelector('.lang-option.is-selected input[type="radio"]');
+  return langEl ? langEl.value : 'auto';
+}
+
+/**
  * Start a pipeline run from configured UI values.
  *
  * @returns {void}
@@ -251,11 +327,35 @@ function startPipelineRun() {
 
   /* Read config from UI */
   const extractor = _ctx.state.pipeExtractor || 'pyphen';
-  const langEl = document.querySelector('.lang-option.is-selected input[type="radio"]');
-  const language = langEl ? langEl.value : 'auto';
+  const language = readPipelineLanguage(extractor);
+  const filePattern = document.getElementById('pipe-pattern')?.value?.trim() || '*.txt';
+  const minRaw = document.getElementById('pipe-min-len')?.value ?? '';
+  const maxRaw = document.getElementById('pipe-max-len')?.value ?? '';
+  const minParsed = parseInt(minRaw, 10);
+  const maxParsed = parseInt(maxRaw, 10);
+  const minSyllableLength = Number.isNaN(minParsed) ? 2 : minParsed;
+  const maxSyllableLength = Number.isNaN(maxParsed) ? 8 : maxParsed;
+  const runNormalize = !!document.getElementById('stage-normalize')?.checked;
+  const runAnnotate = runNormalize && !!document.getElementById('stage-annotate')?.checked;
+  _activePipelineStages = ['extract'];
+  if (runNormalize) _activePipelineStages.push('normalize');
+  if (runAnnotate) {
+    _activePipelineStages.push('annotate');
+    _activePipelineStages.push('database');
+  }
 
   if (!_ctx.state.pipeSource) {
     _ctx.setStatus('Pipeline: select a source directory first');
+    return;
+  }
+
+  if (minSyllableLength < 1 || maxSyllableLength < 1) {
+    _ctx.setStatus('Pipeline: min/max syllable length must be >= 1');
+    return;
+  }
+
+  if (minSyllableLength > maxSyllableLength) {
+    _ctx.setStatus('Pipeline: min syllable length must be <= max syllable length');
     return;
   }
 
@@ -280,7 +380,7 @@ function startPipelineRun() {
   runBtn.disabled = true;
   cancelBtn.disabled = false;
 
-  ['extract', 'normalize', 'annotate'].forEach(s => {
+  ['extract', 'normalize', 'annotate', 'database'].forEach(s => {
     const ind = document.getElementById(`stage-ind-${s}`);
     if (ind) ind.className = 'stage-indicator';
   });
@@ -297,6 +397,11 @@ function startPipelineRun() {
       language: language,
       source_path: _ctx.state.pipeSource,
       output_dir: _ctx.state.pipeOutput || null,
+      file_pattern: filePattern,
+      min_syllable_length: minSyllableLength,
+      max_syllable_length: maxSyllableLength,
+      run_normalize: runNormalize,
+      run_annotate: runAnnotate,
     }),
   })
     .then(r => r.json())
@@ -389,7 +494,10 @@ function pollPipelineStatus() {
           statusEl.style.color = 'var(--col-ok)';
           badge.textContent = 'Completed';
           badge.className = 'badge is-done';
-          _ctx.setStatus('Pipeline: run complete');
+          _ctx.setStatus(data.output_path
+            ? `Pipeline: run complete (${data.output_path})`
+            : 'Pipeline: run complete');
+          loadHistoryRuns({ forceNewest: true });
           /* Auto-refresh corpus dropdowns so the new run appears immediately. */
           _ctx.populateCorpusDropdowns();
         } else if (data.status === 'failed') {
@@ -426,6 +534,10 @@ function updateStageIndicators(currentStage) {
   order.forEach((s, i) => {
     const ind = document.getElementById(`stage-ind-${s}`);
     if (!ind) return;
+    if (!_activePipelineStages.includes(s)) {
+      ind.className = 'stage-indicator';
+      return;
+    }
     if (i < idx) ind.className = 'stage-indicator is-done';
     else if (i === idx) ind.className = 'stage-indicator is-running';
     /* leave future stages unchanged */
@@ -434,7 +546,10 @@ function updateStageIndicators(currentStage) {
   if (currentStage === 'complete') {
     order.forEach(s => {
       const ind = document.getElementById(`stage-ind-${s}`);
-      if (ind) ind.className = 'stage-indicator is-done';
+      if (!ind) return;
+      ind.className = _activePipelineStages.includes(s)
+        ? 'stage-indicator is-done'
+        : 'stage-indicator';
     });
   }
 }
@@ -461,38 +576,54 @@ function cancelPipelineRun() {
  * @returns {void}
  */
 function initHistorySelection() {
-  loadHistoryRuns();
+  window.addEventListener('pw:screen-changed', ev => {
+    if (ev?.detail?.screenId === 'pipeline-history') {
+      loadHistoryRuns();
+    }
+  });
+  loadHistoryRuns({ forceNewest: true });
 }
 
 /**
  * Fetch and render discovered pipeline runs in the history panel.
  *
+ * @param {{forceNewest?: boolean}=} opts - Optional refresh behavior.
  * @returns {void}
  */
-function loadHistoryRuns() {
+function loadHistoryRuns(opts = {}) {
   const container = document.getElementById('history-runs');
   if (!container) return;
+  const forceNewest = !!opts.forceNewest;
+  const requestSeq = ++_historyRequestSeq;
+  const preferredRunId = forceNewest ? null : _selectedHistoryRunId;
 
   fetch('/api/pipeline/runs')
     .then(r => r.json())
     .then(data => {
+      if (requestSeq !== _historyRequestSeq) return;
       _historyRuns = data.runs || [];
       container.innerHTML = '';
 
       if (_historyRuns.length === 0) {
+        _selectedHistoryRunId = null;
         container.innerHTML = '<p class="placeholder-text">No pipeline runs found.</p>';
+        clearHistoryDetail();
         return;
       }
 
+      let selectedRun = null;
       _historyRuns.forEach((run, idx) => {
         const ts = run.timestamp || '';
         const dateStr = ts.length >= 13
           ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}`
           : ts;
+        const runId = run.path.split('/').pop();
+        const isSelected = preferredRunId ? runId === preferredRunId : idx === 0;
+        if (isSelected && !selectedRun) selectedRun = run;
 
         const row = document.createElement('div');
-        row.className = 'history-run' + (idx === 0 ? ' is-selected' : '');
-        row.dataset.runId = run.path.split('/').pop();
+        row.className = 'history-run' + (isSelected ? ' is-selected' : '');
+        row.dataset.runId = runId;
         row.innerHTML = [
           `<span class="history-run__date u-muted">${dateStr}</span>`,
           `<span class="history-run__name u-accent">${run.extractor_type}</span>`,
@@ -502,20 +633,47 @@ function loadHistoryRuns() {
         row.addEventListener('click', () => {
           container.querySelectorAll('.history-run').forEach(r => r.classList.remove('is-selected'));
           row.classList.add('is-selected');
+          _selectedHistoryRunId = runId;
           populateHistoryDetail(run);
         });
 
         container.appendChild(row);
       });
 
-      /* Auto-select first run */
-      if (_historyRuns.length > 0) {
-        populateHistoryDetail(_historyRuns[0]);
+      if (!selectedRun) {
+        selectedRun = _historyRuns[0];
+      }
+      if (selectedRun) {
+        _selectedHistoryRunId = selectedRun.path.split('/').pop();
+        populateHistoryDetail(selectedRun);
       }
     })
     .catch(() => {
+      if (requestSeq !== _historyRequestSeq) return;
       container.innerHTML = '<p class="placeholder-text">Failed to load runs.</p>';
     });
+}
+
+/**
+ * Reset History detail panel to placeholder values.
+ *
+ * @returns {void}
+ */
+function clearHistoryDetail() {
+  document.getElementById('history-detail-name').textContent = '—';
+  document.getElementById('hd-status').textContent = '—';
+  document.getElementById('hd-started').textContent = '—';
+  document.getElementById('hd-duration').textContent = '—';
+  document.getElementById('hd-extractor').textContent = '—';
+  document.getElementById('hd-source').textContent = '—';
+  document.getElementById('hd-source').removeAttribute('title');
+  document.getElementById('hd-files').textContent = '—';
+  document.getElementById('hd-output').textContent = '—';
+  document.getElementById('hd-syllables').textContent = '—';
+  const treeEl = document.getElementById('history-output-tree');
+  if (treeEl) {
+    treeEl.innerHTML = '<span class="placeholder-text">(Select a run to view details)</span>';
+  }
 }
 
 /**
@@ -536,32 +694,60 @@ function populateHistoryDetail(run) {
   document.getElementById('history-detail-name').textContent = dirName;
   document.getElementById('hd-status').textContent = 'completed';
   document.getElementById('hd-started').textContent = dateStr;
-  document.getElementById('hd-duration').textContent = '—';
+  document.getElementById('hd-duration').textContent = run.processing_time || 'n/a';
   document.getElementById('hd-extractor').textContent = run.extractor_type;
-  document.getElementById('hd-source').textContent = '—';
-  document.getElementById('hd-files').textContent = '—';
+  const sourceEl = document.getElementById('hd-source');
+  if (run.source_path) {
+    const sourceBits = run.source_path.split('/');
+    sourceEl.textContent = sourceBits[sourceBits.length - 1] || run.source_path;
+    sourceEl.title = run.source_path;
+  } else {
+    sourceEl.textContent = 'n/a';
+    sourceEl.removeAttribute('title');
+  }
+  if (typeof run.files_processed === 'number') {
+    document.getElementById('hd-files').textContent =
+      `${run.files_processed.toLocaleString()} ${run.files_processed === 1 ? 'file' : 'files'}`;
+  } else {
+    document.getElementById('hd-files').textContent = 'n/a';
+  }
   document.getElementById('hd-output').textContent = run.path;
   document.getElementById('hd-syllables').textContent = `${run.syllable_count.toLocaleString()} unique`;
 
   /* Stage indicators — all discovered runs completed all stages */
   const stageEls = document.querySelectorAll('.history-stages .stage-indicator');
-  const stageNames = ['Extract', 'Normalize', 'Annotate'];
+  const hasDatabase = !!run.corpus_db_path;
+  const stageNames = ['Extract', 'Normalize', 'Annotate', 'Database'];
   stageEls.forEach((el, i) => {
-    el.className = 'stage-indicator is-done';
+    const done = i < 3 || (i === 3 && hasDatabase);
+    el.className = done ? 'stage-indicator is-done' : 'stage-indicator';
     el.querySelector('.stage-indicator__label').textContent = stageNames[i];
   });
 
   /* Output tree */
   const treeEl = document.getElementById('history-output-tree');
   if (treeEl) {
-    const selCount = run.selection_count || 0;
-    const selLine = selCount > 0 ? `\n├── selections/           ${selCount} name classes` : '';
-    treeEl.textContent = [
-      `${dirName}/`,
-      `├── data/`,
-      `│   ├── corpus.db         ${run.syllable_count.toLocaleString()} syllables`,
-      `│   └── *_annotated.json  annotated data`,
-      selLine,
-    ].filter(Boolean).join('\n');
+    if (Array.isArray(run.output_tree_lines) && run.output_tree_lines.length > 0) {
+      treeEl.textContent = run.output_tree_lines.join('\n');
+    } else {
+      const dbLine = run.corpus_db_path
+        ? `│   ├── corpus.db         ${run.syllable_count.toLocaleString()} syllables`
+        : `│   ├── corpus.db         (not present)`;
+      const annotatedName = run.annotated_json_path
+        ? run.annotated_json_path.split('/').pop()
+        : '*_annotated.json';
+      const annotatedLine = run.annotated_json_path
+        ? `│   └── ${annotatedName}  annotated data`
+        : `│   └── ${annotatedName}  (not present)`;
+      const selCount = run.selection_count || 0;
+      const selLine = selCount > 0 ? `\n├── selections/           ${selCount} name classes` : '';
+      treeEl.textContent = [
+        `${dirName}/`,
+        `├── data/`,
+        dbLine,
+        annotatedLine,
+        selLine,
+      ].filter(Boolean).join('\n');
+    }
   }
 }
