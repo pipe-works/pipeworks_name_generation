@@ -130,6 +130,10 @@ exclude = ["tests*", "docs*", "examples*", "data*", "scripts*", "*__pycache__*"]
     "static/fonts/*.woff2",
     "static/fonts/*.txt",
 ]
+# Include walker IPC/cache schemas required by build_tools.syllable_walk_web.
+"build_tools.syllable_walk_web" = [
+    "schemas/*.json",
+]
 
 [tool.mypy]
 python_version = "3.12"

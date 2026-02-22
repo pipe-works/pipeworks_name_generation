@@ -380,6 +380,32 @@ class TestWalkGenerator:
         assert kwargs["min_length"] == 1
         assert kwargs["max_length"] == 5
 
+    def test_walk_allows_disabled_optional_constraints(self, mock_walker):
+        """None neighbor/min/max values are treated as disabled constraints."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        mock_walk = MagicMock(
+            return_value=[
+                {"syllable": "ka", "distance": 0},
+                {"syllable": "ri", "distance": 1},
+            ]
+        )
+        mock_walker.walk = mock_walk
+
+        generate_walks(
+            mock_walker,
+            count=1,
+            profile="custom",
+            neighbor_limit=None,
+            min_length=None,
+            max_length=None,
+        )
+
+        _, kwargs = mock_walk.call_args
+        assert kwargs["neighbor_limit"] is None
+        assert kwargs["min_length"] is None
+        assert kwargs["max_length"] is None
+
     def test_invalid_length_constraints_raise_value_error(self, mock_walker):
         """min_length > max_length is rejected before walk execution."""
         from build_tools.syllable_walk_web.services.walk_generator import generate_walks

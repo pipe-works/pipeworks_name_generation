@@ -33,11 +33,65 @@ export function initControls(ctx) {
   _ctx = ctx;
   initSpinners();
   initSliders();
+  initWalkConstraintToggles();
   initProfiles();
   initCombinerProfiles();
   initLangOptions();
   initRadioOptions();
   initSeedButtons();
+}
+
+/**
+ * Apply one on/off toggle state to one spinner-backed constraint input.
+ *
+ * @param {string} toggleId - Checkbox id that controls the constraint.
+ * @param {string} inputId - Numeric input id to enable/disable.
+ * @returns {void}
+ */
+function syncConstraintToggle(toggleId, inputId) {
+  const toggle = document.getElementById(toggleId);
+  const input = document.getElementById(inputId);
+  if (!toggle || !input) return;
+
+  const enabled = !!toggle.checked;
+  input.disabled = !enabled;
+
+  /* Disable plus/minus controls for this spinner target when constraint is off. */
+  document.querySelectorAll(`.spinner-btn[data-target="${inputId}"]`).forEach(btn => {
+    btn.disabled = !enabled;
+  });
+
+  const control = input.closest('.spinner-control');
+  if (control) control.classList.toggle('is-disabled', !enabled);
+
+  const toggleText = toggle.closest('.constraint-toggle')?.querySelector('.toggle-text');
+  if (toggleText) toggleText.textContent = enabled ? 'on' : 'off';
+}
+
+/**
+ * Wire walk constraint toggles for min/max length and neighbor cap.
+ *
+ * Disabled state means the corresponding API field is sent as ``null``
+ * by the walk operation handler (no runtime constraint).
+ *
+ * @returns {void}
+ */
+function initWalkConstraintToggles() {
+  const mappings = [
+    ['toggle-min-length-a', 'min-length-a'],
+    ['toggle-max-length-a', 'max-length-a'],
+    ['toggle-neighbors-a', 'neighbors-a'],
+    ['toggle-min-length-b', 'min-length-b'],
+    ['toggle-max-length-b', 'max-length-b'],
+    ['toggle-neighbors-b', 'neighbors-b'],
+  ];
+
+  mappings.forEach(([toggleId, inputId]) => {
+    const toggle = document.getElementById(toggleId);
+    if (!toggle) return;
+    toggle.addEventListener('change', () => syncConstraintToggle(toggleId, inputId));
+    syncConstraintToggle(toggleId, inputId);
+  });
 }
 
 /**

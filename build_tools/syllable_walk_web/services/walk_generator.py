@@ -18,9 +18,9 @@ def generate_walks(
     max_flips: int = 2,
     temperature: float = 0.7,
     frequency_weight: float = 0.0,
-    neighbor_limit: int = 10,
-    min_length: int = 2,
-    max_length: int = 5,
+    neighbor_limit: int | None = 10,
+    min_length: int | None = 2,
+    max_length: int | None = 5,
     seed: int | None = None,
 ) -> list[dict[str, Any]]:
     """Generate walks using the SyllableWalker.
@@ -36,9 +36,9 @@ def generate_walks(
         max_flips: Maximum feature flips per step.
         temperature: Exploration temperature (0.1–5.0).
         frequency_weight: Frequency bias (-2.0 to 2.0).
-        neighbor_limit: Max neighbors to consider per step.
-        min_length: Minimum syllable length filter.
-        max_length: Maximum syllable length filter.
+        neighbor_limit: Max neighbors to consider per step; ``None`` disables cap.
+        min_length: Minimum syllable length filter; ``None`` disables bound.
+        max_length: Maximum syllable length filter; ``None`` disables bound.
         seed: Optional seed for determinism.
 
     Returns:
@@ -48,13 +48,13 @@ def generate_walks(
     Raises:
         ValueError: If requested constraints are invalid.
     """
-    if neighbor_limit < 1:
+    if neighbor_limit is not None and neighbor_limit < 1:
         raise ValueError(f"neighbor_limit must be >= 1, got {neighbor_limit}")
-    if min_length < 1:
+    if min_length is not None and min_length < 1:
         raise ValueError(f"min_length must be >= 1, got {min_length}")
-    if max_length < 1:
+    if max_length is not None and max_length < 1:
         raise ValueError(f"max_length must be >= 1, got {max_length}")
-    if min_length > max_length:
+    if min_length is not None and max_length is not None and min_length > max_length:
         raise ValueError(f"min_length ({min_length}) must be <= max_length ({max_length})")
 
     results = []

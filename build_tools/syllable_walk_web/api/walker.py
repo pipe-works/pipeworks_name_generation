@@ -8,9 +8,12 @@ and walker state queries.
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import Any
 
 from build_tools.syllable_walk_web.state import PatchState, ServerState
+
+_MISSING = object()
 
 
 def _resolve_patch_state(
@@ -36,6 +39,30 @@ def _resolve_patch_state(
 
     patch = state.patch_a if patch_key == "a" else state.patch_b
     return patch_key, patch
+
+
+def _coerce_optional_constraint_int(
+    body: dict[str, Any],
+    field_name: str,
+    *,
+    default: int,
+) -> tuple[int | None, str | None]:
+    """Coerce one optional constraint field from request payload.
+
+    Semantics:
+    - Field missing: use provided default for backward compatibility.
+    - Field set to null: disable the constraint (returns ``None``).
+    - Field set to value: coerce to integer.
+    """
+    raw = body.get(field_name, _MISSING)
+    if raw is _MISSING:
+        return default, None
+    if raw is None:
+        return None, None
+    try:
+        return int(raw), None
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be an integer or null."
 
 
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
@@ -86,12 +113,14 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     except Exception as e:
         return {"error": f"Failed to load corpus: {e}"}
 
+    run_dir = run.path if isinstance(run.path, Path) else Path(str(run.path))
+
     # Reset ALL patch fields when a new corpus is loaded.  This prevents
     # stale state from a previous run leaking through (e.g. old candidates
     # or selections generated from a different corpus).
     patch.run_id = run_id
     patch.corpus_type = run.extractor_type
-    patch.corpus_dir = run.path
+    patch.corpus_dir = run_dir
     patch.syllable_count = len(syllables)
     patch.annotated_data = syllables
     patch.walker_ready = False
@@ -104,6 +133,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     patch.selections_path = None
     patch.selected_names = []
     patch.loading_error = None
+    patch.reach_cache_status = None
     # Advance generation and mark this request as the only authoritative
     # loader. Older background threads are treated as stale and their
     # writes are ignored.
@@ -150,19 +180,42 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             if not _is_current_generation():
                 return
 
-            # Compute profile reaches (deterministic, typically <1s).
-            # This runs BEFORE setting walker_ready so that when the
-            # UI poller sees walker_ready=True, reaches are guaranteed
-            # to be available in the same stats response. Without this
-            # ordering, the poller could see walker_ready=True, stop
-            # polling, and miss the reaches entirely.
             from build_tools.syllable_walk.reach import compute_all_reaches
-
-            patch.loading_stage = "Computing profile reaches"
-            profile_reaches = compute_all_reaches(
-                walker,
-                progress_callback=_on_progress,
+            from build_tools.syllable_walk_web.services.profile_reaches_cache import (
+                load_cached_profile_reaches,
+                write_cached_profile_reaches,
             )
+
+            patch.loading_stage = "Loading cached profile reaches"
+            cache_result = load_cached_profile_reaches(
+                run_dir=run_dir,
+                run_id=run_id,
+                walker=walker,
+            )
+
+            if cache_result.status == "hit" and cache_result.profile_reaches is not None:
+                profile_reaches = cache_result.profile_reaches
+                patch.reach_cache_status = "hit"
+            else:
+                patch.reach_cache_status = cache_result.status
+                # Compute profile reaches (deterministic, typically <1s).
+                # This runs BEFORE setting walker_ready so that when the
+                # UI poller sees walker_ready=True, reaches are guaranteed
+                # to be available in the same stats response. Without this
+                # ordering, the poller could see walker_ready=True, stop
+                # polling, and miss the reaches entirely.
+                patch.loading_stage = "Computing profile reaches"
+                profile_reaches = compute_all_reaches(
+                    walker,
+                    progress_callback=_on_progress,
+                )
+                if _is_current_generation():
+                    write_cached_profile_reaches(
+                        run_dir=run_dir,
+                        run_id=run_id,
+                        walker=walker,
+                        profile_reaches=profile_reaches,
+                    )
 
             if not _is_current_generation():
                 return
@@ -186,6 +239,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
                 patch.loading_stage = None
                 patch.walker_ready = False
                 patch.active_load_generation = None
+                patch.reach_cache_status = "error"
                 error_message = str(exc).strip() or "Unknown walker initialisation error"
                 patch.loading_error = f"Walker initialisation failed: {error_message}"
 
@@ -226,13 +280,24 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
         count = int(body.get("count", 2))
         steps = int(body.get("steps", 5))
         max_flips = int(body.get("max_flips", 2))
-        neighbor_limit = int(body.get("neighbor_limit", 10))
-        min_length = int(body.get("min_length", 2))
-        max_length = int(body.get("max_length", 5))
         temperature = float(body.get("temperature", 0.7))
         frequency_weight = float(body.get("frequency_weight", 0.0))
     except (TypeError, ValueError):
         return {"error": "Invalid walk parameters: expected numeric values."}
+
+    neighbor_limit, neighbor_err = _coerce_optional_constraint_int(
+        body, "neighbor_limit", default=10
+    )
+    if neighbor_err:
+        return {"error": neighbor_err}
+
+    min_length, min_err = _coerce_optional_constraint_int(body, "min_length", default=2)
+    if min_err:
+        return {"error": min_err}
+
+    max_length, max_err = _coerce_optional_constraint_int(body, "max_length", default=5)
+    if max_err:
+        return {"error": max_err}
 
     seed_raw = body.get("seed")
     try:
@@ -246,13 +311,13 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
         return {"error": "steps must be >= 0."}
     if max_flips < 1:
         return {"error": "max_flips must be >= 1."}
-    if neighbor_limit < 1:
+    if neighbor_limit is not None and neighbor_limit < 1:
         return {"error": "neighbor_limit must be >= 1."}
-    if min_length < 1:
+    if min_length is not None and min_length < 1:
         return {"error": "min_length must be >= 1."}
-    if max_length < 1:
+    if max_length is not None and max_length < 1:
         return {"error": "max_length must be >= 1."}
-    if min_length > max_length:
+    if min_length is not None and max_length is not None and min_length > max_length:
         return {"error": "min_length must be <= max_length."}
     if temperature <= 0:
         return {"error": "temperature must be > 0."}
@@ -317,6 +382,7 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
             "loading_stage": patch.loading_stage,
             "loading_error": patch.loading_error,
             "loader_status": loader_status,
+            "reach_cache_status": patch.reach_cache_status,
             "has_walks": len(patch.walks) > 0,
             "has_candidates": patch.candidates is not None,
             "has_selections": len(patch.selected_names) > 0,
