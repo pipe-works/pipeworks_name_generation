@@ -33,6 +33,9 @@ class PatchState:
     # Terminal loader error for the current generation, if any.
     # Cleared at the start of each new load request.
     loading_error: str | None = None
+    # Profile reach cache outcome for the currently loaded run.
+    # Values: hit|miss|invalid|error|none (or None before first attempt).
+    reach_cache_status: str | None = None
     profile_reaches: dict[str, Any] | None = None  # ReachResult per profile
     annotated_data: list[dict] | None = None
     frequencies: dict[str, int] | None = None

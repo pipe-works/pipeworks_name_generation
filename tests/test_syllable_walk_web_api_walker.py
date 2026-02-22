@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from build_tools.syllable_walk.reach import ReachResult
 from build_tools.syllable_walk_web.api.walker import (
     handle_analysis,
     handle_combine,
@@ -26,6 +27,7 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_stats,
     handle_walk,
 )
+from build_tools.syllable_walk_web.services.profile_reaches_cache import CacheReadResult
 from build_tools.syllable_walk_web.state import ServerState
 
 # ============================================================
@@ -547,6 +549,139 @@ class TestHandleLoadCorpus:
         assert state.patch_a.profile_reaches is None
         assert state.patch_a.walker_ready is False
 
+    def test_load_uses_profile_reach_cache_when_available(self, state):
+        """Cache hit should skip compute_all_reaches and publish cached values."""
+
+        run = MagicMock()
+        run.corpus_db_path = None
+        run.annotated_json_path = None
+        run.extractor_type = "pyphen"
+        run.path = "/test/path"
+
+        cached_reaches = {
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=7,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=4.2,
+                unique_reachable=12,
+                reachable_indices=((0, 4),),
+            ),
+        }
+
+        class _ThreadInline:
+            def __init__(self, target, daemon):
+                self._target = target
+                self._daemon = daemon
+
+            def start(self):
+                self._target()
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+                return_value=run,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.corpus_loader.load_corpus",
+                return_value=([{"syllable": "ka", "frequency": 10}], "test"),
+            ),
+            patch("build_tools.syllable_walk_web.api.walker.threading.Thread", _ThreadInline),
+            patch(
+                "build_tools.syllable_walk.walker.SyllableWalker.from_data",
+                return_value="walker-a",
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.load_cached_profile_reaches",
+                return_value=CacheReadResult(status="hit", profile_reaches=cached_reaches),
+            ) as mock_cache_load,
+            patch("build_tools.syllable_walk.reach.compute_all_reaches") as mock_compute_reaches,
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=True,
+            ) as mock_cache_write,
+        ):
+            handle_load_corpus({"patch": "a", "run_id": "run_1"}, state)
+
+        mock_cache_load.assert_called_once()
+        mock_compute_reaches.assert_not_called()
+        mock_cache_write.assert_not_called()
+        assert state.patch_a.walker == "walker-a"
+        assert state.patch_a.profile_reaches == cached_reaches
+        assert state.patch_a.reach_cache_status == "hit"
+        assert state.patch_a.walker_ready is True
+
+    def test_load_computes_and_writes_cache_when_missing(self, state):
+        """Cache miss should compute reaches and persist a new cache artifact."""
+
+        run = MagicMock()
+        run.corpus_db_path = None
+        run.annotated_json_path = None
+        run.extractor_type = "pyphen"
+        run.path = "/test/path"
+
+        computed_reaches = {
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=8,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=4.2,
+                unique_reachable=14,
+                reachable_indices=((0, 5),),
+            ),
+        }
+
+        class _ThreadInline:
+            def __init__(self, target, daemon):
+                self._target = target
+                self._daemon = daemon
+
+            def start(self):
+                self._target()
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.run_discovery.get_run_by_id",
+                return_value=run,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.corpus_loader.load_corpus",
+                return_value=([{"syllable": "ka", "frequency": 10}], "test"),
+            ),
+            patch("build_tools.syllable_walk_web.api.walker.threading.Thread", _ThreadInline),
+            patch(
+                "build_tools.syllable_walk.walker.SyllableWalker.from_data",
+                return_value="walker-a",
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.load_cached_profile_reaches",
+                return_value=CacheReadResult(status="miss"),
+            ),
+            patch(
+                "build_tools.syllable_walk.reach.compute_all_reaches",
+                return_value=computed_reaches,
+            ) as mock_compute_reaches,
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=True,
+            ) as mock_cache_write,
+        ):
+            handle_load_corpus({"patch": "a", "run_id": "run_1"}, state)
+
+        mock_compute_reaches.assert_called_once()
+        mock_cache_write.assert_called_once()
+        assert state.patch_a.profile_reaches == computed_reaches
+        assert state.patch_a.reach_cache_status == "miss"
+        assert state.patch_a.walker_ready is True
+
 
 # ============================================================
 # handle_walk
@@ -712,6 +847,7 @@ class TestHandleStats:
         assert result["patch_a"]["walker_ready"] is False
         assert result["patch_a"]["loader_status"] == "idle"
         assert result["patch_a"]["loading_error"] is None
+        assert result["patch_a"]["reach_cache_status"] is None
 
     def test_loaded_state(self, loaded_state):
         """Test stats reflect loaded corpus."""
@@ -721,6 +857,16 @@ class TestHandleStats:
         assert result["patch_a"]["syllable_count"] == 2
         assert result["patch_a"]["loader_status"] == "ready"
         assert result["patch_a"]["loading_error"] is None
+        assert result["patch_a"]["reach_cache_status"] is None
+
+    def test_stats_include_reach_cache_status(self, state):
+        """Stats payload should expose cache read status for UI diagnostics."""
+
+        state.patch_a.run_id = "run_cache"
+        state.patch_a.reach_cache_status = "hit"
+
+        result = handle_stats(state)
+        assert result["patch_a"]["reach_cache_status"] == "hit"
 
     def test_stats_loading_and_error_states(self, state):
         """Stats surface loading and error states for UI polling logic."""

@@ -8,6 +8,7 @@ and walker state queries.
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import Any
 
 from build_tools.syllable_walk_web.state import PatchState, ServerState
@@ -112,12 +113,14 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     except Exception as e:
         return {"error": f"Failed to load corpus: {e}"}
 
+    run_dir = run.path if isinstance(run.path, Path) else Path(str(run.path))
+
     # Reset ALL patch fields when a new corpus is loaded.  This prevents
     # stale state from a previous run leaking through (e.g. old candidates
     # or selections generated from a different corpus).
     patch.run_id = run_id
     patch.corpus_type = run.extractor_type
-    patch.corpus_dir = run.path
+    patch.corpus_dir = run_dir
     patch.syllable_count = len(syllables)
     patch.annotated_data = syllables
     patch.walker_ready = False
@@ -130,6 +133,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     patch.selections_path = None
     patch.selected_names = []
     patch.loading_error = None
+    patch.reach_cache_status = None
     # Advance generation and mark this request as the only authoritative
     # loader. Older background threads are treated as stale and their
     # writes are ignored.
@@ -176,19 +180,42 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             if not _is_current_generation():
                 return
 
-            # Compute profile reaches (deterministic, typically <1s).
-            # This runs BEFORE setting walker_ready so that when the
-            # UI poller sees walker_ready=True, reaches are guaranteed
-            # to be available in the same stats response. Without this
-            # ordering, the poller could see walker_ready=True, stop
-            # polling, and miss the reaches entirely.
             from build_tools.syllable_walk.reach import compute_all_reaches
-
-            patch.loading_stage = "Computing profile reaches"
-            profile_reaches = compute_all_reaches(
-                walker,
-                progress_callback=_on_progress,
+            from build_tools.syllable_walk_web.services.profile_reaches_cache import (
+                load_cached_profile_reaches,
+                write_cached_profile_reaches,
             )
+
+            patch.loading_stage = "Loading cached profile reaches"
+            cache_result = load_cached_profile_reaches(
+                run_dir=run_dir,
+                run_id=run_id,
+                walker=walker,
+            )
+
+            if cache_result.status == "hit" and cache_result.profile_reaches is not None:
+                profile_reaches = cache_result.profile_reaches
+                patch.reach_cache_status = "hit"
+            else:
+                patch.reach_cache_status = cache_result.status
+                # Compute profile reaches (deterministic, typically <1s).
+                # This runs BEFORE setting walker_ready so that when the
+                # UI poller sees walker_ready=True, reaches are guaranteed
+                # to be available in the same stats response. Without this
+                # ordering, the poller could see walker_ready=True, stop
+                # polling, and miss the reaches entirely.
+                patch.loading_stage = "Computing profile reaches"
+                profile_reaches = compute_all_reaches(
+                    walker,
+                    progress_callback=_on_progress,
+                )
+                if _is_current_generation():
+                    write_cached_profile_reaches(
+                        run_dir=run_dir,
+                        run_id=run_id,
+                        walker=walker,
+                        profile_reaches=profile_reaches,
+                    )
 
             if not _is_current_generation():
                 return
@@ -212,6 +239,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
                 patch.loading_stage = None
                 patch.walker_ready = False
                 patch.active_load_generation = None
+                patch.reach_cache_status = "error"
                 error_message = str(exc).strip() or "Unknown walker initialisation error"
                 patch.loading_error = f"Walker initialisation failed: {error_message}"
 
@@ -354,6 +382,7 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
             "loading_stage": patch.loading_stage,
             "loading_error": patch.loading_error,
             "loader_status": loader_status,
+            "reach_cache_status": patch.reach_cache_status,
             "has_walks": len(patch.walks) > 0,
             "has_candidates": patch.candidates is not None,
             "has_selections": len(patch.selected_names) > 0,

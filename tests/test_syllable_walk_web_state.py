@@ -31,6 +31,7 @@ class TestPatchState:
         assert ps.syllable_count == 0
         assert ps.walker is None
         assert ps.walker_ready is False
+        assert ps.reach_cache_status is None
         assert ps.annotated_data is None
         assert ps.frequencies is None
         assert ps.walks == []
