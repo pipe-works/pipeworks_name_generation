@@ -191,6 +191,26 @@ class TestHandleStart:
         assert "max_syllable_length" in result["error"]
         mock_start.assert_not_called()
 
+    def test_error_when_min_is_less_than_one(self, state, tmp_path):
+        """Test returns error when min_syllable_length is below 1."""
+        source = tmp_path / "corpus"
+        source.mkdir()
+
+        with patch(
+            "build_tools.syllable_walk_web.services.pipeline_runner.start_pipeline"
+        ) as mock_start:
+            result = handle_start(
+                {
+                    "source_path": str(source),
+                    "min_syllable_length": 0,
+                },
+                state,
+            )
+
+        assert "error" in result
+        assert "min_syllable_length must be >= 1" == result["error"]
+        mock_start.assert_not_called()
+
     def test_coerces_string_lengths(self, state, tmp_path):
         """Test numeric string lengths are coerced before forwarding."""
         source = tmp_path / "corpus"
