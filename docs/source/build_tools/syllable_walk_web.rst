@@ -218,6 +218,13 @@ The stats payload also includes ``reach_cache_status`` per patch
 (``hit`` | ``miss`` | ``invalid`` | ``error`` | ``none``) to make cache
 behavior explicit in diagnostics.
 
+Important readiness guarantees:
+
+- Reach precomputation completes before ``walker_ready`` is set ``true``.
+- ``loader_status`` and ``loading_error`` expose terminal failure states explicitly.
+- Load concurrency is guarded by per-patch generation tokens, so stale background
+  threads cannot overwrite newer corpus loads.
+
 Candidate Generation Modes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -242,6 +249,82 @@ Patch B. Each patch maintains its own:
 
 This enables side-by-side comparison of different extractors, languages,
 or source texts.
+
+API Authority
+~~~~~~~~~~~~~
+
+The web frontend is presentation and UX only. The API is the behavioral
+authority for validation and execution semantics.
+
+- Frontend checks (for example ``min_length <= max_length``) are UX helpers.
+- API handlers enforce the same constraints for all clients (UI and non-UI).
+- Requests that fail contract validation return JSON ``{"error": ...}`` with HTTP 400.
+
+Examples of API-authoritative behavior:
+
+- ``POST /api/walker/walk`` validates numeric constraints including
+  ``neighbor_limit``, ``min_length``, and ``max_length``.
+- ``POST /api/pipeline/start`` validates ``min_syllable_length`` /
+  ``max_syllable_length`` ranges server-side.
+- ``GET /api/walker/name-classes`` is the source of truth for selector
+  class options (UI options are populated from this endpoint).
+
+Walker State Model
+~~~~~~~~~~~~~~~~~~
+
+``GET /api/walker/stats`` returns independent status for ``patch_a`` and ``patch_b``.
+Each patch reports ``loader_status`` plus readiness/error metadata.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - ``loader_status``
+     - Meaning
+   * - ``idle``
+     - No active load thread. Patch may be empty, or may have prior corpus metadata
+       without a currently running initialization.
+   * - ``loading``
+     - Corpus load generation is in progress. ``loading_stage`` reports the current phase
+       (for example ``"Building neighbour graph"``).
+   * - ``ready``
+     - Walker and pre-computed reaches are available; ``walker_ready=true``.
+   * - ``error``
+     - Current load generation failed. ``loading_error`` contains terminal error text.
+
+Response fields per patch include:
+
+- ``corpus`` (active ``run_id``)
+- ``corpus_type`` (``nltk`` or ``pyphen``)
+- ``syllable_count``
+- ``walker_ready``, ``loading_stage``, ``loading_error``, ``loader_status``
+- ``has_walks``, ``has_candidates``, ``has_selections``
+- ``reaches`` (when available; includes reach count and computation timing)
+
+Patch Isolation and Race Safety
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Patch A and Patch B are fully isolated in server state.
+
+- Loading a corpus resets only the target patch state.
+- Walks/candidates/selections from one patch never overwrite the other patch.
+- Loader concurrency is generation-token guarded:
+
+  - each ``load-corpus`` increments ``load_generation``;
+  - background init writes are applied only if generation is still current;
+  - stale loader threads exit without mutating patch state.
+
+This prevents rapid corpus switches from producing stale overwrite races.
+
+Determinism and Seed Behavior
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Walk generation is deterministic for fixed request parameters and seed.
+- Batched walks use ``seed + i`` per walk to keep outputs deterministic while
+  still varying entries within one request.
+- Flat combiner and selector paths accept explicit seed values for deterministic
+  output ordering/sampling.
+- Without a seed, behavior remains valid but non-deterministic between runs.
 
 API Endpoints
 ~~~~~~~~~~~~~
@@ -270,7 +353,7 @@ API Endpoints
      - Browse a filesystem directory (for source/output selection)
    * - ``/api/walker/stats``
      - GET
-     - Get dual-patch state (loaded corpora, walker readiness, loader/cache status)
+     - Get dual-patch state (loaded corpora, loader/cache status, readiness, reach metadata)
    * - ``/api/walker/analysis/{patch}``
      - GET
      - Corpus shape metrics for a patch (terrain scores, distributions)
@@ -282,7 +365,7 @@ API Endpoints
      - Load a run's corpus into a patch (builds walker in background)
    * - ``/api/walker/walk``
      - POST
-     - Generate syllable walks (count, profile, seed)
+     - Generate syllable walks with validated constraints and optional seed
    * - ``/api/walker/combine``
      - POST
      - Generate candidates (flat mode or walk-based mode), returns deduplication stats
@@ -327,21 +410,71 @@ Key request bodies for current API routes:
        ``min_syllable_length``/``max_syllable_length`` (defaults ``2``/``8``),
        ``run_normalize``/``run_annotate`` (default ``true``/``true``)
    * - ``POST /api/walker/load-corpus``
-     - ``patch`` (``a``/``b``), ``run_id`` (required)
+     - ``patch`` (``a``/``b``), ``run_id`` (required non-empty string)
    * - ``POST /api/walker/walk``
      - ``patch``, ``count``, ``steps``, ``seed``, optional ``profile``.
-       In custom mode: ``max_flips``, ``temperature``, ``frequency_weight``
+       Custom constraints are always accepted: ``max_flips``, ``temperature``,
+       ``frequency_weight``, ``neighbor_limit``, ``min_length``, ``max_length``.
+       API validates ranges (for example ``min_length <= max_length``).
    * - ``POST /api/walker/combine``
      - ``patch``, ``count``, ``syllables`` (int or list), ``seed``.
        Flat mode: ``frequency_weight``.
        Walk mode: ``profile`` (named or ``custom``); custom supports
        ``max_flips``, ``temperature``, ``frequency_weight``
+   * - ``POST /api/walker/reach-syllables``
+     - ``patch`` and ``profile`` (must match one of the precomputed profile keys)
    * - ``POST /api/walker/select``
      - ``patch``, ``name_class``, ``count``, ``mode`` (``hard``/``soft``),
        ``order`` (``alphabetical``/``random``), ``seed``
    * - ``POST /api/walker/package``
      - ``name``, ``version``, include flags:
        ``include_walks_a``, ``include_walks_b``, ``include_candidates``, ``include_selections``
+
+Walker Endpoint Contract Details
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 42 30
+
+   * - Endpoint
+     - Contract and validation rules
+     - Success payload highlights
+   * - ``GET /api/walker/stats``
+     - No request body. Returns state for both patches, including ``loader_status`` and
+       optional ``reaches`` map when available.
+     - ``patch_a`` / ``patch_b`` objects with corpus, readiness, loading/error fields,
+       and ``has_*`` flags.
+   * - ``POST /api/walker/load-corpus``
+     - Requires ``patch in {"a","b"}`` and non-empty ``run_id``.
+       Errors for invalid patch, missing run, or corpus load failure.
+     - ``patch``, ``run_id``, ``corpus_type``, ``syllable_count``, ``source``,
+       ``status="loading"``.
+   * - ``POST /api/walker/walk``
+     - Requires ready walker for target patch. Validates numeric fields:
+       ``count >= 1``, ``steps >= 0``, ``max_flips >= 1``, ``neighbor_limit >= 1``,
+       ``min_length >= 1``, ``max_length >= 1``, ``min_length <= max_length``,
+       ``temperature > 0``, and integer-or-null seed.
+     - ``patch`` and ``walks`` (each walk includes ``formatted``, ``syllables``, ``steps``).
+   * - ``POST /api/walker/combine``
+     - Requires loaded corpus. ``profile`` controls mode:
+       absent/``flat`` uses flat combiner; named/custom profile uses walker path and
+       requires walker readiness.
+     - ``generated``, ``unique``, ``duplicates``, ``syllables``, ``source``.
+   * - ``POST /api/walker/reach-syllables``
+     - Requires precomputed reaches and valid ``profile`` key for target patch.
+       Errors if reach data or walker is not ready.
+     - ``profile``, ``reach``, ``total``, ``unique_reachable``, ``syllables`` list.
+   * - ``POST /api/walker/select``
+     - Requires existing candidates. Validates patch and delegates policy validation to
+       selector service (unknown name class returns error).
+     - ``name_class``, ``mode``, ``count``, ``requested``, ``names``.
+   * - ``POST /api/walker/export``
+     - Requires prior selection output for target patch.
+     - ``patch``, ``count``, ``names``.
+   * - ``POST /api/walker/package``
+     - Accepts package metadata and include flags. Builds ZIP from in-memory state.
+     - Binary ZIP response with attachment filename ``<name>-<version>.zip``.
 
 Pipeline Configure ↔ API Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -390,7 +523,8 @@ Monitor and History views consume pipeline API responses as follows:
      - ``current_stage`` + requested stage toggles from start payload
    * - History run list
      - ``GET /api/pipeline/runs``:
-       ``path``, ``timestamp``, ``extractor_type``, ``syllable_count``, ``status``
+       ``run_id``, ``path``, ``timestamp``, ``extractor_type``,
+       ``syllable_count``, ``status``
    * - History run detail metadata
      - ``source_path``, ``files_processed``, ``processing_time``,
        ``created_at_utc``, ``completed_at_utc`` (from ``manifest.json``)
@@ -402,6 +536,53 @@ Monitor and History views consume pipeline API responses as follows:
      - ``stage_statuses.extract|normalize|annotate|database``
    * - History IPC hash fields
      - ``ipc_input_hash``, ``ipc_output_hash`` (compact display + full tooltip)
+
+Walker Controls ↔ API Mapping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Walk, Combine, and Select controls map to Walker endpoints as follows.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 22 40
+
+   * - Walker control
+     - API field
+     - Runtime effect
+   * - Patch selector (A/B context)
+     - ``patch``
+     - Routes request to isolated patch state.
+   * - Walk count / steps
+     - ``count`` / ``steps``
+     - Sets number of generated walks and walk length.
+   * - Walk profile cards
+     - ``profile``
+     - Named profile uses tuned walker profile path;
+       ``custom`` uses explicit slider/spinner fields.
+   * - Walk max flips / temperature / frequency
+     - ``max_flips`` / ``temperature`` / ``frequency_weight``
+     - Controls walker transition behavior in custom mode.
+   * - Walk neighbors
+     - ``neighbor_limit``
+     - Limits candidate neighbors evaluated per step.
+   * - Walk min/max length
+     - ``min_length`` / ``max_length``
+     - Constrains syllable-length eligibility for starts/transitions.
+   * - Walk seed
+     - ``seed``
+     - Enables deterministic walk batches (internally offset per walk).
+   * - Combine profile cards
+     - ``profile`` on ``/api/walker/combine``
+     - Chooses flat combiner mode vs walk-based generation mode.
+   * - Combine count/syllables/seed
+     - ``count`` / ``syllables`` / ``seed``
+     - Controls candidate volume, name length classes, and deterministic sampling.
+   * - Selector class dropdown
+     - ``name_class`` on ``/api/walker/select``
+     - Applies selected policy from ``name_classes.yml``.
+   * - Selector mode/order/count/seed
+     - ``mode`` / ``order`` / ``count`` / ``seed``
+     - Controls strictness, output ordering, and deterministic random ordering.
 
 History Manifest Contract
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -472,6 +653,41 @@ verify those paths contain timestamped run directories with valid ``manifest.jso
    ls _working/output/
 
    # Or run the pipeline from the web UI's Pipeline tab
+
+**Walker Load Fails or Stalls:**
+
+Use ``GET /api/walker/stats`` as the source of truth:
+
+- If ``loader_status="loading"``, inspect ``loading_stage`` for current phase.
+- If ``loader_status="error"``, inspect ``loading_error`` and retry load.
+- ``walker_ready=true`` means walks/reaches are ready for that patch.
+
+Common causes:
+
+- Run directory missing required artifacts (manifest declares missing files)
+- Corrupt/unreadable SQLite/JSON artifacts
+- Incompatible or malformed run directory copied into output roots
+
+**Rapid Corpus Switching (Race-Safe Behavior):**
+
+Loading a new run while a previous load is in progress is supported.
+The server uses per-patch load generations and accepts writes only from the
+current generation. Older background loads are ignored, preventing stale state
+from overwriting the newly selected corpus.
+
+If you switch repeatedly:
+
+- trust the latest selected run in the UI;
+- use ``/api/walker/stats`` to confirm final ``corpus`` and ``loader_status``.
+
+**Name Class Dropdown Empty or Unexpected:**
+
+Selector classes come from ``GET /api/walker/name-classes``. If the dropdown
+is empty or stale:
+
+- verify API route availability and server health;
+- verify ``data/name_classes.yml`` exists and is valid YAML;
+- reload the page after fixing policy file issues.
 
 **Package Persistence Warnings:**
 

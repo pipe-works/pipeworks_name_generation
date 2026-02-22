@@ -45,6 +45,15 @@
   - Triggers: `pull_request` to `main`/`develop`, `push` to `main`/`develop`/`release-please--*`,
     plus `workflow_dispatch`/`workflow_call`.
   - If a PR shows "no checks", verify the base branch is `main`/`develop` and that Actions are enabled.
+- CI pace and branch scope:
+  - Default workflow is CI-gated and sequential: make one scoped change set,
+    run focused local tests/pre-commit, push once, then wait for CI completion
+    before starting the next code change.
+  - Do not stack unrelated features/fixes while CI is pending.
+  - Use one branch per concern; do not reuse a branch name for unrelated work items.
+  - If CI fails, fix that PR first instead of starting new implementation work.
+  - Exception: non-project scratch notes/examples in `_working/` can continue
+    while CI runs because they are not committed project code.
 
 ## Useful Paths
 
