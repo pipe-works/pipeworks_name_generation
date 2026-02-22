@@ -13,6 +13,31 @@ from typing import Any
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 
+def _resolve_patch_state(
+    body: dict[str, Any],
+    state: ServerState,
+) -> tuple[str, PatchState] | None:
+    """Resolve and validate ``patch`` from request body.
+
+    Args:
+        body: Request payload expected to include optional ``patch``.
+        state: Global server state containing patch A and B.
+
+    Returns:
+        Tuple of ``(patch_key, patch_state)`` when valid, else ``None``.
+    """
+    raw_patch = body.get("patch", "a")
+    if not isinstance(raw_patch, str):
+        return None
+
+    patch_key = raw_patch.lower()
+    if patch_key not in ("a", "b"):
+        return None
+
+    patch = state.patch_a if patch_key == "a" else state.patch_b
+    return patch_key, patch
+
+
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     """Handle POST /api/walker/load-corpus.
 
@@ -26,16 +51,14 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     Returns:
         Immediate response with syllable count and loading status.
     """
-    patch_key = body.get("patch", "a").lower()
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
     run_id = body.get("run_id")
 
     if not run_id:
         return {"error": "Missing run_id"}
-
-    if patch_key not in ("a", "b"):
-        return {"error": f"Invalid patch: {patch_key}"}
-
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
 
     # Discover the run from the patch's corpus directory (if configured),
     # falling back to the global output_base.
@@ -76,9 +99,17 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     patch.walker = None
     patch.profile_reaches = None
     patch.walks = []
+    patch.candidates = None
     patch.candidates_path = None
     patch.selections_path = None
     patch.selected_names = []
+    patch.loading_error = None
+    # Advance generation and mark this request as the only authoritative
+    # loader. Older background threads are treated as stale and their
+    # writes are ignored.
+    patch.load_generation += 1
+    load_generation = patch.load_generation
+    patch.active_load_generation = load_generation
 
     # Build a denormalised frequency lookup once here to avoid repeated
     # O(n) scans during later metrics / analysis operations.
@@ -94,13 +125,20 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     # The loading_stage field is updated at each phase boundary so the UI
     # poller can show progress to the user (e.g. "Building neighbour graph…").
     def _init_walker() -> None:
+        def _is_current_generation() -> bool:
+            return patch.active_load_generation == load_generation
+
         try:
             from build_tools.syllable_walk.walker import SyllableWalker
 
-            # Progress callback writes directly to patch.loading_stage.
-            # The UI poller reads this field every second via /api/walker/stats.
+            # Ignore progress updates from stale initialisation threads.
+            # The UI poller reads loading_stage via /api/walker/stats.
             def _on_progress(message: str) -> None:
-                patch.loading_stage = message
+                if _is_current_generation():
+                    patch.loading_stage = message
+
+            if not _is_current_generation():
+                return
 
             patch.loading_stage = "Building neighbour graph"
             walker = SyllableWalker.from_data(
@@ -108,7 +146,9 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
                 max_neighbor_distance=3,
                 progress_callback=_on_progress,
             )
-            patch.walker = walker
+
+            if not _is_current_generation():
+                return
 
             # Compute profile reaches (deterministic, typically <1s).
             # This runs BEFORE setting walker_ready so that when the
@@ -119,12 +159,20 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             from build_tools.syllable_walk.reach import compute_all_reaches
 
             patch.loading_stage = "Computing profile reaches"
-            patch.profile_reaches = compute_all_reaches(
+            profile_reaches = compute_all_reaches(
                 walker,
                 progress_callback=_on_progress,
             )
+
+            if not _is_current_generation():
+                return
+
+            patch.walker = walker
+            patch.profile_reaches = profile_reaches
             patch.loading_stage = None
             patch.walker_ready = True
+            patch.active_load_generation = None
+            patch.loading_error = None
 
             # TODO: Custom profile reach — on-demand computation
             # When "custom" is selected with manual slider parameters,
@@ -133,9 +181,13 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             # API call each time sliders change and would need
             # debouncing. For now, only the four named profiles have
             # pre-computed reach. Tracked for future implementation.
-        except Exception:
-            patch.loading_stage = None
-            patch.walker_ready = False
+        except Exception as exc:
+            if _is_current_generation():
+                patch.loading_stage = None
+                patch.walker_ready = False
+                patch.active_load_generation = None
+                error_message = str(exc).strip() or "Unknown walker initialisation error"
+                patch.loading_error = f"Walker initialisation failed: {error_message}"
 
     thread = threading.Thread(target=_init_walker, daemon=True)
     thread.start()
@@ -162,11 +214,48 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Walk results with formatted walks.
     """
-    patch_key = body.get("patch", "a").lower()
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
 
     if not patch.walker_ready or patch.walker is None:
         return {"error": f"Walker not ready for patch {patch_key.upper()}. Load a corpus first."}
+
+    try:
+        count = int(body.get("count", 2))
+        steps = int(body.get("steps", 5))
+        max_flips = int(body.get("max_flips", 2))
+        neighbor_limit = int(body.get("neighbor_limit", 10))
+        min_length = int(body.get("min_length", 2))
+        max_length = int(body.get("max_length", 5))
+        temperature = float(body.get("temperature", 0.7))
+        frequency_weight = float(body.get("frequency_weight", 0.0))
+    except (TypeError, ValueError):
+        return {"error": "Invalid walk parameters: expected numeric values."}
+
+    seed_raw = body.get("seed")
+    try:
+        seed = int(seed_raw) if seed_raw is not None else None
+    except (TypeError, ValueError):
+        return {"error": "Invalid seed: expected integer or null."}
+
+    if count < 1:
+        return {"error": "count must be >= 1."}
+    if steps < 0:
+        return {"error": "steps must be >= 0."}
+    if max_flips < 1:
+        return {"error": "max_flips must be >= 1."}
+    if neighbor_limit < 1:
+        return {"error": "neighbor_limit must be >= 1."}
+    if min_length < 1:
+        return {"error": "min_length must be >= 1."}
+    if max_length < 1:
+        return {"error": "max_length must be >= 1."}
+    if min_length > max_length:
+        return {"error": "min_length must be <= max_length."}
+    if temperature <= 0:
+        return {"error": "temperature must be > 0."}
 
     from build_tools.syllable_walk_web.services.walk_generator import generate_walks
 
@@ -174,15 +263,15 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
         walks = generate_walks(
             patch.walker,
             profile=body.get("profile"),
-            steps=body.get("steps", 5),
-            count=body.get("count", 2),
-            max_flips=body.get("max_flips", 2),
-            temperature=body.get("temperature", 0.7),
-            frequency_weight=body.get("frequency_weight", 0.0),
-            neighbor_limit=body.get("neighbor_limit", 10),
-            min_length=body.get("min_length", 2),
-            max_length=body.get("max_length", 5),
-            seed=body.get("seed"),
+            steps=steps,
+            count=count,
+            max_flips=max_flips,
+            temperature=temperature,
+            frequency_weight=frequency_weight,
+            neighbor_limit=neighbor_limit,
+            min_length=min_length,
+            max_length=max_length,
+            seed=seed,
         )
     except Exception as e:
         return {"error": f"Walk generation failed: {e}"}
@@ -209,12 +298,25 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
     """
 
     def _patch_info(patch: PatchState) -> dict[str, Any]:
+        if patch.loading_error:
+            loader_status = "error"
+        elif patch.walker_ready:
+            loader_status = "ready"
+        elif patch.active_load_generation is not None:
+            loader_status = "loading"
+        elif patch.run_id:
+            loader_status = "idle"
+        else:
+            loader_status = "idle"
+
         info: dict[str, Any] = {
             "corpus": patch.run_id,
             "corpus_type": patch.corpus_type,
             "syllable_count": patch.syllable_count,
             "walker_ready": patch.walker_ready,
             "loading_stage": patch.loading_stage,
+            "loading_error": patch.loading_error,
+            "loader_status": loader_status,
             "has_walks": len(patch.walks) > 0,
             "has_candidates": patch.candidates is not None,
             "has_selections": len(patch.selected_names) > 0,
@@ -254,8 +356,10 @@ def handle_reach_syllables(body: dict[str, Any], state: ServerState) -> dict[str
     Returns:
         Dict with ``profile``, ``reach``, ``total``, and ``syllables`` list.
     """
-    patch_key = body.get("patch", "a").lower()
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
     profile = body.get("profile", "")
 
     if not patch.profile_reaches:
@@ -396,8 +500,10 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Candidate generation summary with count and sample.
     """
-    patch_key = body.get("patch", "a").lower()
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
 
     if not patch.annotated_data:
         return {"error": f"No corpus loaded for patch {patch_key.upper()}."}
@@ -488,8 +594,10 @@ def handle_select(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Selection results with names and metadata.
     """
-    patch_key = body.get("patch", "a").lower()
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
 
     if not patch.candidates:
         return {"error": f"No candidates for patch {patch_key.upper()}. Run combiner first."}
@@ -536,8 +644,10 @@ def handle_export(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Dict with names list for client-side download.
     """
-    patch_key = body.get("patch", "a").lower()
-    patch: PatchState = state.patch_a if patch_key == "a" else state.patch_b
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
 
     if not patch.selected_names:
         return {"error": f"No selected names for patch {patch_key.upper()}."}

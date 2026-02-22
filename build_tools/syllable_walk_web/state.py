@@ -23,6 +23,16 @@ class PatchState:
     walker: Any | None = None  # SyllableWalker, lazy-loaded
     walker_ready: bool = False
     loading_stage: str | None = None  # Current loading stage (for progress display)
+    # Monotonic counter for corpus load attempts on this patch.
+    # Each new load request increments the generation so in-flight
+    # background threads can detect if they became stale.
+    load_generation: int = 0
+    # Generation ID currently considered authoritative.
+    # ``None`` means no load is currently in progress.
+    active_load_generation: int | None = None
+    # Terminal loader error for the current generation, if any.
+    # Cleared at the start of each new load request.
+    loading_error: str | None = None
     profile_reaches: dict[str, Any] | None = None  # ReachResult per profile
     annotated_data: list[dict] | None = None
     frequencies: dict[str, int] | None = None

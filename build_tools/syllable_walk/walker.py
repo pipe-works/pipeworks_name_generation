@@ -436,6 +436,9 @@ class SyllableWalker:
         max_flips: int,
         temperature: float = 1.0,
         frequency_weight: float = 0.0,
+        neighbor_limit: int | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
         seed: int | None = None,
     ) -> list[dict]:
         """Execute a syllable walk through feature space.
@@ -470,6 +473,12 @@ class SyllableWalker:
                              - Zero: Neutral
                              - Negative: Favor rare syllables
                              Typical values: -1.0, 0.0, 1.0
+            neighbor_limit: Optional cap on neighbor candidates considered at
+                           each step. ``None`` means use all neighbors.
+            min_length: Optional minimum syllable character length allowed
+                       during traversal.
+            max_length: Optional maximum syllable character length allowed
+                       during traversal.
             seed: Random seed for reproducibility. Same seed = same walk.
                  If None, uses system randomness (non-reproducible).
 
@@ -528,6 +537,31 @@ class SyllableWalker:
         if steps < 0:
             raise ValueError(f"steps must be non-negative, got {steps}")
 
+        # Validate neighbor cap
+        if neighbor_limit is not None and neighbor_limit < 1:
+            raise ValueError(f"neighbor_limit must be >= 1, got {neighbor_limit}")
+
+        # Validate length constraints
+        if min_length is not None and min_length < 1:
+            raise ValueError(f"min_length must be >= 1, got {min_length}")
+        if max_length is not None and max_length < 1:
+            raise ValueError(f"max_length must be >= 1, got {max_length}")
+        if min_length is not None and max_length is not None and min_length > max_length:
+            raise ValueError(f"min_length ({min_length}) must be <= max_length ({max_length})")
+
+        # Validate start syllable against optional length bounds.
+        start_length = len(self.syllables[start_idx])
+        if min_length is not None and start_length < min_length:
+            raise ValueError(
+                f"Start syllable '{self.syllables[start_idx]}' shorter than min_length "
+                f"({min_length})"
+            )
+        if max_length is not None and start_length > max_length:
+            raise ValueError(
+                f"Start syllable '{self.syllables[start_idx]}' longer than max_length "
+                f"({max_length})"
+            )
+
         # Initialize local RNG for determinism
         # CRITICAL: Use local Random instance, not global random.seed()
         # This ensures walks don't interfere with other randomness in the program
@@ -542,8 +576,20 @@ class SyllableWalker:
             # Collect candidate next syllables with their costs
             candidates: list[tuple[int, float]] = []
 
-            # Find neighbors within max_flips distance
-            for neighbor_idx in self.neighbor_graph[current_idx]:
+            # Find neighbors within max_flips distance.
+            # neighbor_limit applies an explicit deterministic cap over the
+            # precomputed neighbor list.
+            neighbors = self.neighbor_graph[current_idx]
+            if neighbor_limit is not None:
+                neighbors = neighbors[:neighbor_limit]
+
+            for neighbor_idx in neighbors:
+                neighbor_syllable = self.syllables[neighbor_idx]
+                if min_length is not None and len(neighbor_syllable) < min_length:
+                    continue
+                if max_length is not None and len(neighbor_syllable) > max_length:
+                    continue
+
                 # Double-check distance constraint (neighbor graph should guarantee this)
                 if self._hamming_distance(current_idx, neighbor_idx) <= max_flips:
                     # Compute total cost: flip cost + rarity cost
@@ -575,6 +621,9 @@ class SyllableWalker:
         start: int | str,
         profile: str | WalkProfile,
         steps: int = 5,
+        neighbor_limit: int | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
         seed: int | None = None,
     ) -> list[dict]:
         """Execute a walk using a named profile.
@@ -587,6 +636,9 @@ class SyllableWalker:
             profile: Profile name ("clerical", "dialect", "goblin", "ritual")
                     or WalkProfile object
             steps: Number of steps to take (default: 5)
+            neighbor_limit: Optional cap on neighbors considered per step.
+            min_length: Optional minimum syllable length allowed.
+            max_length: Optional maximum syllable length allowed.
             seed: Random seed for reproducibility (default: None)
 
         Returns:
@@ -615,6 +667,9 @@ class SyllableWalker:
             max_flips=profile.max_flips,
             temperature=profile.temperature,
             frequency_weight=profile.frequency_weight,
+            neighbor_limit=neighbor_limit,
+            min_length=min_length,
+            max_length=max_length,
             seed=seed,
         )
 
@@ -633,14 +688,24 @@ class SyllableWalker:
             "features": self.feature_matrix[idx].tolist(),  # type: ignore[index]
         }
 
-    def get_random_syllable(self, seed: int | None = None) -> str:
+    def get_random_syllable(
+        self,
+        seed: int | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
+    ) -> str:
         """Get a random syllable from the dataset.
 
         Args:
             seed: Random seed for reproducibility (default: None)
+            min_length: Optional minimum syllable length filter.
+            max_length: Optional maximum syllable length filter.
 
         Returns:
             Random syllable text
+
+        Raises:
+            ValueError: If length constraints are invalid or no syllables match.
 
         Example:
             >>> walker.get_random_syllable(seed=42)
@@ -648,8 +713,27 @@ class SyllableWalker:
             >>> walker.get_random_syllable(seed=42)
             'ka'  # Same seed = same result
         """
+        if min_length is not None and min_length < 1:
+            raise ValueError(f"min_length must be >= 1, got {min_length}")
+        if max_length is not None and max_length < 1:
+            raise ValueError(f"max_length must be >= 1, got {max_length}")
+        if min_length is not None and max_length is not None and min_length > max_length:
+            raise ValueError(f"min_length ({min_length}) must be <= max_length ({max_length})")
+
+        eligible = self.syllables
+        if min_length is not None or max_length is not None:
+            eligible = [
+                s
+                for s in self.syllables
+                if (min_length is None or len(s) >= min_length)
+                and (max_length is None or len(s) <= max_length)
+            ]
+
+        if not eligible:
+            raise ValueError("No syllables available for the requested length constraints")
+
         rng = random.Random(seed)  # nosec B311 - non-cryptographic use
-        return rng.choice(self.syllables)
+        return rng.choice(eligible)
 
     def get_syllable_info(self, syllable: str) -> dict | None:
         """Get information about a specific syllable.

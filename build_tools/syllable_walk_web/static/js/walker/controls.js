@@ -135,15 +135,21 @@ function applyProfileToSliders(patch, profileName) {
  * @returns {void}
  */
 function initProfiles() {
-  document.querySelectorAll('.profile-option').forEach(opt => {
+  // Scope strictly to Walk tab profile cards. Combiner uses
+  // [data-comb-profile], and pipeline extractor uses [data-extractor].
+  document.querySelectorAll('.profile-option[data-profile][data-patch]').forEach(opt => {
     opt.addEventListener('click', () => {
       const patch = opt.dataset.patch;
-      document.querySelectorAll(`.profile-option[data-patch="${patch}"]`)
+      if (!patch) return;
+
+      document.querySelectorAll(`.profile-option[data-profile][data-patch="${patch}"]`)
         .forEach(o => o.classList.remove('is-selected'));
       opt.classList.add('is-selected');
-      opt.querySelector('input[type="radio"]').checked = true;
+      const radio = opt.querySelector('input[type="radio"]');
+      if (!radio) return;
+      radio.checked = true;
 
-      const profileName = opt.querySelector('input[type="radio"]').value;
+      const profileName = radio.value;
       applyProfileToSliders(patch, profileName);
     });
   });

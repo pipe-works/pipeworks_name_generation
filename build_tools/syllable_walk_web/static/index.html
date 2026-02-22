@@ -829,7 +829,9 @@
           </div>
 
           <fieldset class="profile-group">
-            <legend class="control-label">Generation Profile</legend>
+            <legend class="control-label">
+              Generation Profile
+            </legend>
             <label class="profile-option is-selected" data-patch="a" data-comb-profile="flat">
               <input type="radio" name="comb-profile-a" value="flat" checked />
               <span class="profile-option__name">flat</span>
@@ -913,7 +915,10 @@
         <div class="sub-panel">
           <h2 class="panel__heading">Patch A — Name Selector</h2>
 
-          <label class="control-label" for="sel-class-a">Name Class</label>
+          <div class="control-label-row">
+            <label class="control-label" for="sel-class-a">Name Class</label>
+            <span class="issue-tag" title="Known gap: options are static in HTML and not yet sourced from /api/walker/name-classes.">STATIC LIST</span>
+          </div>
           <select class="select" id="sel-class-a" style="width:100%;margin-bottom:var(--sp-2)">
             <option value="first_name" selected>First Name</option>
             <option value="last_name">Last Name</option>
@@ -1029,7 +1034,9 @@
           </div>
 
           <fieldset class="profile-group">
-            <legend class="control-label">Generation Profile</legend>
+            <legend class="control-label">
+              Generation Profile
+            </legend>
             <label class="profile-option is-selected" data-patch="b" data-comb-profile="flat">
               <input type="radio" name="comb-profile-b" value="flat" checked />
               <span class="profile-option__name">flat</span>
@@ -1113,7 +1120,10 @@
         <div class="sub-panel">
           <h2 class="panel__heading">Patch B — Name Selector</h2>
 
-          <label class="control-label" for="sel-class-b">Name Class</label>
+          <div class="control-label-row">
+            <label class="control-label" for="sel-class-b">Name Class</label>
+            <span class="issue-tag" title="Known gap: options are static in HTML and not yet sourced from /api/walker/name-classes.">STATIC LIST</span>
+          </div>
           <select class="select" id="sel-class-b" style="width:100%;margin-bottom:var(--sp-2)">
             <option value="first_name">First Name</option>
             <option value="last_name" selected>Last Name</option>

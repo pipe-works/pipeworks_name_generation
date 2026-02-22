@@ -541,6 +541,41 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="steps must be non-negative"):
             initialized_walker.walk(start="ka", steps=-1, max_flips=2, temperature=1.0)
 
+    def test_walk_rejects_invalid_neighbor_limit(self, initialized_walker):
+        """neighbor_limit must be >= 1 when provided."""
+        with pytest.raises(ValueError, match="neighbor_limit must be >= 1"):
+            initialized_walker.walk(
+                start="ka",
+                steps=2,
+                max_flips=2,
+                temperature=1.0,
+                neighbor_limit=0,
+            )
+
+    def test_walk_rejects_invalid_length_bounds(self, initialized_walker):
+        """min_length > max_length should raise ValueError."""
+        with pytest.raises(ValueError, match="min_length .* must be <= max_length"):
+            initialized_walker.walk(
+                start="ka",
+                steps=2,
+                max_flips=2,
+                temperature=1.0,
+                min_length=4,
+                max_length=2,
+            )
+
+    def test_walk_respects_max_length_constraint(self, initialized_walker):
+        """Traversal should stay within requested syllable length bounds."""
+        walk = initialized_walker.walk(
+            start="ka",
+            steps=8,
+            max_flips=3,
+            temperature=1.0,
+            max_length=2,
+            seed=42,
+        )
+        assert all(len(step["syllable"]) <= 2 for step in walk)
+
 
 # ============================================================
 # Utility Method Tests
@@ -560,6 +595,16 @@ class TestUtilityMethods:
         syl1 = initialized_walker.get_random_syllable(seed=42)
         syl2 = initialized_walker.get_random_syllable(seed=42)
         assert syl1 == syl2
+
+    def test_get_random_syllable_respects_length_bounds(self, initialized_walker):
+        """Length-filtered random selection should return eligible syllables only."""
+        syllable = initialized_walker.get_random_syllable(seed=7, max_length=2)
+        assert len(syllable) <= 2
+
+    def test_get_random_syllable_raises_when_no_match(self, initialized_walker):
+        """Length filter with no eligible syllables should raise ValueError."""
+        with pytest.raises(ValueError, match="No syllables available"):
+            initialized_walker.get_random_syllable(seed=7, min_length=10)
 
     def test_get_syllable_info_exists(self, initialized_walker):
         """Test get_syllable_info for existing syllable."""

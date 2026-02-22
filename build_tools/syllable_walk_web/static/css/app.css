@@ -658,6 +658,11 @@ body {
   font-style: normal;
 }
 
+.corpus-status.is-error {
+  color: var(--col-err);
+  font-style: normal;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    8. SLIDER CONTROLS
@@ -1541,6 +1546,28 @@ body {
 
 .control-label-row .control-label {
   margin-bottom: 0;
+}
+
+.issue-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  min-height: 16px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--col-err) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--col-err) 55%, transparent);
+  color: var(--col-err);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.control-label .issue-tag {
+  margin-left: var(--sp-2);
 }
 
 /* ── Level 1: Inline micro signal ──

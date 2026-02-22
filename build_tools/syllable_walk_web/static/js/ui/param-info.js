@@ -21,49 +21,49 @@
 const PARAM_INFO = {
   'min-length': {
     signal: 'min chars',
-    tooltip: 'Minimum syllable length included in traversal. Filters input terrain before walking.',
+    tooltip: 'Minimum syllable length allowed for start selection and step-to-step candidates.',
     modal: {
       title: 'Min Length (chars)',
       rows: [
         ['Definition',
-         'Minimum character length for syllables included in the active field.'],
+         'Minimum character length accepted during random start pick and each transition.'],
         ['Effect on Structure',
          '<ul>' +
-         '<li>Removes shorter syllables from the graph.</li>' +
-         '<li>Can reduce graph connectivity.</li>' +
-         '<li>May increase compression and reduce drift.</li>' +
+         '<li>Filters out short syllables at runtime.</li>' +
+         '<li>Can narrow available transitions.</li>' +
+         '<li>May increase repetition when options are sparse.</li>' +
          '</ul>'],
         ['Interpretation',
          '<ul>' +
-         '<li>Lower min length \u2192 more connective \u201cglue\u201d syllables.</li>' +
-         '<li>Higher min length \u2192 more fragmented terrain.</li>' +
+         '<li>Lower min length \u2192 broader candidate pool.</li>' +
+         '<li>Higher min length \u2192 stricter lexical floor.</li>' +
          '</ul>'],
-        ['Not a Quality Control',
-         'This does not improve syllable \u201cquality.\u201d It reshapes terrain topology.'],
+        ['Scope',
+         'This is a runtime candidate filter, not a corpus rewrite step.'],
       ],
     },
   },
   'max-length': {
     signal: 'max chars',
-    tooltip: 'Maximum syllable length included in traversal. Trims longer structural units.',
+    tooltip: 'Maximum syllable length allowed for start selection and transition candidates.',
     modal: {
       title: 'Max Length (chars)',
       rows: [
         ['Definition',
-         'Upper bound on syllable character length for inclusion in the field.'],
+         'Upper character-length bound applied during start pick and each walk step.'],
         ['Effect on Structure',
          '<ul>' +
-         '<li>Removes long structural anchors.</li>' +
-         '<li>Can reduce morphological stability.</li>' +
-         '<li>May increase uniformity.</li>' +
+         '<li>Excludes longer syllables from candidate selection.</li>' +
+         '<li>Can simplify walk output rhythm.</li>' +
+         '<li>May reduce transition diversity when set low.</li>' +
          '</ul>'],
         ['Interpretation',
          '<ul>' +
-         '<li>Lower max length \u2192 tighter rhythmic control.</li>' +
-         '<li>Higher max length \u2192 broader morphological variation.</li>' +
+         '<li>Lower max length \u2192 tighter brevity constraints.</li>' +
+         '<li>Higher max length \u2192 broader candidate pool.</li>' +
          '</ul>'],
-        ['Structural Role',
-         'Acts as terrain pruning, not aesthetic tuning.'],
+        ['Scope',
+         'Constraint is enforced at walk-time, not by rebuilding the corpus graph.'],
       ],
     },
   },
@@ -149,20 +149,20 @@ const PARAM_INFO = {
   },
   'neighbors': {
     signal: 'branch cap',
-    tooltip: 'Maximum number of adjacent syllables considered at each step.',
+    tooltip: 'Caps how many precomputed neighbors are evaluated at each step.',
     modal: {
       title: 'Neighbors (max)',
       rows: [
         ['Definition',
-         'Caps the number of outgoing edges evaluated per node.'],
+         'Limits per-step neighbor evaluation to the first N entries from the precomputed list.'],
         ['Effect on Structure',
          '<ul>' +
-         '<li>Lower cap reduces traversal branching.</li>' +
-         '<li>Can significantly reduce reach.</li>' +
-         '<li>Alters effective topology under constraint.</li>' +
+         '<li>Lower cap narrows branching during sampling.</li>' +
+         '<li>Higher cap exposes more transition options.</li>' +
+         '<li>Can materially change walk outcomes and diversity.</li>' +
          '</ul>'],
-        ['Interpretation',
-         'Acts as local pruning of the adjacency graph.'],
+        ['Determinism Note',
+         'Neighbor cap is deterministic for a fixed corpus and seed.'],
       ],
     },
   },

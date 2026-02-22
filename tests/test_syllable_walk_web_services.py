@@ -31,7 +31,7 @@ def mock_walker():
     """Mock SyllableWalker that returns predictable walks."""
     walker = MagicMock()
 
-    def get_random(seed=None):
+    def get_random(seed=None, **kwargs):
         return "ka"
 
     walker.get_random_syllable = get_random
@@ -304,7 +304,7 @@ class TestWalkGenerator:
         # Track seeds passed to get_random_syllable
         seeds_seen = []
 
-        def tracking_get(seed=None):
+        def tracking_get(seed=None, **kwargs):
             seeds_seen.append(seed)
             return "ka"
 
@@ -319,7 +319,7 @@ class TestWalkGenerator:
 
         seeds_seen = []
 
-        def tracking_get(seed=None):
+        def tracking_get(seed=None, **kwargs):
             seeds_seen.append(seed)
             return "ka"
 
@@ -327,6 +327,65 @@ class TestWalkGenerator:
 
         generate_walks(mock_walker, count=2, seed=None)
         assert seeds_seen == [None, None]
+
+    def test_custom_walk_receives_neighbor_and_length_constraints(self, mock_walker):
+        """Custom walk path forwards neighbor/length controls."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        mock_walk = MagicMock(
+            return_value=[
+                {"syllable": "ka", "distance": 0},
+                {"syllable": "ri", "distance": 1},
+            ]
+        )
+        mock_walker.walk = mock_walk
+
+        generate_walks(
+            mock_walker,
+            count=1,
+            profile="custom",
+            neighbor_limit=7,
+            min_length=2,
+            max_length=4,
+        )
+
+        _, kwargs = mock_walk.call_args
+        assert kwargs["neighbor_limit"] == 7
+        assert kwargs["min_length"] == 2
+        assert kwargs["max_length"] == 4
+
+    def test_profile_walk_receives_neighbor_and_length_constraints(self, mock_walker):
+        """Named profile path forwards neighbor/length controls."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        mock_profile_walk = MagicMock(
+            return_value=[
+                {"syllable": "ka", "distance": 0},
+                {"syllable": "ta", "distance": 2},
+            ]
+        )
+        mock_walker.walk_from_profile = mock_profile_walk
+
+        generate_walks(
+            mock_walker,
+            count=1,
+            profile="clerical",
+            neighbor_limit=11,
+            min_length=1,
+            max_length=5,
+        )
+
+        _, kwargs = mock_profile_walk.call_args
+        assert kwargs["neighbor_limit"] == 11
+        assert kwargs["min_length"] == 1
+        assert kwargs["max_length"] == 5
+
+    def test_invalid_length_constraints_raise_value_error(self, mock_walker):
+        """min_length > max_length is rejected before walk execution."""
+        from build_tools.syllable_walk_web.services.walk_generator import generate_walks
+
+        with pytest.raises(ValueError, match="min_length .* must be <= max_length"):
+            generate_walks(mock_walker, count=1, min_length=5, max_length=2)
 
 
 # ============================================================
