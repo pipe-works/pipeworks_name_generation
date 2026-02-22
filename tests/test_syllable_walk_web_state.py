@@ -31,7 +31,15 @@ class TestPatchState:
         assert ps.syllable_count == 0
         assert ps.walker is None
         assert ps.walker_ready is False
+        assert ps.manifest_ipc_input_hash is None
+        assert ps.manifest_ipc_output_hash is None
+        assert ps.manifest_ipc_verification_status is None
+        assert ps.manifest_ipc_verification_reason is None
         assert ps.reach_cache_status is None
+        assert ps.reach_cache_ipc_input_hash is None
+        assert ps.reach_cache_ipc_output_hash is None
+        assert ps.reach_cache_ipc_verification_status is None
+        assert ps.reach_cache_ipc_verification_reason is None
         assert ps.annotated_data is None
         assert ps.frequencies is None
         assert ps.walks == []

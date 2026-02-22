@@ -51,6 +51,8 @@ class CacheReadResult:
     status: str
     profile_reaches: dict[str, ReachResult] | None = None
     message: str | None = None
+    ipc_input_hash: str | None = None
+    ipc_output_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,33 @@ def cache_path(run_dir: Path) -> Path:
     """Return canonical cache path for one run directory."""
 
     return run_dir / "ipc" / CACHE_FILENAME
+
+
+def read_cached_profile_reach_hashes(run_dir: Path) -> tuple[str | None, str | None]:
+    """Return cache IPC hashes from disk, if present and valid.
+
+    This helper is intentionally lightweight and tolerant: malformed or missing
+    cache files simply return ``(None, None)``.
+    """
+
+    path = cache_path(run_dir)
+    if not path.exists():
+        return None, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    ipc = payload.get("ipc")
+    if not isinstance(ipc, dict):
+        return None, None
+
+    input_hash_raw = ipc.get("input_hash")
+    output_hash_raw = ipc.get("output_hash")
+    input_hash = str(input_hash_raw) if _is_sha256_hex(input_hash_raw) else None
+    output_hash = str(output_hash_raw) if _is_sha256_hex(output_hash_raw) else None
+    return input_hash, output_hash
 
 
 def _utc_now_iso() -> str:
@@ -352,7 +381,14 @@ def load_cached_profile_reaches(
         if ipc_block.get("output_hash") != expected_output_hash:
             return CacheReadResult(status="invalid", message="output-hash-mismatch")
 
-        return CacheReadResult(status="hit", profile_reaches=decoded_reaches)
+        output_hash_raw = ipc_block.get("output_hash")
+        output_hash = str(output_hash_raw) if _is_sha256_hex(output_hash_raw) else None
+        return CacheReadResult(
+            status="hit",
+            profile_reaches=decoded_reaches,
+            ipc_input_hash=expected_input_hash,
+            ipc_output_hash=output_hash,
+        )
     except Exception as exc:  # pragma: no cover - defensive catch-all
         return CacheReadResult(status="error", message=str(exc))
 

@@ -663,6 +663,73 @@ body {
   font-style: normal;
 }
 
+.corpus-hash-grid {
+  margin-top: var(--sp-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.corpus-hash-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--text-xs);
+}
+
+.corpus-hash-label {
+  color: var(--col-text-muted);
+}
+
+.corpus-hash-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.corpus-hash-badge {
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.corpus-hash-badge.is-pending {
+  color: var(--col-text-muted);
+  background: var(--col-code-bg);
+}
+
+.corpus-hash-badge.is-verified {
+  color: #000;
+  background: var(--col-ok);
+  border-color: var(--col-ok);
+}
+
+.corpus-hash-badge.is-missing {
+  color: var(--col-text-muted);
+  background: var(--col-code-bg);
+}
+
+.corpus-hash-badge.is-mismatch {
+  color: #fff;
+  background: var(--col-err);
+  border-color: var(--col-err);
+}
+
+.corpus-hash-badge.is-error {
+  color: #000;
+  background: var(--col-warn);
+  border-color: var(--col-warn);
+}
+
+.corpus-hash-value {
+  white-space: nowrap;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    8. SLIDER CONTROLS
