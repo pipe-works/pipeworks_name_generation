@@ -14,7 +14,9 @@ Design goals:
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from fnmatch import fnmatch
 from importlib.metadata import PackageNotFoundError, version
@@ -40,6 +42,17 @@ def _resolve_pipeworks_ipc_version() -> str:
 IPC_SCHEMA_VERSION = 1
 IPC_LIBRARY_NAME = "pipeworks-ipc"
 IPC_LIBRARY_REF = f"pipeworks-ipc-v{_resolve_pipeworks_ipc_version()}"
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True)
+class ManifestIPCVerificationResult:
+    """Outcome of validating one manifest's IPC hash integrity."""
+
+    status: str
+    reason: str
+    input_hash: str | None = None
+    output_hash: str | None = None
 
 
 def utc_now_iso() -> str:
@@ -212,6 +225,60 @@ def refresh_metrics_and_artifacts(
     refresh_ipc(manifest)
 
 
+def _is_sha256_hex(value: Any) -> bool:
+    """Return ``True`` when value is a canonical lowercase SHA-256 hash."""
+
+    return isinstance(value, str) and _SHA256_RE.match(value) is not None
+
+
+def _build_ipc_input_payload(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Build the canonical manifest IPC input payload."""
+
+    config = manifest.get("config", {})
+    return {
+        "extractor": manifest.get("extractor"),
+        "language": manifest.get("language"),
+        "source_path": config.get("source_path") if isinstance(config, dict) else None,
+        "file_pattern": config.get("file_pattern") if isinstance(config, dict) else None,
+        "min_syllable_length": (
+            config.get("min_syllable_length") if isinstance(config, dict) else None
+        ),
+        "max_syllable_length": (
+            config.get("max_syllable_length") if isinstance(config, dict) else None
+        ),
+        "run_normalize": config.get("run_normalize") if isinstance(config, dict) else None,
+        "run_annotate": config.get("run_annotate") if isinstance(config, dict) else None,
+    }
+
+
+def _build_ipc_output_payload(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Build the canonical manifest IPC output payload."""
+
+    artifacts: list[dict[str, Any]] = []
+    for item in manifest.get("artifacts", []):
+        if not isinstance(item, dict):
+            continue
+        artifacts.append(
+            {
+                "path": item.get("path"),
+                "type": item.get("type"),
+                "size_bytes": item.get("size_bytes"),
+            }
+        )
+    metrics = manifest.get("metrics", {})
+    return {
+        "artifacts": artifacts,
+        "metrics": {
+            "syllable_count_unique": (
+                metrics.get("syllable_count_unique") if isinstance(metrics, dict) else None
+            ),
+            "files_processed": (
+                metrics.get("files_processed") if isinstance(metrics, dict) else None
+            ),
+        },
+    }
+
+
 def refresh_ipc(manifest: dict[str, Any]) -> None:
     """Refresh deterministic IPC fields from current manifest state.
 
@@ -222,30 +289,8 @@ def refresh_ipc(manifest: dict[str, Any]) -> None:
     - selected metrics (syllable_count_unique/files_processed)
     """
 
-    input_payload = {
-        "extractor": manifest.get("extractor"),
-        "language": manifest.get("language"),
-        "source_path": manifest.get("config", {}).get("source_path"),
-        "file_pattern": manifest.get("config", {}).get("file_pattern"),
-        "min_syllable_length": manifest.get("config", {}).get("min_syllable_length"),
-        "max_syllable_length": manifest.get("config", {}).get("max_syllable_length"),
-        "run_normalize": manifest.get("config", {}).get("run_normalize"),
-        "run_annotate": manifest.get("config", {}).get("run_annotate"),
-    }
-    output_payload = {
-        "artifacts": [
-            {
-                "path": item.get("path"),
-                "type": item.get("type"),
-                "size_bytes": item.get("size_bytes"),
-            }
-            for item in manifest.get("artifacts", [])
-        ],
-        "metrics": {
-            "syllable_count_unique": manifest.get("metrics", {}).get("syllable_count_unique"),
-            "files_processed": manifest.get("metrics", {}).get("files_processed"),
-        },
-    }
+    input_payload = _build_ipc_input_payload(manifest)
+    output_payload = _build_ipc_output_payload(manifest)
     output_payload_serialized = json.dumps(
         output_payload,
         ensure_ascii=False,
@@ -261,6 +306,95 @@ def refresh_ipc(manifest: dict[str, Any]) -> None:
         "input_payload": input_payload,
         "output_payload": output_payload,
     }
+
+
+def verify_manifest_ipc(manifest: dict[str, Any]) -> ManifestIPCVerificationResult:
+    """Verify that stored manifest IPC hashes match deterministic payload hashes.
+
+    Returns ``verified`` when both hashes are present and match canonical
+    recomputation from manifest content.
+    """
+
+    ipc = manifest.get("ipc")
+    if not isinstance(ipc, dict):
+        return ManifestIPCVerificationResult(status="missing", reason="missing-ipc-block")
+
+    input_hash_raw = ipc.get("input_hash")
+    output_hash_raw = ipc.get("output_hash")
+    input_hash = str(input_hash_raw) if _is_sha256_hex(input_hash_raw) else None
+    output_hash = str(output_hash_raw) if _is_sha256_hex(output_hash_raw) else None
+
+    if input_hash is None and output_hash is None:
+        return ManifestIPCVerificationResult(
+            status="missing",
+            reason="missing-input-output-hash",
+        )
+    if input_hash is None:
+        return ManifestIPCVerificationResult(
+            status="missing",
+            reason="missing-input-hash",
+            output_hash=output_hash,
+        )
+    if output_hash is None:
+        return ManifestIPCVerificationResult(
+            status="missing",
+            reason="missing-output-hash",
+            input_hash=input_hash,
+        )
+
+    try:
+        expected_input_hash = compute_payload_hash(_build_ipc_input_payload(manifest))
+        output_payload_serialized = json.dumps(
+            _build_ipc_output_payload(manifest),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        expected_output_hash = compute_output_hash(output_payload_serialized)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        return ManifestIPCVerificationResult(
+            status="error",
+            reason=f"verification-error:{exc.__class__.__name__}",
+            input_hash=input_hash,
+            output_hash=output_hash,
+        )
+
+    input_matches = input_hash == expected_input_hash
+    output_matches = output_hash == expected_output_hash
+    if input_matches and output_matches:
+        return ManifestIPCVerificationResult(
+            status="verified",
+            reason="hashes-match",
+            input_hash=input_hash,
+            output_hash=output_hash,
+        )
+    if not input_matches and not output_matches:
+        reason = "input-output-mismatch"
+    elif not input_matches:
+        reason = "input-mismatch"
+    else:
+        reason = "output-mismatch"
+    return ManifestIPCVerificationResult(
+        status="mismatch",
+        reason=reason,
+        input_hash=input_hash,
+        output_hash=output_hash,
+    )
+
+
+def verify_manifest_ipc_file(run_directory: Path) -> ManifestIPCVerificationResult:
+    """Read ``manifest.json`` and verify its IPC hash integrity."""
+
+    manifest_path = run_directory / "manifest.json"
+    if not manifest_path.exists():
+        return ManifestIPCVerificationResult(status="missing", reason="manifest-missing")
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, JSONDecodeError):
+        return ManifestIPCVerificationResult(status="error", reason="manifest-parse-error")
+    if not isinstance(payload, dict):
+        return ManifestIPCVerificationResult(status="error", reason="manifest-not-object")
+    return verify_manifest_ipc(payload)
 
 
 def write_manifest(run_directory: Path, manifest: dict[str, Any]) -> Path:

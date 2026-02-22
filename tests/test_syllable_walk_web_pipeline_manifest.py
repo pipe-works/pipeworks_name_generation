@@ -220,6 +220,152 @@ def test_refresh_ipc_changes_input_hash_when_relevant_input_changes(tmp_path: Pa
     assert _SHA256_RE.match(updated)
 
 
+def test_verify_manifest_ipc_returns_verified_for_consistent_manifest() -> None:
+    """verify_manifest_ipc should report verified when hashes match payloads."""
+
+    manifest = pipeline_manifest.create_manifest(
+        run_id="20260222_123001_nltk",
+        extractor="nltk",
+        language="auto",
+        source_path="/tmp/source.txt",
+        file_pattern="*.txt",
+        min_syllable_length=2,
+        max_syllable_length=8,
+        run_normalize=True,
+        run_annotate=True,
+        created_at_utc="2026-02-22T12:30:00Z",
+    )
+    pipeline_manifest.refresh_ipc(manifest)
+
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "verified"
+    assert result.reason == "hashes-match"
+    assert isinstance(result.input_hash, str) and _SHA256_RE.match(result.input_hash)
+    assert isinstance(result.output_hash, str) and _SHA256_RE.match(result.output_hash)
+
+
+def test_verify_manifest_ipc_returns_missing_when_ipc_block_absent() -> None:
+    """verify_manifest_ipc should mark manifests without ipc block as missing."""
+
+    manifest = {"manifest_version": 1, "run_id": "20260222_123001_nltk"}
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "missing"
+    assert result.reason == "missing-ipc-block"
+
+
+def test_verify_manifest_ipc_returns_missing_when_both_hashes_absent() -> None:
+    """Missing input/output hashes should return a specific missing reason."""
+
+    result = pipeline_manifest.verify_manifest_ipc({"ipc": {}})
+    assert result.status == "missing"
+    assert result.reason == "missing-input-output-hash"
+
+
+def test_verify_manifest_ipc_returns_missing_when_input_hash_absent() -> None:
+    """Missing input hash should preserve output hash and return missing reason."""
+
+    manifest = {"ipc": {"output_hash": "b" * 64}}
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "missing"
+    assert result.reason == "missing-input-hash"
+    assert result.input_hash is None
+    assert result.output_hash == "b" * 64
+
+
+def test_verify_manifest_ipc_returns_missing_when_output_hash_absent() -> None:
+    """Missing output hash should preserve input hash and return missing reason."""
+
+    manifest = {"ipc": {"input_hash": "a" * 64}}
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "missing"
+    assert result.reason == "missing-output-hash"
+    assert result.input_hash == "a" * 64
+    assert result.output_hash is None
+
+
+def test_verify_manifest_ipc_returns_mismatch_when_fields_drift_without_refresh() -> None:
+    """verify_manifest_ipc should detect config drift when hashes are stale."""
+
+    manifest = pipeline_manifest.create_manifest(
+        run_id="20260222_123002_pyphen",
+        extractor="pyphen",
+        language="en_GB",
+        source_path="/tmp/source.txt",
+        file_pattern="*.txt",
+        min_syllable_length=2,
+        max_syllable_length=8,
+        run_normalize=True,
+        run_annotate=True,
+        created_at_utc="2026-02-22T12:30:00Z",
+    )
+    pipeline_manifest.refresh_ipc(manifest)
+    manifest["config"]["max_syllable_length"] = 9
+
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "mismatch"
+    assert result.reason in {"input-mismatch", "input-output-mismatch"}
+
+
+def test_verify_manifest_ipc_returns_output_mismatch_when_only_output_hash_drifts() -> None:
+    """Output-only drift should map to output-mismatch."""
+
+    manifest = pipeline_manifest.create_manifest(
+        run_id="20260222_123002_pyphen",
+        extractor="pyphen",
+        language="en_GB",
+        source_path="/tmp/source.txt",
+        file_pattern="*.txt",
+        min_syllable_length=2,
+        max_syllable_length=8,
+        run_normalize=True,
+        run_annotate=True,
+        created_at_utc="2026-02-22T12:30:00Z",
+    )
+    pipeline_manifest.refresh_ipc(manifest)
+    assert isinstance(manifest["ipc"]["output_hash"], str)
+    manifest["ipc"]["output_hash"] = "f" * 64
+
+    result = pipeline_manifest.verify_manifest_ipc(manifest)
+    assert result.status == "mismatch"
+    assert result.reason == "output-mismatch"
+
+
+def test_verify_manifest_ipc_file_returns_missing_when_manifest_file_absent(
+    tmp_path: Path,
+) -> None:
+    """verify_manifest_ipc_file should return missing when no manifest exists."""
+
+    run_dir = tmp_path / "20260222_123003_nltk"
+    run_dir.mkdir(parents=True)
+    result = pipeline_manifest.verify_manifest_ipc_file(run_dir)
+    assert result.status == "missing"
+    assert result.reason == "manifest-missing"
+
+
+def test_verify_manifest_ipc_file_returns_parse_error_on_invalid_json(tmp_path: Path) -> None:
+    """verify_manifest_ipc_file should return parse error for malformed JSON."""
+
+    run_dir = tmp_path / "20260222_123004_nltk"
+    run_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text("{bad-json", encoding="utf-8")
+
+    result = pipeline_manifest.verify_manifest_ipc_file(run_dir)
+    assert result.status == "error"
+    assert result.reason == "manifest-parse-error"
+
+
+def test_verify_manifest_ipc_file_returns_error_for_non_object_payload(tmp_path: Path) -> None:
+    """verify_manifest_ipc_file should reject non-object JSON payloads."""
+
+    run_dir = tmp_path / "20260222_123005_nltk"
+    run_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text("[]", encoding="utf-8")
+
+    result = pipeline_manifest.verify_manifest_ipc_file(run_dir)
+    assert result.status == "error"
+    assert result.reason == "manifest-not-object"
+
+
 def test_write_manifest_persists_json_with_trailing_newline(tmp_path: Path) -> None:
     """write_manifest should atomically persist a valid JSON document."""
 

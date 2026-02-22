@@ -52,6 +52,133 @@ function setCorpusStatus(patch, text, state = 'neutral') {
 }
 
 /**
+ * Compact a full SHA-256 hash for narrow UI rendering.
+ *
+ * @param {unknown} value - Candidate hash value.
+ * @returns {string}
+ */
+function compactHash(value) {
+  if (typeof value !== 'string' || value.length < 16) return '—';
+  return `${value.slice(0, 8)}…${value.slice(-6)}`;
+}
+
+/**
+ * Render one "in/out" hash pair label.
+ *
+ * @param {unknown} inputHash - IPC input hash.
+ * @param {unknown} outputHash - IPC output hash.
+ * @returns {string}
+ */
+function formatHashPair(inputHash, outputHash) {
+  return `in ${compactHash(inputHash)} · out ${compactHash(outputHash)}`;
+}
+
+/**
+ * Update manifest/cache hash rows for one patch corpus panel.
+ *
+ * @param {'a'|'b'|string} patch - Patch key.
+ * @param {unknown} manifestInputHash - Manifest IPC input hash.
+ * @param {unknown} manifestOutputHash - Manifest IPC output hash.
+ * @param {unknown} cacheInputHash - Reach-cache IPC input hash.
+ * @param {unknown} cacheOutputHash - Reach-cache IPC output hash.
+ * @returns {void}
+ */
+function setCorpusHashes(patch, manifestInputHash, manifestOutputHash, cacheInputHash, cacheOutputHash) {
+  const manifestEl = document.getElementById(`corpus-manifest-ipc-${patch}`);
+  const cacheEl = document.getElementById(`corpus-cache-ipc-${patch}`);
+  if (!manifestEl || !cacheEl) return;
+
+  manifestEl.textContent = formatHashPair(manifestInputHash, manifestOutputHash);
+  cacheEl.textContent = formatHashPair(cacheInputHash, cacheOutputHash);
+
+  if (typeof manifestInputHash === 'string' || typeof manifestOutputHash === 'string') {
+    const inText = typeof manifestInputHash === 'string' ? manifestInputHash : '—';
+    const outText = typeof manifestOutputHash === 'string' ? manifestOutputHash : '—';
+    manifestEl.title = `in: ${inText}\nout: ${outText}`;
+  } else {
+    manifestEl.removeAttribute('title');
+  }
+
+  if (typeof cacheInputHash === 'string' || typeof cacheOutputHash === 'string') {
+    const inText = typeof cacheInputHash === 'string' ? cacheInputHash : '—';
+    const outText = typeof cacheOutputHash === 'string' ? cacheOutputHash : '—';
+    cacheEl.title = `in: ${inText}\nout: ${outText}`;
+  } else {
+    cacheEl.removeAttribute('title');
+  }
+}
+
+/**
+ * Normalise verification status to one known token.
+ *
+ * @param {unknown} value - Raw status from API.
+ * @returns {'pending'|'verified'|'mismatch'|'missing'|'error'}
+ */
+function normalizeVerificationStatus(value) {
+  if (value === 'verified') return 'verified';
+  if (value === 'mismatch') return 'mismatch';
+  if (value === 'missing') return 'missing';
+  if (value === 'error') return 'error';
+  return 'pending';
+}
+
+/**
+ * Human-readable short label for one verification status token.
+ *
+ * @param {'pending'|'verified'|'mismatch'|'missing'|'error'} status - Normalized status.
+ * @returns {string}
+ */
+function verificationLabel(status) {
+  if (status === 'verified') return 'verified';
+  if (status === 'mismatch') return 'mismatch';
+  if (status === 'missing') return 'missing';
+  if (status === 'error') return 'error';
+  return 'pending';
+}
+
+/**
+ * Update one hash verification badge element.
+ *
+ * @param {HTMLElement | null} element - Badge element.
+ * @param {unknown} rawStatus - Raw status from API.
+ * @param {unknown} rawReason - Optional reason from API.
+ * @returns {void}
+ */
+function setHashBadge(element, rawStatus, rawReason) {
+  if (!element) return;
+  const status = normalizeVerificationStatus(rawStatus);
+  element.classList.remove('is-pending', 'is-verified', 'is-mismatch', 'is-missing', 'is-error');
+  element.classList.add(`is-${status}`);
+  element.textContent = verificationLabel(status);
+  if (typeof rawReason === 'string' && rawReason.length > 0) {
+    element.title = rawReason;
+  } else {
+    element.removeAttribute('title');
+  }
+}
+
+/**
+ * Update manifest/cache verification badges for one patch corpus panel.
+ *
+ * @param {'a'|'b'|string} patch - Patch key.
+ * @param {unknown} manifestStatus - Manifest verification status.
+ * @param {unknown} manifestReason - Manifest verification reason.
+ * @param {unknown} cacheStatus - Reach-cache verification status.
+ * @param {unknown} cacheReason - Reach-cache verification reason.
+ * @returns {void}
+ */
+function setCorpusHashVerification(
+  patch,
+  manifestStatus,
+  manifestReason,
+  cacheStatus,
+  cacheReason
+) {
+  setHashBadge(document.getElementById(`corpus-manifest-ipc-badge-${patch}`), manifestStatus, manifestReason);
+  setHashBadge(document.getElementById(`corpus-cache-ipc-badge-${patch}`), cacheStatus, cacheReason);
+}
+
+/**
  * Initialise corpus dropdown selectors and load initial run options.
  *
  * @param {{
@@ -178,6 +305,8 @@ function loadCorpus(patch, runId) {
   const label = `${runId} · loading…`;
 
   setCorpusStatus(patch, label, 'neutral');
+  setCorpusHashes(patch, null, null, null, null);
+  setCorpusHashVerification(patch, null, null, null, null);
   document.getElementById(`status-corpus-${patch}`).textContent = runId;
   _ctx.state[`corpus${P}`] = runId;
   _ctx.setStatus(`Patch ${P}: loading corpus ${runId}…`);
@@ -235,6 +364,20 @@ function pollWalkerReady(patch) {
       .then(data => {
         const info = data[patchKey];
         if (!info) return;
+        setCorpusHashes(
+          patch,
+          info.manifest_ipc_input_hash,
+          info.manifest_ipc_output_hash,
+          info.reach_cache_ipc_input_hash,
+          info.reach_cache_ipc_output_hash
+        );
+        setCorpusHashVerification(
+          patch,
+          info.manifest_ipc_verification_status,
+          info.manifest_ipc_verification_reason,
+          info.reach_cache_ipc_verification_status,
+          info.reach_cache_ipc_verification_reason
+        );
 
         if (info.loader_status === 'error' || info.loading_error) {
           clearInterval(_walkerReadyPollers[patch]);

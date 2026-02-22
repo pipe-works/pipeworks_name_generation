@@ -17,6 +17,7 @@ import pytest
 
 from build_tools.syllable_walk.reach import ReachResult
 from build_tools.syllable_walk_web.api.walker import (
+    _reach_cache_verification_from_read,
     handle_analysis,
     handle_combine,
     handle_export,
@@ -27,8 +28,70 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_stats,
     handle_walk,
 )
+from build_tools.syllable_walk_web.services.pipeline_manifest import (
+    ManifestIPCVerificationResult,
+)
 from build_tools.syllable_walk_web.services.profile_reaches_cache import CacheReadResult
 from build_tools.syllable_walk_web.state import ServerState
+
+# ============================================================
+# _reach_cache_verification_from_read
+# ============================================================
+
+
+class TestReachCacheVerificationMapping:
+    """Unit tests for cache-status to verification-status mapping."""
+
+    def test_none_status_returns_unset(self):
+        """None cache status should keep verification state unset."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status=None,
+            cache_message=None,
+            input_hash=None,
+            output_hash=None,
+        )
+        assert status is None
+        assert reason is None
+
+    @pytest.mark.parametrize(
+        ("cache_status", "cache_message", "expected_status", "expected_reason"),
+        [
+            ("invalid", None, "mismatch", "cache-invalid"),
+            ("invalid", "ipc-tampered", "mismatch", "ipc-tampered"),
+            ("error", None, "error", "cache-read-error"),
+            ("error", "io-failure", "error", "io-failure"),
+            ("none", None, "missing", "manifest-ipc-missing"),
+            ("miss", None, "missing", "cache-miss"),
+            ("unexpected", None, "error", "cache-status-unknown"),
+        ],
+    )
+    def test_non_hit_statuses_map_to_expected_reason(
+        self, cache_status, cache_message, expected_status, expected_reason
+    ):
+        """Each non-hit cache status should map to deterministic UI semantics."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status=cache_status,
+            cache_message=cache_message,
+            input_hash=None,
+            output_hash=None,
+        )
+        assert status == expected_status
+        assert reason == expected_reason
+
+    def test_hit_with_missing_hashes_maps_to_error(self):
+        """Hit without canonical hashes should be flagged as verification error."""
+
+        status, reason = _reach_cache_verification_from_read(
+            cache_status="hit",
+            cache_message=None,
+            input_hash=None,
+            output_hash="b" * 64,
+        )
+        assert status == "error"
+        assert reason == "cache-hit-missing-hashes"
+
 
 # ============================================================
 # Fixtures
@@ -169,6 +232,8 @@ class TestHandleLoadCorpus:
         mock_run.annotated_json_path = None
         mock_run.extractor_type = "pyphen"
         mock_run.path = "/test/path"
+        mock_run.ipc_input_hash = "a" * 64
+        mock_run.ipc_output_hash = "b" * 64
 
         with (
             patch(
@@ -179,6 +244,15 @@ class TestHandleLoadCorpus:
                 "build_tools.syllable_walk.db.load_syllables",
                 return_value=(sample_annotated_data, "from test"),
             ),
+            patch(
+                "build_tools.syllable_walk_web.services.pipeline_manifest.verify_manifest_ipc_file",
+                return_value=ManifestIPCVerificationResult(
+                    status="verified",
+                    reason="hashes-match",
+                    input_hash="a" * 64,
+                    output_hash="b" * 64,
+                ),
+            ),
             patch("build_tools.syllable_walk.walker.SyllableWalker"),
         ):
             result = handle_load_corpus({"patch": "a", "run_id": "test_run"}, state)
@@ -187,6 +261,10 @@ class TestHandleLoadCorpus:
         assert result["status"] == "loading"
         assert result["syllable_count"] == 2
         assert state.patch_a.syllable_count == 2
+        assert state.patch_a.manifest_ipc_input_hash == "a" * 64
+        assert state.patch_a.manifest_ipc_output_hash == "b" * 64
+        assert state.patch_a.manifest_ipc_verification_status == "verified"
+        assert state.patch_a.manifest_ipc_verification_reason == "hashes-match"
 
     def test_resets_old_state(self, loaded_state):
         """Test loading a new corpus resets walks/candidates/selections."""
@@ -264,6 +342,8 @@ class TestHandleLoadCorpus:
         run.annotated_json_path = None
         run.extractor_type = "pyphen"
         run.path = "/test/path"
+        run.ipc_input_hash = "a" * 64
+        run.ipc_output_hash = "b" * 64
 
         created_targets = []
 
@@ -597,7 +677,12 @@ class TestHandleLoadCorpus:
             ),
             patch(
                 "build_tools.syllable_walk_web.services.profile_reaches_cache.load_cached_profile_reaches",
-                return_value=CacheReadResult(status="hit", profile_reaches=cached_reaches),
+                return_value=CacheReadResult(
+                    status="hit",
+                    profile_reaches=cached_reaches,
+                    ipc_input_hash="c" * 64,
+                    ipc_output_hash="d" * 64,
+                ),
             ) as mock_cache_load,
             patch("build_tools.syllable_walk.reach.compute_all_reaches") as mock_compute_reaches,
             patch(
@@ -613,6 +698,10 @@ class TestHandleLoadCorpus:
         assert state.patch_a.walker == "walker-a"
         assert state.patch_a.profile_reaches == cached_reaches
         assert state.patch_a.reach_cache_status == "hit"
+        assert state.patch_a.reach_cache_ipc_input_hash == "c" * 64
+        assert state.patch_a.reach_cache_ipc_output_hash == "d" * 64
+        assert state.patch_a.reach_cache_ipc_verification_status == "verified"
+        assert state.patch_a.reach_cache_ipc_verification_reason == "cache-hit-hashes-match"
         assert state.patch_a.walker_ready is True
 
     def test_load_computes_and_writes_cache_when_missing(self, state):
@@ -623,6 +712,8 @@ class TestHandleLoadCorpus:
         run.annotated_json_path = None
         run.extractor_type = "pyphen"
         run.path = "/test/path"
+        run.ipc_input_hash = "a" * 64
+        run.ipc_output_hash = "b" * 64
 
         computed_reaches = {
             "dialect": ReachResult(
@@ -673,6 +764,10 @@ class TestHandleLoadCorpus:
                 "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
                 return_value=True,
             ) as mock_cache_write,
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.read_cached_profile_reach_hashes",
+                return_value=("e" * 64, "f" * 64),
+            ),
         ):
             handle_load_corpus({"patch": "a", "run_id": "run_1"}, state)
 
@@ -680,6 +775,10 @@ class TestHandleLoadCorpus:
         mock_cache_write.assert_called_once()
         assert state.patch_a.profile_reaches == computed_reaches
         assert state.patch_a.reach_cache_status == "miss"
+        assert state.patch_a.reach_cache_ipc_input_hash == "e" * 64
+        assert state.patch_a.reach_cache_ipc_output_hash == "f" * 64
+        assert state.patch_a.reach_cache_ipc_verification_status == "verified"
+        assert state.patch_a.reach_cache_ipc_verification_reason == "cache-written-after-miss"
         assert state.patch_a.walker_ready is True
 
 
@@ -848,6 +947,14 @@ class TestHandleStats:
         assert result["patch_a"]["loader_status"] == "idle"
         assert result["patch_a"]["loading_error"] is None
         assert result["patch_a"]["reach_cache_status"] is None
+        assert result["patch_a"]["manifest_ipc_input_hash"] is None
+        assert result["patch_a"]["manifest_ipc_output_hash"] is None
+        assert result["patch_a"]["manifest_ipc_verification_status"] is None
+        assert result["patch_a"]["manifest_ipc_verification_reason"] is None
+        assert result["patch_a"]["reach_cache_ipc_input_hash"] is None
+        assert result["patch_a"]["reach_cache_ipc_output_hash"] is None
+        assert result["patch_a"]["reach_cache_ipc_verification_status"] is None
+        assert result["patch_a"]["reach_cache_ipc_verification_reason"] is None
 
     def test_loaded_state(self, loaded_state):
         """Test stats reflect loaded corpus."""
@@ -858,15 +965,39 @@ class TestHandleStats:
         assert result["patch_a"]["loader_status"] == "ready"
         assert result["patch_a"]["loading_error"] is None
         assert result["patch_a"]["reach_cache_status"] is None
+        assert result["patch_a"]["manifest_ipc_input_hash"] is None
+        assert result["patch_a"]["manifest_ipc_output_hash"] is None
+        assert result["patch_a"]["manifest_ipc_verification_status"] is None
+        assert result["patch_a"]["manifest_ipc_verification_reason"] is None
+        assert result["patch_a"]["reach_cache_ipc_input_hash"] is None
+        assert result["patch_a"]["reach_cache_ipc_output_hash"] is None
+        assert result["patch_a"]["reach_cache_ipc_verification_status"] is None
+        assert result["patch_a"]["reach_cache_ipc_verification_reason"] is None
 
     def test_stats_include_reach_cache_status(self, state):
         """Stats payload should expose cache read status for UI diagnostics."""
 
         state.patch_a.run_id = "run_cache"
+        state.patch_a.manifest_ipc_input_hash = "a" * 64
+        state.patch_a.manifest_ipc_output_hash = "b" * 64
+        state.patch_a.manifest_ipc_verification_status = "verified"
+        state.patch_a.manifest_ipc_verification_reason = "hashes-match"
         state.patch_a.reach_cache_status = "hit"
+        state.patch_a.reach_cache_ipc_input_hash = "c" * 64
+        state.patch_a.reach_cache_ipc_output_hash = "d" * 64
+        state.patch_a.reach_cache_ipc_verification_status = "verified"
+        state.patch_a.reach_cache_ipc_verification_reason = "cache-hit-hashes-match"
 
         result = handle_stats(state)
         assert result["patch_a"]["reach_cache_status"] == "hit"
+        assert result["patch_a"]["manifest_ipc_input_hash"] == "a" * 64
+        assert result["patch_a"]["manifest_ipc_output_hash"] == "b" * 64
+        assert result["patch_a"]["manifest_ipc_verification_status"] == "verified"
+        assert result["patch_a"]["manifest_ipc_verification_reason"] == "hashes-match"
+        assert result["patch_a"]["reach_cache_ipc_input_hash"] == "c" * 64
+        assert result["patch_a"]["reach_cache_ipc_output_hash"] == "d" * 64
+        assert result["patch_a"]["reach_cache_ipc_verification_status"] == "verified"
+        assert result["patch_a"]["reach_cache_ipc_verification_reason"] == "cache-hit-hashes-match"
 
     def test_stats_loading_and_error_states(self, state):
         """Stats surface loading and error states for UI polling logic."""

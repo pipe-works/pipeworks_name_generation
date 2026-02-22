@@ -33,9 +33,23 @@ class PatchState:
     # Terminal loader error for the current generation, if any.
     # Cleared at the start of each new load request.
     loading_error: str | None = None
+    # Manifest IPC hashes for the currently loaded run (if available).
+    manifest_ipc_input_hash: str | None = None
+    manifest_ipc_output_hash: str | None = None
+    # Manifest IPC verification outcome for the loaded run.
+    # Values: verified|mismatch|missing|error (or None before first verification).
+    manifest_ipc_verification_status: str | None = None
+    manifest_ipc_verification_reason: str | None = None
     # Profile reach cache outcome for the currently loaded run.
     # Values: hit|miss|invalid|error|none (or None before first attempt).
     reach_cache_status: str | None = None
+    # Reach-cache IPC hashes for the cache artifact loaded/written for this run.
+    reach_cache_ipc_input_hash: str | None = None
+    reach_cache_ipc_output_hash: str | None = None
+    # Reach-cache IPC verification outcome.
+    # Values: verified|mismatch|missing|error (or None before first verification).
+    reach_cache_ipc_verification_status: str | None = None
+    reach_cache_ipc_verification_reason: str | None = None
     profile_reaches: dict[str, Any] | None = None  # ReachResult per profile
     annotated_data: list[dict] | None = None
     frequencies: dict[str, int] | None = None

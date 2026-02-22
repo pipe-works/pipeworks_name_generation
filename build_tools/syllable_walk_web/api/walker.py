@@ -7,6 +7,7 @@ and walker state queries.
 
 from __future__ import annotations
 
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,39 @@ from typing import Any
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 _MISSING = object()
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _is_sha256_hex(value: Any) -> bool:
+    """Return ``True`` when value is a lowercase 64-character SHA-256 hash."""
+
+    return isinstance(value, str) and _SHA256_RE.match(value) is not None
+
+
+def _reach_cache_verification_from_read(
+    *,
+    cache_status: str | None,
+    cache_message: str | None,
+    input_hash: str | None,
+    output_hash: str | None,
+) -> tuple[str | None, str | None]:
+    """Map cache read outcome to a user-facing verification status/reason."""
+
+    if cache_status is None:
+        return None, None
+    if cache_status == "hit":
+        if _is_sha256_hex(input_hash) and _is_sha256_hex(output_hash):
+            return "verified", "cache-hit-hashes-match"
+        return "error", "cache-hit-missing-hashes"
+    if cache_status == "invalid":
+        return "mismatch", cache_message or "cache-invalid"
+    if cache_status == "error":
+        return "error", cache_message or "cache-read-error"
+    if cache_status == "none":
+        return "missing", "manifest-ipc-missing"
+    if cache_status == "miss":
+        return "missing", "cache-miss"
+    return "error", "cache-status-unknown"
 
 
 def _resolve_patch_state(
@@ -114,6 +148,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
         return {"error": f"Failed to load corpus: {e}"}
 
     run_dir = run.path if isinstance(run.path, Path) else Path(str(run.path))
+    from build_tools.syllable_walk_web.services.pipeline_manifest import verify_manifest_ipc_file
 
     # Reset ALL patch fields when a new corpus is loaded.  This prevents
     # stale state from a previous run leaking through (e.g. old candidates
@@ -133,7 +168,29 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
     patch.selections_path = None
     patch.selected_names = []
     patch.loading_error = None
+    raw_manifest_input_hash = getattr(run, "ipc_input_hash", None)
+    raw_manifest_output_hash = getattr(run, "ipc_output_hash", None)
+    patch.manifest_ipc_input_hash = (
+        str(raw_manifest_input_hash) if _is_sha256_hex(raw_manifest_input_hash) else None
+    )
+    patch.manifest_ipc_output_hash = (
+        str(raw_manifest_output_hash) if _is_sha256_hex(raw_manifest_output_hash) else None
+    )
+    patch.manifest_ipc_verification_status = None
+    patch.manifest_ipc_verification_reason = None
     patch.reach_cache_status = None
+    patch.reach_cache_ipc_input_hash = None
+    patch.reach_cache_ipc_output_hash = None
+    patch.reach_cache_ipc_verification_status = None
+    patch.reach_cache_ipc_verification_reason = None
+
+    manifest_verification = verify_manifest_ipc_file(run_dir)
+    patch.manifest_ipc_verification_status = manifest_verification.status
+    patch.manifest_ipc_verification_reason = manifest_verification.reason
+    if manifest_verification.input_hash is not None:
+        patch.manifest_ipc_input_hash = manifest_verification.input_hash
+    if manifest_verification.output_hash is not None:
+        patch.manifest_ipc_output_hash = manifest_verification.output_hash
     # Advance generation and mark this request as the only authoritative
     # loader. Older background threads are treated as stale and their
     # writes are ignored.
@@ -183,6 +240,7 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             from build_tools.syllable_walk.reach import compute_all_reaches
             from build_tools.syllable_walk_web.services.profile_reaches_cache import (
                 load_cached_profile_reaches,
+                read_cached_profile_reach_hashes,
                 write_cached_profile_reaches,
             )
 
@@ -196,8 +254,28 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
             if cache_result.status == "hit" and cache_result.profile_reaches is not None:
                 profile_reaches = cache_result.profile_reaches
                 patch.reach_cache_status = "hit"
+                patch.reach_cache_ipc_input_hash = cache_result.ipc_input_hash
+                patch.reach_cache_ipc_output_hash = cache_result.ipc_output_hash
+                (
+                    patch.reach_cache_ipc_verification_status,
+                    patch.reach_cache_ipc_verification_reason,
+                ) = _reach_cache_verification_from_read(
+                    cache_status=cache_result.status,
+                    cache_message=cache_result.message,
+                    input_hash=cache_result.ipc_input_hash,
+                    output_hash=cache_result.ipc_output_hash,
+                )
             else:
                 patch.reach_cache_status = cache_result.status
+                (
+                    patch.reach_cache_ipc_verification_status,
+                    patch.reach_cache_ipc_verification_reason,
+                ) = _reach_cache_verification_from_read(
+                    cache_status=cache_result.status,
+                    cache_message=cache_result.message,
+                    input_hash=cache_result.ipc_input_hash,
+                    output_hash=cache_result.ipc_output_hash,
+                )
                 # Compute profile reaches (deterministic, typically <1s).
                 # This runs BEFORE setting walker_ready so that when the
                 # UI poller sees walker_ready=True, reaches are guaranteed
@@ -210,12 +288,24 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
                     progress_callback=_on_progress,
                 )
                 if _is_current_generation():
-                    write_cached_profile_reaches(
+                    cache_written = write_cached_profile_reaches(
                         run_dir=run_dir,
                         run_id=run_id,
                         walker=walker,
                         profile_reaches=profile_reaches,
                     )
+                    if cache_written:
+                        (
+                            patch.reach_cache_ipc_input_hash,
+                            patch.reach_cache_ipc_output_hash,
+                        ) = read_cached_profile_reach_hashes(run_dir)
+                        if _is_sha256_hex(patch.reach_cache_ipc_input_hash) and _is_sha256_hex(
+                            patch.reach_cache_ipc_output_hash
+                        ):
+                            patch.reach_cache_ipc_verification_status = "verified"
+                            patch.reach_cache_ipc_verification_reason = (
+                                f"cache-written-after-{cache_result.status}"
+                            )
 
             if not _is_current_generation():
                 return
@@ -240,7 +330,11 @@ def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, An
                 patch.walker_ready = False
                 patch.active_load_generation = None
                 patch.reach_cache_status = "error"
+                patch.reach_cache_ipc_input_hash = None
+                patch.reach_cache_ipc_output_hash = None
+                patch.reach_cache_ipc_verification_status = "error"
                 error_message = str(exc).strip() or "Unknown walker initialisation error"
+                patch.reach_cache_ipc_verification_reason = f"loader-error:{exc.__class__.__name__}"
                 patch.loading_error = f"Walker initialisation failed: {error_message}"
 
     thread = threading.Thread(target=_init_walker, daemon=True)
@@ -382,7 +476,15 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
             "loading_stage": patch.loading_stage,
             "loading_error": patch.loading_error,
             "loader_status": loader_status,
+            "manifest_ipc_input_hash": patch.manifest_ipc_input_hash,
+            "manifest_ipc_output_hash": patch.manifest_ipc_output_hash,
+            "manifest_ipc_verification_status": patch.manifest_ipc_verification_status,
+            "manifest_ipc_verification_reason": patch.manifest_ipc_verification_reason,
             "reach_cache_status": patch.reach_cache_status,
+            "reach_cache_ipc_input_hash": patch.reach_cache_ipc_input_hash,
+            "reach_cache_ipc_output_hash": patch.reach_cache_ipc_output_hash,
+            "reach_cache_ipc_verification_status": patch.reach_cache_ipc_verification_status,
+            "reach_cache_ipc_verification_reason": patch.reach_cache_ipc_verification_reason,
             "has_walks": len(patch.walks) > 0,
             "has_candidates": patch.candidates is not None,
             "has_selections": len(patch.selected_names) > 0,
