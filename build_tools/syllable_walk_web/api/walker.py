@@ -11,6 +11,15 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from build_tools.syllable_walk_web.api.walker_cache_lock import (
+    handle_rebuild_reach_cache as _handle_rebuild_reach_cache_impl,
+)
+from build_tools.syllable_walk_web.api.walker_cache_lock import (
+    handle_session_lock_heartbeat as _handle_session_lock_heartbeat_impl,
+)
+from build_tools.syllable_walk_web.api.walker_cache_lock import (
+    handle_session_lock_release as _handle_session_lock_release_impl,
+)
 from build_tools.syllable_walk_web.api.walker_common import (
     coerce_optional_constraint_int as _coerce_optional_constraint_int_impl,
 )
@@ -730,71 +739,13 @@ def handle_rebuild_reach_cache(body: dict[str, Any], state: ServerState) -> dict
     run-local IPC cache artifact.
     """
 
-    lock_error = _enforce_active_session_lock(body, state)
-    if lock_error is not None:
-        return lock_error
-
-    resolved = _resolve_patch_state(body, state)
-    if resolved is None:
-        return {"error": "Invalid patch. Must be 'a' or 'b'."}
-    patch_key, patch = resolved
-
-    requested_run_id = body.get("run_id")
-    if requested_run_id is not None and (
-        not isinstance(requested_run_id, str) or not requested_run_id.strip()
-    ):
-        return {"error": "run_id must be a non-empty string when provided."}
-    if isinstance(requested_run_id, str) and patch.run_id and requested_run_id != patch.run_id:
-        return {"error": f"run_id mismatch for patch {patch_key.upper()}."}
-
-    if not patch.walker_ready or patch.walker is None:
-        return {"error": f"Walker not ready for patch {patch_key.upper()}. Load a corpus first."}
-    if not isinstance(patch.corpus_dir, Path):
-        return {"error": f"Run directory missing for patch {patch_key.upper()}."}
-    if not isinstance(patch.run_id, str) or not patch.run_id.strip():
-        return {"error": f"run_id missing for patch {patch_key.upper()}."}
-
-    from build_tools.syllable_walk.reach import compute_all_reaches
-    from build_tools.syllable_walk_web.services.profile_reaches_cache import (
-        read_cached_profile_reach_hashes,
-        write_cached_profile_reaches,
+    return _handle_rebuild_reach_cache_impl(
+        body,
+        state,
+        enforce_active_session_lock_fn=_enforce_active_session_lock,
+        resolve_patch_state_fn=_resolve_patch_state,
+        is_sha256_hex_fn=_is_sha256_hex,
     )
-
-    try:
-        profile_reaches = compute_all_reaches(patch.walker)
-    except Exception as e:
-        return {"error": f"Failed to compute profile reaches: {e}"}
-
-    wrote = write_cached_profile_reaches(
-        run_dir=patch.corpus_dir,
-        run_id=patch.run_id,
-        walker=patch.walker,
-        profile_reaches=profile_reaches,
-    )
-    if not wrote:
-        return {"error": "Failed to write reach cache artifact."}
-
-    cache_input_hash, cache_output_hash = read_cached_profile_reach_hashes(patch.corpus_dir)
-    patch.profile_reaches = profile_reaches
-    patch.reach_cache_status = "hit"
-    patch.reach_cache_ipc_input_hash = cache_input_hash
-    patch.reach_cache_ipc_output_hash = cache_output_hash
-    if _is_sha256_hex(cache_input_hash) and _is_sha256_hex(cache_output_hash):
-        patch.reach_cache_ipc_verification_status = "verified"
-        patch.reach_cache_ipc_verification_reason = "cache-rebuilt"
-    else:
-        patch.reach_cache_ipc_verification_status = "error"
-        patch.reach_cache_ipc_verification_reason = "cache-rebuilt-hashes-missing"
-
-    return {
-        "patch": patch_key,
-        "run_id": patch.run_id,
-        "status": "rebuilt",
-        "ipc_input_hash": patch.reach_cache_ipc_input_hash,
-        "ipc_output_hash": patch.reach_cache_ipc_output_hash,
-        "verification_status": patch.reach_cache_ipc_verification_status,
-        "verification_reason": patch.reach_cache_ipc_verification_reason,
-    }
 
 
 def handle_session_lock_heartbeat(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
@@ -804,38 +755,11 @@ def handle_session_lock_heartbeat(body: dict[str, Any], state: ServerState) -> d
     This is cooperative multi-tab coordination, not an auth/security layer.
     """
 
-    raw_session_id = body.get("session_id")
-    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
-        return {"error": "Missing or invalid session_id."}
-    holder_id, holder_error = _coerce_lock_holder_id(body)
-    if holder_error is not None or holder_id is None:
-        return {"error": holder_error or "Missing lock_holder_id."}
-
-    from build_tools.syllable_walk_web.services.walker_session_lock import heartbeat_session_lock
-
-    result = heartbeat_session_lock(
-        state=state,
-        session_id=raw_session_id.strip(),
-        holder_id=holder_id,
+    return _handle_session_lock_heartbeat_impl(
+        body,
+        state,
+        coerce_lock_holder_id_fn=_coerce_lock_holder_id,
     )
-    status = result.get("status")
-    if status in {"locked", "error"}:
-        return {
-            "error": result.get("reason", "Session lock heartbeat failed."),
-            "lock_status": status,
-            "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-        }
-    if status == "missing":
-        return {
-            "status": "missing",
-            "reason": result.get("reason", "Session lock not found."),
-            "lock": None,
-        }
-    return {
-        "status": "held",
-        "reason": result.get("reason", "session lock refreshed"),
-        "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-    }
 
 
 def handle_session_lock_release(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
@@ -844,32 +768,11 @@ def handle_session_lock_release(body: dict[str, Any], state: ServerState) -> dic
     Releases the current lease when called by lock owner.
     """
 
-    raw_session_id = body.get("session_id")
-    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
-        return {"error": "Missing or invalid session_id."}
-    holder_id, holder_error = _coerce_lock_holder_id(body)
-    if holder_error is not None or holder_id is None:
-        return {"error": holder_error or "Missing lock_holder_id."}
-
-    from build_tools.syllable_walk_web.services.walker_session_lock import release_session_lock
-
-    result = release_session_lock(
-        state=state,
-        session_id=raw_session_id.strip(),
-        holder_id=holder_id,
+    return _handle_session_lock_release_impl(
+        body,
+        state,
+        coerce_lock_holder_id_fn=_coerce_lock_holder_id,
     )
-    status = result.get("status")
-    if status in {"locked", "error"}:
-        return {
-            "error": result.get("reason", "Session lock release failed."),
-            "lock_status": status,
-            "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-        }
-    return {
-        "status": status,
-        "reason": result.get("reason", "session lock released"),
-        "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-    }
 
 
 def handle_reach_syllables(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
