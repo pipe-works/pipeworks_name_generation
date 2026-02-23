@@ -388,6 +388,28 @@ class TestRoutePost:
         handler._route_post("/api/walker/session-lock/release")
         handler.send_response.assert_called_once_with(400)
 
+    def test_walker_session_lock_heartbeat_success_path(self, handler):
+        """Test POST /api/walker/session-lock/heartbeat success route wiring."""
+
+        body = json.dumps({"session_id": "session_ok", "lock_holder_id": "holder_a"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/session-lock/heartbeat")
+        handler.send_response.assert_called_once_with(200)
+        result = json.loads(handler.wfile.getvalue())
+        assert result["status"] in {"held", "missing"}
+
+    def test_walker_session_lock_release_success_path(self, handler):
+        """Test POST /api/walker/session-lock/release success route wiring."""
+
+        body = json.dumps({"session_id": "session_ok", "lock_holder_id": "holder_a"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/session-lock/release")
+        handler.send_response.assert_called_once_with(200)
+        result = json.loads(handler.wfile.getvalue())
+        assert result["status"] in {"released", "missing"}
+
     def test_walker_rebuild_reach_cache_without_loaded_walker(self, handler):
         """Test POST /api/walker/rebuild-reach-cache returns 400 when not ready."""
         body = json.dumps({"patch": "a"}).encode()

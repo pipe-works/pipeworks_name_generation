@@ -772,3 +772,104 @@ def test_list_sessions_returns_empty_when_sessions_base_absent(tmp_path: Path) -
         configured_sessions_base=configured_sessions_base,
     )
     assert entries == []
+
+
+def test_coerce_lineage_rejects_invalid_parent_or_revision() -> None:
+    """Lineage coercion should reject blank parent IDs and negative revisions."""
+
+    assert walker_session_store._coerce_lineage(["bad"]) is None
+    assert (
+        walker_session_store._coerce_lineage(
+            {"root_session_id": "session_root", "parent_session_id": " ", "revision": 0}
+        )
+        is None
+    )
+    assert (
+        walker_session_store._coerce_lineage(
+            {"root_session_id": "session_root", "parent_session_id": None, "revision": -1}
+        )
+        is None
+    )
+
+
+def test_save_session_rejects_mutually_exclusive_session_id_and_repair_source(
+    tmp_path: Path,
+) -> None:
+    """Save should reject providing both explicit session id and repair source."""
+
+    state = ServerState(output_base=tmp_path / "output")
+    result = walker_session_store.save_session(
+        state=state,
+        session_id="session_explicit",
+        repair_from_session_id="session_parent",
+    )
+    assert result.status == "error"
+    assert result.reason == "session-id-and-repair-source-are-mutually-exclusive"
+
+
+def test_save_session_repair_rejects_missing_parent_session(tmp_path: Path) -> None:
+    """Repair saves should fail fast when parent session payload is absent/invalid."""
+
+    state = ServerState(output_base=tmp_path / "output")
+    result = walker_session_store.save_session(
+        state=state,
+        repair_from_session_id="session_missing_parent",
+    )
+    assert result.status == "missing"
+    assert result.reason == "repair-source-session-missing-or-invalid"
+
+
+def test_save_session_repair_falls_back_to_default_lineage_for_invalid_parent_lineage(
+    tmp_path: Path,
+) -> None:
+    """Repair saves should recover lineage when parent payload lineage is malformed."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    sessions_base = (tmp_path / "sessions").resolve()
+    sessions_base.mkdir(parents=True, exist_ok=True)
+    parent_path = sessions_base / "session_parent.json"
+    parent_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "session_kind": "walker_patch_session",
+                "session_id": "session_parent",
+                "created_at_utc": "2026-02-23T00:00:00Z",
+                "label": None,
+                "patch_a": None,
+                "patch_b": None,
+                "lineage": {"root_session_id": "", "parent_session_id": None, "revision": 0},
+                "ipc": {
+                    "version": 1,
+                    "library": "pipeworks-ipc",
+                    "library_ref": "pipeworks-ipc-vx",
+                    "input_hash": "a" * 64,
+                    "output_hash": "b" * 64,
+                    "input_payload": {},
+                    "output_payload": {},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    state.sessions_base = sessions_base
+
+    repaired = walker_session_store.save_session(
+        state=state,
+        repair_from_session_id="session_parent",
+    )
+    assert repaired.status == "saved"
+    assert repaired.session_path is not None
+
+    repaired_payload = json.loads(repaired.session_path.read_text(encoding="utf-8"))
+    assert repaired_payload["lineage"]["root_session_id"] == "session_parent"
+    assert repaired_payload["lineage"]["parent_session_id"] == "session_parent"
+    assert repaired_payload["lineage"]["revision"] == 1
