@@ -213,6 +213,8 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
             handle_rebuild_reach_cache,
             handle_save_session,
             handle_select,
+            handle_session_lock_heartbeat,
+            handle_session_lock_release,
             handle_walk,
         )
 
@@ -300,6 +302,24 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
                 self._send_error(400, "Invalid JSON")
                 return
             result = handle_load_session(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/session-lock/heartbeat":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_session_lock_heartbeat(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/session-lock/release":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_session_lock_release(body, self.state)
             status = 400 if "error" in result else 200
             self._send_json(result, status=status)
             return

@@ -7,6 +7,7 @@ All state is in-memory only — not persisted across restarts.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -88,3 +89,12 @@ class ServerState:
     sessions_base: Path | None = None
     corpus_dir_a: Path | None = None
     corpus_dir_b: Path | None = None
+    # Cooperative single-user session locks keyed by session_id.
+    # This is a UX consistency guard for multi-tab use, not a security boundary.
+    walker_session_locks: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Thread-safety guard for lock map updates under ThreadingHTTPServer.
+    walker_session_locks_guard: threading.Lock = field(default_factory=threading.Lock)
+    # Active loaded session context (if current patch state came from load-session API).
+    active_session_id: str | None = None
+    # Current holder id for the active session lock.
+    active_session_lock_holder_id: str | None = None

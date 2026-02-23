@@ -61,6 +61,9 @@ class SessionSaveResult:
     patch_b_reason: str | None = None
     ipc_input_hash: str | None = None
     ipc_output_hash: str | None = None
+    root_session_id: str | None = None
+    parent_session_id: str | None = None
+    revision: int | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,9 @@ class SessionListEntry:
     verification_status: str
     verification_reason: str
     session_path: Path
+    root_session_id: str | None = None
+    parent_session_id: str | None = None
+    revision: int | None = None
 
 
 def _utc_now_iso() -> str:
@@ -155,6 +161,41 @@ def _normalize_label(label: str | None) -> str | None:
         return None
     cleaned = str(label).strip()
     return cleaned or None
+
+
+def _default_lineage(*, session_id: str) -> dict[str, Any]:
+    """Build default lineage metadata for a first-generation session."""
+
+    return {
+        "root_session_id": session_id,
+        "parent_session_id": None,
+        "revision": 0,
+    }
+
+
+def _coerce_lineage(raw: Any) -> dict[str, Any] | None:
+    """Validate/coerce session lineage metadata when present."""
+
+    if not isinstance(raw, dict):
+        return None
+    root_session_id = raw.get("root_session_id")
+    parent_session_id = raw.get("parent_session_id")
+    revision = raw.get("revision")
+    if not isinstance(root_session_id, str) or not root_session_id.strip():
+        return None
+    if parent_session_id is not None and (
+        not isinstance(parent_session_id, str) or not parent_session_id.strip()
+    ):
+        return None
+    if not isinstance(revision, int) or revision < 0:
+        return None
+    return {
+        "root_session_id": root_session_id.strip(),
+        "parent_session_id": (
+            parent_session_id.strip() if isinstance(parent_session_id, str) else None
+        ),
+        "revision": revision,
+    }
 
 
 def _coerce_patch_ref(raw: Any, expected_patch: str) -> dict[str, str] | None:
@@ -269,15 +310,19 @@ def _build_session_input_payload(
     label: str | None,
     patch_a: dict[str, Any] | None,
     patch_b: dict[str, Any] | None,
+    lineage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build canonical session IPC input payload."""
 
-    return {
+    payload = {
         "session_id": session_id,
         "label": label,
         "patch_a": patch_a,
         "patch_b": patch_b,
     }
+    if lineage is not None:
+        payload["lineage"] = lineage
+    return payload
 
 
 def _build_session_output_payload(
@@ -298,15 +343,67 @@ def save_session(
     state: ServerState,
     label: str | None = None,
     session_id: str | None = None,
+    repair_from_session_id: str | None = None,
 ) -> SessionSaveResult:
     """Persist one dual-patch session payload under resolved ``sessions_base``."""
 
     normalized_label = _normalize_label(label)
-    resolved_session_id = (
-        session_id.strip()
-        if isinstance(session_id, str) and session_id.strip()
-        else _new_session_id()
+    cleaned_session_id = (
+        session_id.strip() if isinstance(session_id, str) and session_id.strip() else None
     )
+    cleaned_repair_source_id = (
+        repair_from_session_id.strip()
+        if isinstance(repair_from_session_id, str) and repair_from_session_id.strip()
+        else None
+    )
+    if cleaned_session_id is not None and cleaned_repair_source_id is not None:
+        return SessionSaveResult(
+            status="error",
+            reason="session-id-and-repair-source-are-mutually-exclusive",
+        )
+
+    lineage: dict[str, Any]
+    if cleaned_repair_source_id is not None:
+        parent_path = session_file_path(
+            session_id=cleaned_repair_source_id,
+            output_base=state.output_base,
+            configured_sessions_base=state.sessions_base,
+        )
+        parent_payload = _read_json_object(parent_path)
+        if parent_payload is None:
+            return SessionSaveResult(
+                status="missing",
+                reason="repair-source-session-missing-or-invalid",
+            )
+        parent_session_id_raw = parent_payload.get("session_id")
+        parent_session_id = (
+            parent_session_id_raw.strip()
+            if isinstance(parent_session_id_raw, str) and parent_session_id_raw.strip()
+            else cleaned_repair_source_id
+        )
+        parent_lineage = _coerce_lineage(parent_payload.get("lineage"))
+        if parent_lineage is None:
+            parent_lineage = _default_lineage(session_id=parent_session_id)
+        lineage = {
+            "root_session_id": parent_lineage["root_session_id"],
+            "parent_session_id": parent_session_id,
+            "revision": int(parent_lineage["revision"]) + 1,
+        }
+        resolved_session_id = _new_session_id()
+    else:
+        resolved_session_id = cleaned_session_id or _new_session_id()
+        path = session_file_path(
+            session_id=resolved_session_id,
+            output_base=state.output_base,
+            configured_sessions_base=state.sessions_base,
+        )
+        if path.exists():
+            return SessionSaveResult(
+                status="mismatch",
+                reason="session-id-already-exists",
+                session_id=resolved_session_id,
+            )
+        lineage = _default_lineage(session_id=resolved_session_id)
 
     patch_a_result = _build_patch_reference(patch_key="a", patch_state=state.patch_a)
     patch_b_result = _build_patch_reference(patch_key="b", patch_state=state.patch_b)
@@ -320,6 +417,9 @@ def save_session(
             patch_a_reason=patch_a_result.reason,
             patch_b_status=patch_b_result.status,
             patch_b_reason=patch_b_result.reason,
+            root_session_id=lineage["root_session_id"],
+            parent_session_id=lineage["parent_session_id"],
+            revision=lineage["revision"],
         )
 
     created_at_utc = _utc_now_iso()
@@ -328,6 +428,7 @@ def save_session(
         label=normalized_label,
         patch_a=patch_a_result.patch_ref,
         patch_b=patch_b_result.patch_ref,
+        lineage=lineage,
     )
     output_payload = _build_session_output_payload(
         patch_a=patch_a_result.patch_ref,
@@ -342,6 +443,7 @@ def save_session(
         "session_id": resolved_session_id,
         "created_at_utc": created_at_utc,
         "label": normalized_label,
+        "lineage": lineage,
         "patch_a": patch_a_result.patch_ref,
         "patch_b": patch_b_result.patch_ref,
         "ipc": {
@@ -374,6 +476,9 @@ def save_session(
         patch_b_reason=patch_b_result.reason,
         ipc_input_hash=ipc_input_hash,
         ipc_output_hash=ipc_output_hash,
+        root_session_id=lineage["root_session_id"],
+        parent_session_id=lineage["parent_session_id"],
+        revision=lineage["revision"],
     )
 
 
@@ -415,6 +520,19 @@ def verify_session(*, session_path: Path, output_base: Path) -> SessionVerificat
             reason="session-id-missing",
             session_path=session_path,
         )
+    raw_lineage = payload.get("lineage", None)
+    if raw_lineage is None:
+        lineage = _default_lineage(session_id=session_id)
+    else:
+        coerced_lineage = _coerce_lineage(raw_lineage)
+        if coerced_lineage is None:
+            return SessionVerificationResult(
+                status="mismatch",
+                reason="session-lineage-invalid",
+                session_path=session_path,
+                session_id=session_id,
+            )
+        lineage = coerced_lineage
 
     patch_a = _coerce_patch_ref(payload.get("patch_a"), "a")
     patch_b = _coerce_patch_ref(payload.get("patch_b"), "b")
@@ -475,6 +593,7 @@ def verify_session(*, session_path: Path, output_base: Path) -> SessionVerificat
         label=normalized_label,
         patch_a=patch_a,
         patch_b=patch_b,
+        lineage=lineage if raw_lineage is not None else None,
     )
     expected_output_payload = _build_session_output_payload(
         patch_a=patch_a,
@@ -631,6 +750,8 @@ def list_sessions(
         verification = verify_session(session_path=path, output_base=output_base)
         patch_a = payload.get("patch_a")
         patch_b = payload.get("patch_b")
+        raw_lineage = payload.get("lineage", None)
+        lineage = _coerce_lineage(raw_lineage) if raw_lineage is not None else None
         patch_a_run_id = patch_a.get("run_id") if isinstance(patch_a, dict) else None
         patch_b_run_id = patch_b.get("run_id") if isinstance(patch_b, dict) else None
         created_at_utc = payload.get("created_at_utc")
@@ -646,6 +767,15 @@ def list_sessions(
                 verification_status=verification.status,
                 verification_reason=verification.reason,
                 session_path=path,
+                root_session_id=(
+                    lineage["root_session_id"]
+                    if isinstance(lineage, dict)
+                    else (session_id if isinstance(session_id, str) else None)
+                ),
+                parent_session_id=(
+                    lineage["parent_session_id"] if isinstance(lineage, dict) else None
+                ),
+                revision=(lineage["revision"] if isinstance(lineage, dict) else 0),
             )
         )
 

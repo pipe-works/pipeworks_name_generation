@@ -248,11 +248,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  overflow-x: hidden;
 }
 
 .walker-session-bar__row {
   display: grid;
-  grid-template-columns: 8rem 1fr auto auto;
+  grid-template-columns: 8rem minmax(0, 1fr) auto auto auto auto auto;
   align-items: center;
   gap: var(--sp-2);
 }
@@ -261,17 +262,73 @@ body {
   margin-bottom: 0;
 }
 
+.walker-session-bar__row .input,
+.walker-session-bar__row .select {
+  min-width: 0;
+  width: 100%;
+}
+
 .walker-session-bar__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+#walker-session-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#walker-session-summary.is-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#walker-session-summary.is-loading::before {
+  content: "";
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--col-accent) 25%, transparent);
+  border-top-color: var(--col-accent);
+  animation: pw-inline-spinner 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes pw-inline-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .walker-session-bar__compare {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.walker-session-bar__signals {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+#walker-patch-compare-text,
+#walker-session-integrity-text,
+#walker-session-lock-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#session-integrity-modal .modal__card {
+  width: min(760px, 90vw);
 }
 
 .walk-col {
@@ -677,9 +734,20 @@ body {
   gap: var(--sp-2);
 }
 
+.corpus-actions__meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
 .corpus-actions__status {
   font-size: var(--text-xs);
-  white-space: nowrap;
+  white-space: normal;
+  text-align: right;
+  max-width: 18rem;
 }
 
 /* Horizontal row: <select> fills available width, refresh button stays fixed. */
@@ -767,6 +835,12 @@ body {
 }
 
 .corpus-hash-badge.is-error {
+  color: #000;
+  background: var(--col-warn);
+  border-color: var(--col-warn);
+}
+
+.corpus-hash-badge.is-stale {
   color: #000;
   background: var(--col-warn);
   border-color: var(--col-warn);
