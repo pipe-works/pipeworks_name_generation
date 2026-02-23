@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.6.0...pipeworks-name-generation-v0.7.0) (2026-02-23)
+
+
+### Features
+
+* add pipeline manifest lifecycle and ipc hashing ([#103](https://github.com/pipe-works/pipeworks_name_generation/issues/103)) ([6cce0ec](https://github.com/pipe-works/pipeworks_name_generation/commit/6cce0ecd609ca7bf9c83b9318b73e8f7fe20cd9b))
+* align pipeline history API, UI, and docs ([#101](https://github.com/pipe-works/pipeworks_name_generation/issues/101)) ([d631ea4](https://github.com/pipe-works/pipeworks_name_generation/commit/d631ea462983683b339f0eb80c311685d28493c3))
+* make pipeline history manifest-driven with ipc details ([#104](https://github.com/pipe-works/pipeworks_name_generation/issues/104)) ([56145aa](https://github.com/pipe-works/pipeworks_name_generation/commit/56145aa035b861b27146530db2e4a4af03bbeb1c))
+* **walker-web:** add dual-patch session IPC store service ([c107c67](https://github.com/pipe-works/pipeworks_name_generation/commit/c107c67976f41c3fdfe5d26d0c99f15bd38ab847))
+* **walker-web:** add dual-patch session IPC store service ([d618764](https://github.com/pipe-works/pipeworks_name_generation/commit/d61876436586005d765b44506a9d2b890c38a8a9))
+* **walker-web:** add optional walk constraints with configure toggles ([f81bd54](https://github.com/pipe-works/pipeworks_name_generation/commit/f81bd54766e6843eeee82117e9881439bcabdfe3))
+* **walker-web:** add optional walk-constraint toggles ([82f5353](https://github.com/pipe-works/pipeworks_name_generation/commit/82f5353fef906f27cf6ddc8c88d79dfc269b3cdd))
+* **walker-web:** add packaged schema resource for profile-reach cache ([e48d823](https://github.com/pipe-works/pipeworks_name_generation/commit/e48d8230802cdd9798f20b9b913aa97855c31739))
+* **walker-web:** add patch/session IPC schema and sessions base plumbing ([#110](https://github.com/pipe-works/pipeworks_name_generation/issues/110)) ([6dc6ba8](https://github.com/pipe-works/pipeworks_name_generation/commit/6dc6ba8eb7788bfe5419dc5a4c64729212b77a2e))
+* **walker-web:** add phase 4 session and cache controls ([63539de](https://github.com/pipe-works/pipeworks_name_generation/commit/63539def6c8ce48a339d7978c4591c50d8854c34))
+* **walker-web:** add phase 4 walker session/cache UI integration ([26ae6ae](https://github.com/pipe-works/pipeworks_name_generation/commit/26ae6ae36961e7b36324509c22bf9f612ed0f61d))
+* **walker-web:** add reach-cache rebuild API endpoint ([fd2ed58](https://github.com/pipe-works/pipeworks_name_generation/commit/fd2ed58575f0ba573fe4fa1b2ed7e7cc37579c78))
+* **walker-web:** add session APIs and patch comparison signal ([ca24b67](https://github.com/pipe-works/pipeworks_name_generation/commit/ca24b6768d26c5461ab9d1b97fff384be97e7f1a))
+* **walker-web:** add session lock coordination and rebuild guidance UI ([06472ec](https://github.com/pipe-works/pipeworks_name_generation/commit/06472ec7e8ea40c401509b90c67450ecbc7f750b))
+* **walker-web:** add session lock coordination and rebuild guidance UI ([2c356bb](https://github.com/pipe-works/pipeworks_name_generation/commit/2c356bbd5d88fff392df6086a2c25357f4d4069c))
+* **walker-web:** add session save/list/load API endpoints ([bef3772](https://github.com/pipe-works/pipeworks_name_generation/commit/bef377204f3a4f8aea6d43a0e77b6facda645d77))
+* **walker-web:** cache profile reaches per run with IPC hashes ([e82489f](https://github.com/pipe-works/pipeworks_name_generation/commit/e82489f45bb938758ec904e465c4af71604c4505))
+* **walker-web:** persist patch outputs into run-state IPC sidecars ([#111](https://github.com/pipe-works/pipeworks_name_generation/issues/111)) ([d571f38](https://github.com/pipe-works/pipeworks_name_generation/commit/d571f38c356de4dc777d67602a4d74dacaca43af))
+* **walker:** add IPC hash verification status in corpus panel ([#109](https://github.com/pipe-works/pipeworks_name_generation/issues/109)) ([fd16355](https://github.com/pipe-works/pipeworks_name_generation/commit/fd16355e6765d225ff7615cd9089e0d965381447))
+
+
+### Fixes
+
+* complete walker phase 5 api-aligned hardening ([#106](https://github.com/pipe-works/pipeworks_name_generation/issues/106)) ([56fdf74](https://github.com/pipe-works/pipeworks_name_generation/commit/56fdf741469da72c73d3e3ba074b1af0deab0a53))
+* **walker:** harden loader state and wire walk controls ([#105](https://github.com/pipe-works/pipeworks_name_generation/issues/105)) ([95a59ed](https://github.com/pipe-works/pipeworks_name_generation/commit/95a59ed5d34b3b802e0399f930dd60ab7399e3ad))
+
+
+### Documentation
+
+* codify CI-gated branch workflow in AGENTS ([ce4a395](https://github.com/pipe-works/pipeworks_name_generation/commit/ce4a395337575b0ff4dd304f97dbd1fe04920259))
+* expand walker web api contract guidance ([ee38fac](https://github.com/pipe-works/pipeworks_name_generation/commit/ee38facee089c26a1d5106ea15ac7e670c99ba4d))
+* expand walker-web contract guidance and codify CI workflow ([c2de53f](https://github.com/pipe-works/pipeworks_name_generation/commit/c2de53f45ca22f661d1f189696307226d8d9ebe7))
+* **walker-web:** complete session IPC lock and QA guidance ([#116](https://github.com/pipe-works/pipeworks_name_generation/issues/116)) ([e6a3692](https://github.com/pipe-works/pipeworks_name_generation/commit/e6a36926f4d39aeb08a7cdfad357802719d0610c))
+* **walker-web:** document run-local profile reach cache contract ([29fc736](https://github.com/pipe-works/pipeworks_name_generation/commit/29fc7366af322b8b8abb1796681b6aac94fa16b2))
+
 ## [0.6.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.5.21...pipeworks-name-generation-v0.6.0) (2026-02-21)
 
 
