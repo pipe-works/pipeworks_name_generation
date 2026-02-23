@@ -5,6 +5,12 @@
 
 'use strict';
 
+/** @typedef {import('./corpus-contracts.js').WalkerPipelineRun} WalkerPipelineRun */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionListEntry} WalkerSessionListEntry */
+/** @typedef {import('./corpus-contracts.js').SessionIntegrityState} SessionIntegrityState */
+/** @typedef {import('./corpus-contracts.js').SessionLockState} SessionLockState */
+
+/** @type {SessionIntegrityState} */
 const DEFAULT_SESSION_INTEGRITY_STATE = Object.freeze({
   status: 'unknown',
   reason: 'No session load has been evaluated yet.',
@@ -15,6 +21,7 @@ const DEFAULT_SESSION_INTEGRITY_STATE = Object.freeze({
   topReason: 'not evaluated',
 });
 
+/** @type {SessionLockState} */
 const DEFAULT_SESSION_LOCK_STATE = Object.freeze({
   status: 'unlocked',
   reason: 'No session lock held.',
@@ -35,7 +42,7 @@ const _state = {
  * Read discovered corpus runs for one patch.
  *
  * @param {'a'|'b'|string} patch - Patch key.
- * @returns {Array<Record<string, any>>}
+ * @returns {WalkerPipelineRun[]}
  */
 export function getCorpusRunsByPatch(patch) {
   const runs = _state.corpusRunsByPatch[patch];
@@ -46,7 +53,7 @@ export function getCorpusRunsByPatch(patch) {
  * Replace discovered corpus runs for one patch.
  *
  * @param {'a'|'b'|string} patch - Patch key.
- * @param {Array<Record<string, any>>} runs - Run list payload.
+ * @param {WalkerPipelineRun[]} runs - Run list payload.
  * @returns {void}
  */
 export function setCorpusRunsByPatch(patch, runs) {
@@ -78,7 +85,7 @@ export function setWalkerReadyPoller(patch, poller) {
 /**
  * Replace session entry map from API sessions list.
  *
- * @param {Array<Record<string, any>>} sessions - Session list payload.
+ * @param {WalkerSessionListEntry[]} sessions - Session list payload.
  * @returns {void}
  */
 export function replaceSessionEntries(sessions) {
@@ -95,7 +102,7 @@ export function replaceSessionEntries(sessions) {
  * Resolve one saved session entry by id.
  *
  * @param {string} sessionId - Session id key.
- * @returns {Record<string, any> | null}
+ * @returns {WalkerSessionListEntry | null}
  */
 export function getSessionEntry(sessionId) {
   if (!sessionId || typeof sessionId !== 'string') return null;
@@ -117,7 +124,7 @@ export function hasSessionEntry(sessionId) {
 /**
  * Read current session-integrity state model.
  *
- * @returns {Record<string, any>}
+ * @returns {SessionIntegrityState}
  */
 export function getSessionIntegrityState() {
   return _state.sessionIntegrityState;
@@ -126,7 +133,7 @@ export function getSessionIntegrityState() {
 /**
  * Write current session-integrity state model.
  *
- * @param {Record<string, any>} integrity - Integrity model.
+ * @param {SessionIntegrityState} integrity - Integrity model.
  * @returns {void}
  */
 export function setSessionIntegrityState(integrity) {
@@ -145,7 +152,7 @@ export function resetSessionIntegrityState() {
 /**
  * Read current session-lock state model.
  *
- * @returns {Record<string, any>}
+ * @returns {SessionLockState}
  */
 export function getSessionLockState() {
   return _state.sessionLockState;
@@ -154,7 +161,7 @@ export function getSessionLockState() {
 /**
  * Write current session-lock state model.
  *
- * @param {Record<string, any>} lockState - Lock model.
+ * @param {SessionLockState} lockState - Lock model.
  * @returns {void}
  */
 export function setSessionLockState(lockState) {

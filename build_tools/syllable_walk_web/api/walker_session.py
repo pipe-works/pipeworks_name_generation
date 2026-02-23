@@ -10,16 +10,64 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
+from build_tools.syllable_walk_web.api.walker_types import (
+    ErrorResponse,
+    ErrorWithLockResponse,
+    RestorePatchArtifactsResult,
+    SessionListEntry,
+    SessionLoadPatchResult,
+    SessionLoadResponse,
+    SessionSaveResponse,
+    SessionsResponse,
+)
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 EnforceActiveLockFn = Callable[[dict[str, Any], ServerState], dict[str, Any] | None]
 CoerceLockHolderFn = Callable[[dict[str, Any]], tuple[str | None, str | None]]
 LockConflictErrorFn = Callable[..., dict[str, Any]]
 LoadCorpusFn = Callable[[dict[str, Any], ServerState], dict[str, Any]]
-RestorePatchArtifactsFn = Callable[..., dict[str, Any]]
+RestorePatchArtifactsFn = Callable[..., RestorePatchArtifactsResult]
 ReadJsonObjectFn = Callable[[Path], dict[str, Any] | None]
+
+
+def _build_restore_result(
+    *,
+    status: str,
+    reason: str,
+    restored: bool,
+    restored_kinds: list[str],
+    run_state_ipc_input_hash: str | None,
+    run_state_ipc_output_hash: str | None,
+) -> RestorePatchArtifactsResult:
+    """Build a run-state restore result payload with consistent shape."""
+
+    return {
+        "status": status,
+        "reason": reason,
+        "restored": restored,
+        "restored_kinds": restored_kinds,
+        "run_state_ipc_input_hash": run_state_ipc_input_hash,
+        "run_state_ipc_output_hash": run_state_ipc_output_hash,
+    }
+
+
+def _patch_load_failure_result(
+    *,
+    verification_status: str,
+    verification_reason: str,
+    run_id: str | None = None,
+) -> SessionLoadPatchResult:
+    """Build one deterministic failed patch-load result block."""
+
+    return {
+        "loaded": False,
+        "restored": False,
+        "verification_status": verification_status,
+        "verification_reason": verification_reason,
+        "run_id": run_id,
+    }
 
 
 def handle_save_session(
@@ -27,12 +75,12 @@ def handle_save_session(
     state: ServerState,
     *,
     enforce_active_session_lock_fn: EnforceActiveLockFn,
-) -> dict[str, Any]:
+) -> SessionSaveResponse | ErrorResponse:
     """Handle POST ``/api/walker/save-session`` with injected lock enforcement."""
 
     lock_error = enforce_active_session_lock_fn(body, state)
     if lock_error is not None:
-        return lock_error
+        return cast(ErrorWithLockResponse, lock_error)
 
     from build_tools.syllable_walk_web.services.session_paths import resolve_sessions_base
     from build_tools.syllable_walk_web.services.walker_session_store import save_session
@@ -85,7 +133,7 @@ def handle_save_session(
     }
 
 
-def handle_sessions(state: ServerState) -> dict[str, Any]:
+def handle_sessions(state: ServerState) -> SessionsResponse | ErrorResponse:
     """Handle GET ``/api/walker/sessions``."""
 
     from build_tools.syllable_walk_web.services.walker_session_lock import get_session_lock_info
@@ -99,7 +147,7 @@ def handle_sessions(state: ServerState) -> dict[str, Any]:
     except Exception as e:
         return {"error": f"Session listing failed: {e}"}
 
-    serialized_sessions: list[dict[str, Any]] = []
+    serialized_sessions: list[SessionListEntry] = []
     for entry in entries:
         lock_info = get_session_lock_info(
             state=state,
@@ -145,27 +193,27 @@ def restore_patch_artifacts_from_run_state(
     patch_key: str,
     patch: PatchState,
     read_json_object_fn: ReadJsonObjectFn = read_json_object,
-) -> dict[str, Any]:
+) -> RestorePatchArtifactsResult:
     """Restore patch artifacts from verified run-state sidecars."""
 
     if not isinstance(patch.run_id, str) or not patch.run_id.strip():
-        return {
-            "status": "skipped",
-            "reason": "run-state-context-missing:run-id",
-            "restored": False,
-            "restored_kinds": [],
-            "run_state_ipc_input_hash": None,
-            "run_state_ipc_output_hash": None,
-        }
+        return _build_restore_result(
+            status="skipped",
+            reason="run-state-context-missing:run-id",
+            restored=False,
+            restored_kinds=[],
+            run_state_ipc_input_hash=None,
+            run_state_ipc_output_hash=None,
+        )
     if not isinstance(patch.corpus_dir, Path):
-        return {
-            "status": "skipped",
-            "reason": "run-state-context-missing:run-dir",
-            "restored": False,
-            "restored_kinds": [],
-            "run_state_ipc_input_hash": None,
-            "run_state_ipc_output_hash": None,
-        }
+        return _build_restore_result(
+            status="skipped",
+            reason="run-state-context-missing:run-dir",
+            restored=False,
+            restored_kinds=[],
+            run_state_ipc_input_hash=None,
+            run_state_ipc_output_hash=None,
+        )
 
     from build_tools.syllable_walk_web.services.walker_run_state_store import load_run_state
 
@@ -175,25 +223,25 @@ def restore_patch_artifacts_from_run_state(
         manifest_ipc_output_hash=patch.manifest_ipc_output_hash,
     )
     if run_state_result.status != "verified" or not isinstance(run_state_result.payload, dict):
-        return {
-            "status": run_state_result.status,
-            "reason": run_state_result.reason,
-            "restored": False,
-            "restored_kinds": [],
-            "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-            "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-        }
+        return _build_restore_result(
+            status=run_state_result.status,
+            reason=run_state_result.reason,
+            restored=False,
+            restored_kinds=[],
+            run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+            run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+        )
 
     raw_sidecars = run_state_result.payload.get("sidecars")
     if not isinstance(raw_sidecars, dict):
-        return {
-            "status": "mismatch",
-            "reason": "run-state-sidecars-missing",
-            "restored": False,
-            "restored_kinds": [],
-            "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-            "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-        }
+        return _build_restore_result(
+            status="mismatch",
+            reason="run-state-sidecars-missing",
+            restored=False,
+            restored_kinds=[],
+            run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+            run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+        )
 
     run_dir_resolved = patch.corpus_dir.resolve()
     restored_kinds: list[str] = []
@@ -203,79 +251,79 @@ def restore_patch_artifacts_from_run_state(
         if ref is None:
             continue
         if not isinstance(ref, dict):
-            return {
-                "status": "mismatch",
-                "reason": f"run-state-sidecar-ref-invalid:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="mismatch",
+                reason=f"run-state-sidecar-ref-invalid:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
 
         relative_path = ref.get("relative_path")
         if not isinstance(relative_path, str) or not relative_path:
-            return {
-                "status": "mismatch",
-                "reason": f"run-state-sidecar-relative-path-invalid:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="mismatch",
+                reason=f"run-state-sidecar-relative-path-invalid:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
 
         sidecar_path = (patch.corpus_dir / relative_path).resolve()
         if not str(sidecar_path).startswith(str(run_dir_resolved)):
-            return {
-                "status": "mismatch",
-                "reason": f"run-state-sidecar-path-outside-run-dir:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="mismatch",
+                reason=f"run-state-sidecar-path-outside-run-dir:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
         if not sidecar_path.exists():
-            return {
-                "status": "missing",
-                "reason": f"run-state-sidecar-missing:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="missing",
+                reason=f"run-state-sidecar-missing:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
 
         sidecar_payload = read_json_object_fn(sidecar_path)
         if sidecar_payload is None:
-            return {
-                "status": "error",
-                "reason": f"run-state-sidecar-parse-error:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="error",
+                reason=f"run-state-sidecar-parse-error:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
 
         payload_block = sidecar_payload.get("payload")
         if not isinstance(payload_block, dict):
-            return {
-                "status": "mismatch",
-                "reason": f"run-state-sidecar-payload-invalid:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="mismatch",
+                reason=f"run-state-sidecar-payload-invalid:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
 
         if artifact_kind == "walks":
             walks = payload_block.get("walks")
             if not isinstance(walks, list):
-                return {
-                    "status": "mismatch",
-                    "reason": f"run-state-sidecar-walks-invalid:{slot}",
-                    "restored": False,
-                    "restored_kinds": restored_kinds,
-                    "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                    "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-                }
+                return _build_restore_result(
+                    status="mismatch",
+                    reason=f"run-state-sidecar-walks-invalid:{slot}",
+                    restored=False,
+                    restored_kinds=restored_kinds,
+                    run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                    run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+                )
             patch.walks = walks
             restored_kinds.append("walks")
             continue
@@ -283,14 +331,14 @@ def restore_patch_artifacts_from_run_state(
         if artifact_kind == "candidates":
             candidates = payload_block.get("candidates")
             if not isinstance(candidates, list):
-                return {
-                    "status": "mismatch",
-                    "reason": f"run-state-sidecar-candidates-invalid:{slot}",
-                    "restored": False,
-                    "restored_kinds": restored_kinds,
-                    "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                    "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-                }
+                return _build_restore_result(
+                    status="mismatch",
+                    reason=f"run-state-sidecar-candidates-invalid:{slot}",
+                    restored=False,
+                    restored_kinds=restored_kinds,
+                    run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                    run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+                )
             patch.candidates = candidates
             restored_kinds.append("candidates")
             continue
@@ -298,38 +346,38 @@ def restore_patch_artifacts_from_run_state(
         if artifact_kind == "selections":
             selected_names = payload_block.get("selected_names")
             if not isinstance(selected_names, list):
-                return {
-                    "status": "mismatch",
-                    "reason": f"run-state-sidecar-selections-invalid:{slot}",
-                    "restored": False,
-                    "restored_kinds": restored_kinds,
-                    "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                    "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-                }
+                return _build_restore_result(
+                    status="mismatch",
+                    reason=f"run-state-sidecar-selections-invalid:{slot}",
+                    restored=False,
+                    restored_kinds=restored_kinds,
+                    run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                    run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+                )
             patch.selected_names = selected_names
             restored_kinds.append("selections")
             continue
 
         package_payload = payload_block.get("package")
         if not isinstance(package_payload, dict):
-            return {
-                "status": "mismatch",
-                "reason": f"run-state-sidecar-package-invalid:{slot}",
-                "restored": False,
-                "restored_kinds": restored_kinds,
-                "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-                "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-            }
+            return _build_restore_result(
+                status="mismatch",
+                reason=f"run-state-sidecar-package-invalid:{slot}",
+                restored=False,
+                restored_kinds=restored_kinds,
+                run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+                run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+            )
         restored_kinds.append("package")
 
-    return {
-        "status": "verified",
-        "reason": "run-state-restored",
-        "restored": len(restored_kinds) > 0,
-        "restored_kinds": restored_kinds,
-        "run_state_ipc_input_hash": run_state_result.run_state_ipc_input_hash,
-        "run_state_ipc_output_hash": run_state_result.run_state_ipc_output_hash,
-    }
+    return _build_restore_result(
+        status="verified",
+        reason="run-state-restored",
+        restored=len(restored_kinds) > 0,
+        restored_kinds=restored_kinds,
+        run_state_ipc_input_hash=run_state_result.run_state_ipc_input_hash,
+        run_state_ipc_output_hash=run_state_result.run_state_ipc_output_hash,
+    )
 
 
 def is_stale_session_recoverable(*, status: str, reason: str | None) -> bool:
@@ -349,7 +397,7 @@ def handle_load_session(
     handle_load_corpus_fn: LoadCorpusFn,
     restore_patch_artifacts_from_run_state_fn: RestorePatchArtifactsFn,
     read_json_object_fn: ReadJsonObjectFn,
-) -> dict[str, Any]:
+) -> SessionLoadResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle POST ``/api/walker/load-session`` with injected dependencies."""
 
     from build_tools.syllable_walk_web.services.walker_session_store import load_session
@@ -375,10 +423,15 @@ def handle_load_session(
         )
         lock_status = lock_result.get("status")
         if lock_status == "locked":
-            return lock_conflict_error_fn(
-                active_session_id=session_id,
-                lock_payload=(
-                    lock_result.get("lock") if isinstance(lock_result.get("lock"), dict) else None
+            return cast(
+                ErrorWithLockResponse,
+                lock_conflict_error_fn(
+                    active_session_id=session_id,
+                    lock_payload=(
+                        lock_result.get("lock")
+                        if isinstance(lock_result.get("lock"), dict)
+                        else None
+                    ),
                 ),
             )
         if lock_status not in {"acquired", "held", "taken_over"}:
@@ -436,36 +489,27 @@ def handle_load_session(
             },
         }
 
-    patch_load_results: dict[str, dict[str, Any]] = {}
+    patch_load_results: dict[str, SessionLoadPatchResult] = {}
     for patch_key in ("a", "b"):
         patch_ref = payload.get(f"patch_{patch_key}")
         if patch_ref is None:
-            patch_load_results[patch_key] = {
-                "loaded": False,
-                "restored": False,
-                "verification_status": "missing",
-                "verification_reason": f"session-patch-{patch_key}-absent",
-                "run_id": None,
-            }
+            patch_load_results[patch_key] = _patch_load_failure_result(
+                verification_status="missing",
+                verification_reason=f"session-patch-{patch_key}-absent",
+            )
             continue
         if not isinstance(patch_ref, dict):
-            patch_load_results[patch_key] = {
-                "loaded": False,
-                "restored": False,
-                "verification_status": "mismatch",
-                "verification_reason": f"session-patch-{patch_key}-invalid",
-                "run_id": None,
-            }
+            patch_load_results[patch_key] = _patch_load_failure_result(
+                verification_status="mismatch",
+                verification_reason=f"session-patch-{patch_key}-invalid",
+            )
             continue
         run_id = patch_ref.get("run_id")
         if not isinstance(run_id, str) or not run_id.strip():
-            patch_load_results[patch_key] = {
-                "loaded": False,
-                "restored": False,
-                "verification_status": "mismatch",
-                "verification_reason": f"session-patch-{patch_key}-run-id-missing",
-                "run_id": None,
-            }
+            patch_load_results[patch_key] = _patch_load_failure_result(
+                verification_status="mismatch",
+                verification_reason=f"session-patch-{patch_key}-run-id-missing",
+            )
             continue
 
         load_result = handle_load_corpus_fn(
@@ -478,13 +522,11 @@ def handle_load_session(
             state,
         )
         if "error" in load_result:
-            patch_load_results[patch_key] = {
-                "loaded": False,
-                "restored": False,
-                "verification_status": "error",
-                "verification_reason": str(load_result["error"]),
-                "run_id": run_id,
-            }
+            patch_load_results[patch_key] = _patch_load_failure_result(
+                verification_status="error",
+                verification_reason=str(load_result["error"]),
+                run_id=run_id,
+            )
             continue
 
         patch_state = state.patch_a if patch_key == "a" else state.patch_b
@@ -526,6 +568,17 @@ def handle_load_session(
     state.active_session_id = loaded_session_id
     state.active_session_lock_holder_id = lock_holder_id
 
+    lock_status_value = (
+        str(lock_result.get("status"))
+        if isinstance(lock_result, dict) and isinstance(lock_result.get("status"), str)
+        else "unlocked"
+    )
+    lock_reason_value = (
+        str(lock_result.get("reason"))
+        if isinstance(lock_result, dict) and isinstance(lock_result.get("reason"), str)
+        else "no-lock-holder"
+    )
+
     return {
         "status": result.status if recovered_from_stale_session else "verified",
         "reason": result.reason if recovered_from_stale_session else "verified",
@@ -534,10 +587,8 @@ def handle_load_session(
         "ipc_output_hash": result.ipc_output_hash,
         "recovered_from_stale_session": recovered_from_stale_session,
         "session_lock": {
-            "status": lock_result.get("status") if isinstance(lock_result, dict) else "unlocked",
-            "reason": (
-                lock_result.get("reason") if isinstance(lock_result, dict) else "no-lock-holder"
-            ),
+            "status": lock_status_value,
+            "reason": lock_reason_value,
             "lock": (
                 lock_result.get("lock")
                 if isinstance(lock_result, dict) and isinstance(lock_result.get("lock"), dict)

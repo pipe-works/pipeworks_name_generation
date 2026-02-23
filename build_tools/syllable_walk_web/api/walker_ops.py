@@ -7,8 +7,19 @@ module contains implementation logic.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
+from build_tools.syllable_walk_web.api.walker_types import (
+    AnalysisResponse,
+    CombineResponse,
+    ErrorResponse,
+    ErrorWithLockResponse,
+    ExportResponse,
+    ReachSyllableRow,
+    ReachSyllablesResponse,
+    SelectResponse,
+    WalkResponse,
+)
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 EnforceActiveLockFn = Callable[[dict[str, Any], ServerState], dict[str, Any] | None]
@@ -16,6 +27,25 @@ ResolvePatchStateFn = Callable[[dict[str, Any], ServerState], tuple[str, PatchSt
 CoerceOptionalConstraintIntFn = Callable[..., tuple[int | None, str | None]]
 PersistPatchArtifactSidecarFn = Callable[..., None]
 CombineViaWalksFn = Callable[..., list[dict[str, Any]]]
+
+
+def _resolve_locked_patch_state(
+    *,
+    body: dict[str, Any],
+    state: ServerState,
+    enforce_active_session_lock_fn: EnforceActiveLockFn,
+    resolve_patch_state_fn: ResolvePatchStateFn,
+) -> tuple[str, PatchState] | ErrorResponse | ErrorWithLockResponse:
+    """Resolve patch state with lock enforcement for mutating endpoints."""
+
+    lock_error = enforce_active_session_lock_fn(body, state)
+    if lock_error is not None:
+        return cast(ErrorWithLockResponse, lock_error)
+
+    resolved = resolve_patch_state_fn(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    return resolved
 
 
 def combine_via_walks(
@@ -85,17 +115,18 @@ def handle_walk(
     resolve_patch_state_fn: ResolvePatchStateFn,
     coerce_optional_constraint_int_fn: CoerceOptionalConstraintIntFn,
     persist_patch_artifact_sidecar_fn: PersistPatchArtifactSidecarFn,
-) -> dict[str, Any]:
+) -> WalkResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/walk``."""
 
-    lock_error = enforce_active_session_lock_fn(body, state)
-    if lock_error is not None:
-        return lock_error
-
-    resolved = resolve_patch_state_fn(body, state)
-    if resolved is None:
-        return {"error": "Invalid patch. Must be 'a' or 'b'."}
-    patch_key, patch = resolved
+    resolved_or_error = _resolve_locked_patch_state(
+        body=body,
+        state=state,
+        enforce_active_session_lock_fn=enforce_active_session_lock_fn,
+        resolve_patch_state_fn=resolve_patch_state_fn,
+    )
+    if isinstance(resolved_or_error, dict):
+        return resolved_or_error
+    patch_key, patch = resolved_or_error
 
     if not patch.walker_ready or patch.walker is None:
         return {"error": f"Walker not ready for patch {patch_key.upper()}. Load a corpus first."}
@@ -198,7 +229,7 @@ def handle_reach_syllables(
     state: ServerState,
     *,
     resolve_patch_state_fn: ResolvePatchStateFn,
-) -> dict[str, Any]:
+) -> ReachSyllablesResponse | ErrorResponse:
     """Handle ``POST /api/walker/reach-syllables``."""
 
     resolved = resolve_patch_state_fn(body, state)
@@ -221,7 +252,7 @@ def handle_reach_syllables(
         return {"error": f"Walker not ready for patch {patch_key.upper()}."}
 
     top_entries = reach_result.reachable_indices[: reach_result.reach]
-    syllables = []
+    syllables: list[ReachSyllableRow] = []
     for idx, reachability in top_entries:
         syllables.append(
             {
@@ -248,17 +279,18 @@ def handle_combine(
     resolve_patch_state_fn: ResolvePatchStateFn,
     combine_via_walks_fn: CombineViaWalksFn,
     persist_patch_artifact_sidecar_fn: PersistPatchArtifactSidecarFn,
-) -> dict[str, Any]:
+) -> CombineResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/combine``."""
 
-    lock_error = enforce_active_session_lock_fn(body, state)
-    if lock_error is not None:
-        return lock_error
-
-    resolved = resolve_patch_state_fn(body, state)
-    if resolved is None:
-        return {"error": "Invalid patch. Must be 'a' or 'b'."}
-    patch_key, patch = resolved
+    resolved_or_error = _resolve_locked_patch_state(
+        body=body,
+        state=state,
+        enforce_active_session_lock_fn=enforce_active_session_lock_fn,
+        resolve_patch_state_fn=resolve_patch_state_fn,
+    )
+    if isinstance(resolved_or_error, dict):
+        return resolved_or_error
+    patch_key, patch = resolved_or_error
 
     if not patch.annotated_data:
         return {"error": f"No corpus loaded for patch {patch_key.upper()}."}
@@ -353,17 +385,18 @@ def handle_select(
     enforce_active_session_lock_fn: EnforceActiveLockFn,
     resolve_patch_state_fn: ResolvePatchStateFn,
     persist_patch_artifact_sidecar_fn: PersistPatchArtifactSidecarFn,
-) -> dict[str, Any]:
+) -> SelectResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/select``."""
 
-    lock_error = enforce_active_session_lock_fn(body, state)
-    if lock_error is not None:
-        return lock_error
-
-    resolved = resolve_patch_state_fn(body, state)
-    if resolved is None:
-        return {"error": "Invalid patch. Must be 'a' or 'b'."}
-    patch_key, patch = resolved
+    resolved_or_error = _resolve_locked_patch_state(
+        body=body,
+        state=state,
+        enforce_active_session_lock_fn=enforce_active_session_lock_fn,
+        resolve_patch_state_fn=resolve_patch_state_fn,
+    )
+    if isinstance(resolved_or_error, dict):
+        return resolved_or_error
+    patch_key, patch = resolved_or_error
 
     if not patch.candidates:
         return {"error": f"No candidates for patch {patch_key.upper()}. Run combiner first."}
@@ -383,7 +416,7 @@ def handle_select(
         return {"error": f"Selector failed: {e}"}
 
     if "error" in result:
-        return result
+        return {"error": str(result["error"])}
 
     patch.selected_names = result["selected"]
     persist_patch_artifact_sidecar_fn(
@@ -417,7 +450,7 @@ def handle_export(
     state: ServerState,
     *,
     resolve_patch_state_fn: ResolvePatchStateFn,
-) -> dict[str, Any]:
+) -> ExportResponse | ErrorResponse:
     """Handle ``POST /api/walker/export``."""
 
     resolved = resolve_patch_state_fn(body, state)
@@ -509,7 +542,7 @@ def handle_package(
     return zip_bytes, filename, error
 
 
-def handle_analysis(patch_key: str, state: ServerState) -> dict[str, Any]:
+def handle_analysis(patch_key: str, state: ServerState) -> AnalysisResponse | ErrorResponse:
     """Handle ``GET /api/walker/analysis/<patch>``."""
 
     if patch_key not in ("a", "b"):

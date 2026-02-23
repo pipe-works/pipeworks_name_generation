@@ -5,6 +5,16 @@
 
 'use strict';
 
+/** @typedef {import('./corpus-contracts.js').WalkerApiErrorPayload} WalkerApiErrorPayload */
+/** @typedef {import('./corpus-contracts.js').SessionLockStatusResponse} SessionLockStatusResponse */
+/** @typedef {import('./corpus-contracts.js').WalkerLoadCorpusResponse} WalkerLoadCorpusResponse */
+/** @typedef {import('./corpus-contracts.js').WalkerPipelineRunsPayload} WalkerPipelineRunsPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerStatsPayload} WalkerStatsPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionsPayload} WalkerSessionsPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionSavePayload} WalkerSessionSavePayload */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionLoadPayload} WalkerSessionLoadPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerRebuildReachCacheResponse} WalkerRebuildReachCacheResponse */
+
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const PATHS = {
   loadCorpus: '/api/walker/load-corpus',
@@ -24,7 +34,7 @@ const PATHS = {
  * remains authoritative so existing UI messages and flows stay unchanged.
  *
  * @param {Response} response - Browser fetch response object.
- * @returns {Promise<any>}
+ * @returns {Promise<Record<string, any>>}
  */
 function parseJson(response) {
   return response.json();
@@ -34,7 +44,7 @@ function parseJson(response) {
  * Run one GET request and decode JSON.
  *
  * @param {string} path - API path.
- * @returns {Promise<any>}
+ * @returns {Promise<Record<string, any>>}
  */
 function getJson(path) {
   return fetch(path).then(parseJson);
@@ -45,7 +55,7 @@ function getJson(path) {
  *
  * @param {string} path - API path.
  * @param {Record<string, any>} body - Request payload.
- * @returns {Promise<any>}
+ * @returns {Promise<Record<string, any>>}
  */
 function postJson(path, body) {
   return fetch(path, {
@@ -59,7 +69,7 @@ function postJson(path, body) {
  * List discovered pipeline runs for one patch corpus directory.
  *
  * @param {'a'|'b'|string} patch - Patch key.
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerPipelineRunsPayload|WalkerApiErrorPayload>}
  */
 export function listPipelineRuns(patch) {
   return getJson(`/api/pipeline/runs?patch=${patch}`);
@@ -69,7 +79,7 @@ export function listPipelineRuns(patch) {
  * Load one selected corpus into walker patch state.
  *
  * @param {{patch: 'a'|'b'|string, runId: string, lockHolderId: string}} args - Load args.
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerLoadCorpusResponse|WalkerApiErrorPayload>}
  */
 export function loadWalkerCorpus(args) {
   return postJson(PATHS.loadCorpus, {
@@ -82,7 +92,7 @@ export function loadWalkerCorpus(args) {
 /**
  * Read current walker stats snapshot from API authority endpoint.
  *
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerStatsPayload|WalkerApiErrorPayload>}
  */
 export function getWalkerStats() {
   return getJson(PATHS.walkerStats);
@@ -91,7 +101,7 @@ export function getWalkerStats() {
 /**
  * List saved walker sessions.
  *
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerSessionsPayload|WalkerApiErrorPayload>}
  */
 export function listWalkerSessions() {
   return getJson(PATHS.walkerSessions);
@@ -101,7 +111,7 @@ export function listWalkerSessions() {
  * Save current walker session snapshot.
  *
  * @param {Record<string, any>} body - Save payload.
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerSessionSavePayload|WalkerApiErrorPayload>}
  */
 export function saveWalkerSession(body) {
   return postJson(PATHS.saveSession, body);
@@ -111,7 +121,7 @@ export function saveWalkerSession(body) {
  * Load one saved walker session.
  *
  * @param {{sessionId: string, lockHolderId: string, forceLock: boolean}} args - Load args.
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerSessionLoadPayload|WalkerApiErrorPayload>}
  */
 export function loadWalkerSession(args) {
   return postJson(PATHS.loadSession, {
@@ -125,7 +135,7 @@ export function loadWalkerSession(args) {
  * Heartbeat one session lock held by this tab.
  *
  * @param {{sessionId: string, lockHolderId: string}} args - Lock args.
- * @returns {Promise<any>}
+ * @returns {Promise<SessionLockStatusResponse|WalkerApiErrorPayload>}
  */
 export function heartbeatWalkerSessionLock(args) {
   return postJson(PATHS.sessionLockHeartbeat, {
@@ -138,7 +148,7 @@ export function heartbeatWalkerSessionLock(args) {
  * Release one held session lock.
  *
  * @param {{sessionId: string, lockHolderId: string}} args - Lock args.
- * @returns {Promise<any>}
+ * @returns {Promise<SessionLockStatusResponse|WalkerApiErrorPayload>}
  */
 export function releaseWalkerSessionLock(args) {
   return postJson(PATHS.sessionLockRelease, {
@@ -165,7 +175,7 @@ export function sendWalkerSessionLockReleaseBeacon(args) {
  * Rebuild reach-cache tables and rewrite cache IPC sidecar hashes.
  *
  * @param {{patch: 'a'|'b'|string, runId: string, lockHolderId: string}} args - Rebuild args.
- * @returns {Promise<any>}
+ * @returns {Promise<WalkerRebuildReachCacheResponse|WalkerApiErrorPayload>}
  */
 export function rebuildWalkerReachCache(args) {
   return postJson(PATHS.rebuildReachCache, {

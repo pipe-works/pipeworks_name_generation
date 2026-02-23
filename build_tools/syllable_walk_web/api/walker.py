@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from build_tools.syllable_walk_web.api.walker_cache_lock import (
     handle_rebuild_reach_cache as _handle_rebuild_reach_cache_impl,
@@ -89,6 +89,7 @@ from build_tools.syllable_walk_web.api.walker_session import (
 from build_tools.syllable_walk_web.api.walker_session import (
     restore_patch_artifacts_from_run_state as _restore_patch_artifacts_from_run_state_impl,
 )
+from build_tools.syllable_walk_web.api.walker_types import RestorePatchArtifactsResult
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 
@@ -498,13 +499,16 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Walk results with formatted walks.
     """
-    return _handle_walk_impl(
-        body,
-        state,
-        enforce_active_session_lock_fn=_enforce_active_session_lock,
-        resolve_patch_state_fn=_resolve_patch_state,
-        coerce_optional_constraint_int_fn=_coerce_optional_constraint_int,
-        persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+    return cast(
+        dict[str, Any],
+        _handle_walk_impl(
+            body,
+            state,
+            enforce_active_session_lock_fn=_enforce_active_session_lock,
+            resolve_patch_state_fn=_resolve_patch_state,
+            coerce_optional_constraint_int_fn=_coerce_optional_constraint_int,
+            persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+        ),
     )
 
 
@@ -586,10 +590,13 @@ def handle_save_session(body: dict[str, Any], state: ServerState) -> dict[str, A
     sessions base directory.
     """
 
-    return _handle_save_session_impl(
-        body,
-        state,
-        enforce_active_session_lock_fn=_enforce_active_session_lock,
+    return cast(
+        dict[str, Any],
+        _handle_save_session_impl(
+            body,
+            state,
+            enforce_active_session_lock_fn=_enforce_active_session_lock,
+        ),
     )
 
 
@@ -600,7 +607,7 @@ def handle_sessions(state: ServerState) -> dict[str, Any]:
     metadata so clients can decide what is safe to load.
     """
 
-    return _handle_sessions_impl(state)
+    return cast(dict[str, Any], _handle_sessions_impl(state))
 
 
 def _read_json_object(path: Path) -> dict[str, Any] | None:
@@ -616,7 +623,7 @@ def _restore_patch_artifacts_from_run_state(
     *,
     patch_key: str,
     patch: PatchState,
-) -> dict[str, Any]:
+) -> RestorePatchArtifactsResult:
     """Restore patch artifacts from verified run-state sidecars.
 
     The restore path is strict: if run-state/sidecar structure is missing or
@@ -624,10 +631,13 @@ def _restore_patch_artifacts_from_run_state(
     verification status.
     """
 
-    return _restore_patch_artifacts_from_run_state_impl(
-        patch_key=patch_key,
-        patch=patch,
-        read_json_object_fn=_read_json_object,
+    return cast(
+        RestorePatchArtifactsResult,
+        _restore_patch_artifacts_from_run_state_impl(
+            patch_key=patch_key,
+            patch=patch,
+            read_json_object_fn=_read_json_object,
+        ),
     )
 
 
@@ -649,14 +659,17 @@ def handle_load_session(body: dict[str, Any], state: ServerState) -> dict[str, A
     rather than mutating state via internal shortcuts.
     """
 
-    return _handle_load_session_impl(
-        body,
-        state,
-        coerce_lock_holder_id_fn=_coerce_lock_holder_id,
-        lock_conflict_error_fn=_lock_conflict_error,
-        handle_load_corpus_fn=handle_load_corpus,
-        restore_patch_artifacts_from_run_state_fn=_restore_patch_artifacts_from_run_state,
-        read_json_object_fn=_read_json_object,
+    return cast(
+        dict[str, Any],
+        _handle_load_session_impl(
+            body,
+            state,
+            coerce_lock_holder_id_fn=_coerce_lock_holder_id,
+            lock_conflict_error_fn=_lock_conflict_error,
+            handle_load_corpus_fn=handle_load_corpus,
+            restore_patch_artifacts_from_run_state_fn=_restore_patch_artifacts_from_run_state,
+            read_json_object_fn=_read_json_object,
+        ),
     )
 
 
@@ -667,12 +680,15 @@ def handle_rebuild_reach_cache(body: dict[str, Any], state: ServerState) -> dict
     run-local IPC cache artifact.
     """
 
-    return _handle_rebuild_reach_cache_impl(
-        body,
-        state,
-        enforce_active_session_lock_fn=_enforce_active_session_lock,
-        resolve_patch_state_fn=_resolve_patch_state,
-        is_sha256_hex_fn=_is_sha256_hex,
+    return cast(
+        dict[str, Any],
+        _handle_rebuild_reach_cache_impl(
+            body,
+            state,
+            enforce_active_session_lock_fn=_enforce_active_session_lock,
+            resolve_patch_state_fn=_resolve_patch_state,
+            is_sha256_hex_fn=_is_sha256_hex,
+        ),
     )
 
 
@@ -683,10 +699,13 @@ def handle_session_lock_heartbeat(body: dict[str, Any], state: ServerState) -> d
     This is cooperative multi-tab coordination, not an auth/security layer.
     """
 
-    return _handle_session_lock_heartbeat_impl(
-        body,
-        state,
-        coerce_lock_holder_id_fn=_coerce_lock_holder_id,
+    return cast(
+        dict[str, Any],
+        _handle_session_lock_heartbeat_impl(
+            body,
+            state,
+            coerce_lock_holder_id_fn=_coerce_lock_holder_id,
+        ),
     )
 
 
@@ -696,10 +715,13 @@ def handle_session_lock_release(body: dict[str, Any], state: ServerState) -> dic
     Releases the current lease when called by lock owner.
     """
 
-    return _handle_session_lock_release_impl(
-        body,
-        state,
-        coerce_lock_holder_id_fn=_coerce_lock_holder_id,
+    return cast(
+        dict[str, Any],
+        _handle_session_lock_release_impl(
+            body,
+            state,
+            coerce_lock_holder_id_fn=_coerce_lock_holder_id,
+        ),
     )
 
 
@@ -716,10 +738,13 @@ def handle_reach_syllables(body: dict[str, Any], state: ServerState) -> dict[str
     Returns:
         Dict with ``profile``, ``reach``, ``total``, and ``syllables`` list.
     """
-    return _handle_reach_syllables_impl(
-        body,
-        state,
-        resolve_patch_state_fn=_resolve_patch_state,
+    return cast(
+        dict[str, Any],
+        _handle_reach_syllables_impl(
+            body,
+            state,
+            resolve_patch_state_fn=_resolve_patch_state,
+        ),
     )
 
 
@@ -770,13 +795,16 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Candidate generation summary with count and sample.
     """
-    return _handle_combine_impl(
-        body,
-        state,
-        enforce_active_session_lock_fn=_enforce_active_session_lock,
-        resolve_patch_state_fn=_resolve_patch_state,
-        combine_via_walks_fn=_combine_via_walks,
-        persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+    return cast(
+        dict[str, Any],
+        _handle_combine_impl(
+            body,
+            state,
+            enforce_active_session_lock_fn=_enforce_active_session_lock,
+            resolve_patch_state_fn=_resolve_patch_state,
+            combine_via_walks_fn=_combine_via_walks,
+            persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+        ),
     )
 
 
@@ -793,12 +821,15 @@ def handle_select(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Selection results with names and metadata.
     """
-    return _handle_select_impl(
-        body,
-        state,
-        enforce_active_session_lock_fn=_enforce_active_session_lock,
-        resolve_patch_state_fn=_resolve_patch_state,
-        persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+    return cast(
+        dict[str, Any],
+        _handle_select_impl(
+            body,
+            state,
+            enforce_active_session_lock_fn=_enforce_active_session_lock,
+            resolve_patch_state_fn=_resolve_patch_state,
+            persist_patch_artifact_sidecar_fn=_persist_patch_artifact_sidecar,
+        ),
     )
 
 
@@ -814,10 +845,13 @@ def handle_export(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     Returns:
         Dict with names list for client-side download.
     """
-    return _handle_export_impl(
-        body,
-        state,
-        resolve_patch_state_fn=_resolve_patch_state,
+    return cast(
+        dict[str, Any],
+        _handle_export_impl(
+            body,
+            state,
+            resolve_patch_state_fn=_resolve_patch_state,
+        ),
     )
 
 
@@ -853,4 +887,4 @@ def handle_analysis(patch_key: str, state: ServerState) -> dict[str, Any]:
     Returns:
         Corpus analysis metrics (inventory, frequency, terrain).
     """
-    return _handle_analysis_impl(patch_key, state)
+    return cast(dict[str, Any], _handle_analysis_impl(patch_key, state))

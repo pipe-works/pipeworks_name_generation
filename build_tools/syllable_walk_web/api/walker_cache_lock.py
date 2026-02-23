@@ -11,14 +11,57 @@ public wrapper names and delegates into these functions.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
+from build_tools.syllable_walk_web.api.walker_types import (
+    ErrorResponse,
+    ErrorWithLockResponse,
+    RebuildReachCacheResponse,
+    SessionLockStatusResponse,
+)
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 EnforceActiveLockFn = Callable[[dict[str, Any], ServerState], dict[str, Any] | None]
 ResolvePatchStateFn = Callable[[dict[str, Any], ServerState], tuple[str, PatchState] | None]
 CoerceLockHolderFn = Callable[[dict[str, Any]], tuple[str | None, str | None]]
 IsSha256HexFn = Callable[[Any], bool]
+
+
+def _coerce_lock_request(
+    body: dict[str, Any],
+    *,
+    coerce_lock_holder_id_fn: CoerceLockHolderFn,
+) -> tuple[str | None, str | None, ErrorResponse | None]:
+    """Validate lock request body and return session/holder identifiers."""
+
+    raw_session_id = body.get("session_id")
+    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
+        return None, None, {"error": "Missing or invalid session_id."}
+    holder_id, holder_error = coerce_lock_holder_id_fn(body)
+    if holder_error is not None or holder_id is None:
+        return None, None, {"error": holder_error or "Missing lock_holder_id."}
+    return raw_session_id.strip(), holder_id, None
+
+
+def _lock_payload(result: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract normalized lock metadata block from lock service result."""
+
+    lock = result.get("lock")
+    return lock if isinstance(lock, dict) else None
+
+
+def _lock_error_response(
+    *,
+    result: dict[str, Any],
+    default_message: str,
+) -> ErrorWithLockResponse:
+    """Build consistent lock error payload for heartbeat/release endpoints."""
+
+    return {
+        "error": result.get("reason", default_message),
+        "lock_status": str(result.get("status", "error")),
+        "lock": _lock_payload(result),
+    }
 
 
 def handle_rebuild_reach_cache(
@@ -28,7 +71,7 @@ def handle_rebuild_reach_cache(
     enforce_active_session_lock_fn: EnforceActiveLockFn,
     resolve_patch_state_fn: ResolvePatchStateFn,
     is_sha256_hex_fn: IsSha256HexFn,
-) -> dict[str, Any]:
+) -> RebuildReachCacheResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/rebuild-reach-cache``.
 
     Recomputes profile reaches for one loaded patch and rewrites run-local
@@ -37,7 +80,7 @@ def handle_rebuild_reach_cache(
 
     lock_error = enforce_active_session_lock_fn(body, state)
     if lock_error is not None:
-        return lock_error
+        return cast(ErrorWithLockResponse, lock_error)
 
     resolved = resolve_patch_state_fn(body, state)
     if resolved is None:
@@ -107,30 +150,31 @@ def handle_session_lock_heartbeat(
     state: ServerState,
     *,
     coerce_lock_holder_id_fn: CoerceLockHolderFn,
-) -> dict[str, Any]:
+) -> SessionLockStatusResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/session-lock/heartbeat``."""
 
-    raw_session_id = body.get("session_id")
-    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
-        return {"error": "Missing or invalid session_id."}
-    holder_id, holder_error = coerce_lock_holder_id_fn(body)
-    if holder_error is not None or holder_id is None:
-        return {"error": holder_error or "Missing lock_holder_id."}
+    session_id, holder_id, request_error = _coerce_lock_request(
+        body,
+        coerce_lock_holder_id_fn=coerce_lock_holder_id_fn,
+    )
+    if request_error is not None:
+        return request_error
+    assert session_id is not None
+    assert holder_id is not None
 
     from build_tools.syllable_walk_web.services.walker_session_lock import heartbeat_session_lock
 
     result = heartbeat_session_lock(
         state=state,
-        session_id=raw_session_id.strip(),
+        session_id=session_id,
         holder_id=holder_id,
     )
     status = result.get("status")
     if status in {"locked", "error"}:
-        return {
-            "error": result.get("reason", "Session lock heartbeat failed."),
-            "lock_status": status,
-            "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-        }
+        return _lock_error_response(
+            result=result,
+            default_message="Session lock heartbeat failed.",
+        )
     if status == "missing":
         return {
             "status": "missing",
@@ -140,7 +184,7 @@ def handle_session_lock_heartbeat(
     return {
         "status": "held",
         "reason": result.get("reason", "session lock refreshed"),
-        "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
+        "lock": _lock_payload(result),
     }
 
 
@@ -149,32 +193,34 @@ def handle_session_lock_release(
     state: ServerState,
     *,
     coerce_lock_holder_id_fn: CoerceLockHolderFn,
-) -> dict[str, Any]:
+) -> SessionLockStatusResponse | ErrorResponse | ErrorWithLockResponse:
     """Handle ``POST /api/walker/session-lock/release``."""
 
-    raw_session_id = body.get("session_id")
-    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
-        return {"error": "Missing or invalid session_id."}
-    holder_id, holder_error = coerce_lock_holder_id_fn(body)
-    if holder_error is not None or holder_id is None:
-        return {"error": holder_error or "Missing lock_holder_id."}
+    session_id, holder_id, request_error = _coerce_lock_request(
+        body,
+        coerce_lock_holder_id_fn=coerce_lock_holder_id_fn,
+    )
+    if request_error is not None:
+        return request_error
+    assert session_id is not None
+    assert holder_id is not None
 
     from build_tools.syllable_walk_web.services.walker_session_lock import release_session_lock
 
     result = release_session_lock(
         state=state,
-        session_id=raw_session_id.strip(),
+        session_id=session_id,
         holder_id=holder_id,
     )
     status = result.get("status")
     if status in {"locked", "error"}:
-        return {
-            "error": result.get("reason", "Session lock release failed."),
-            "lock_status": status,
-            "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
-        }
+        return _lock_error_response(
+            result=result,
+            default_message="Session lock release failed.",
+        )
+    safe_status = str(status) if isinstance(status, str) else "released"
     return {
-        "status": status,
+        "status": safe_status,
         "reason": result.get("reason", "session lock released"),
-        "lock": result.get("lock") if isinstance(result.get("lock"), dict) else None,
+        "lock": _lock_payload(result),
     }

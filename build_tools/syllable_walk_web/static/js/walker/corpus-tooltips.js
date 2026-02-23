@@ -12,6 +12,11 @@ import {
   setSessionLockState,
 } from './corpus-state.js';
 
+/** @typedef {import('./corpus-contracts.js').SessionLockState} SessionLockState */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionLoadPatchResult} WalkerSessionLoadPatchResult */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionLoadPayload} WalkerSessionLoadPayload */
+/** @typedef {import('./corpus-contracts.js').SessionIntegrityState} SessionIntegrityState */
+
 const SESSION_INTEGRITY_META = {
   unknown: {
     label: 'unknown',
@@ -56,12 +61,7 @@ function sessionLockBadgeClass(status) {
 /**
  * Render top-bar lock signal badge/text for session lock state.
  *
- * @param {{
- *   status: string,
- *   reason: string,
- *   sessionId: string | null,
- *   lock: Record<string, any> | null
- * }} lockState - Current lock state model.
+ * @param {SessionLockState} lockState - Current lock state model.
  * @returns {void}
  */
 export function setSessionLockSignal(lockState) {
@@ -121,15 +121,7 @@ function sessionIntegrityBadgeClass(status) {
  * Resolve one concise session-integrity state from load-session API payload.
  *
  * @param {unknown} rawPayload - ``/api/walker/load-session`` response payload.
- * @returns {{
- *   status: 'unknown'|'verified'|'stale'|'mismatch'|'missing'|'error',
- *   reason: string,
- *   recoveredFromStale: boolean,
- *   patchA: Record<string, any> | null,
- *   patchB: Record<string, any> | null,
- *   topStatus: string,
- *   topReason: string
- * }}
+ * @returns {SessionIntegrityState}
  */
 export function deriveSessionIntegrity(rawPayload) {
   if (!rawPayload || typeof rawPayload !== 'object') {
@@ -144,7 +136,7 @@ export function deriveSessionIntegrity(rawPayload) {
     };
   }
 
-  const payload = /** @type {Record<string, any>} */ (rawPayload);
+  const payload = /** @type {WalkerSessionLoadPayload} */ (rawPayload);
   const topStatus = (typeof payload.status === 'string' && payload.status.length > 0)
     ? payload.status
     : 'unknown';
@@ -192,15 +184,7 @@ export function deriveSessionIntegrity(rawPayload) {
 /**
  * Render the top-bar Session Integrity badge, tooltip, and reason text.
  *
- * @param {{
- *   status: 'unknown'|'verified'|'stale'|'mismatch'|'missing'|'error',
- *   reason: string,
- *   recoveredFromStale: boolean,
- *   patchA: Record<string, any> | null,
- *   patchB: Record<string, any> | null,
- *   topStatus: string,
- *   topReason: string
- * }} integrity - Session-integrity model.
+ * @param {SessionIntegrityState} integrity - Session-integrity model.
  * @returns {void}
  */
 export function setSessionIntegrity(integrity) {
@@ -231,7 +215,7 @@ export function setSessionIntegrity(integrity) {
  * Build one short patch detail line for Session Integrity modal rendering.
  *
  * @param {string} label - Patch label ("A" or "B").
- * @param {Record<string, any> | null} patchResult - Patch result object from API.
+ * @param {WalkerSessionLoadPatchResult | null} patchResult - Patch result object from API.
  * @returns {string}
  */
 function sessionIntegrityPatchDetail(label, patchResult) {
@@ -324,7 +308,7 @@ export function initSessionIntegrityModal() {
 /**
  * Render a concise summary line for one session load result.
  *
- * @param {Record<string, any>} payload - ``/api/walker/load-session`` payload.
+ * @param {WalkerSessionLoadPayload} payload - ``/api/walker/load-session`` payload.
  * @returns {string}
  */
 export function formatSessionLoadSummary(payload) {
