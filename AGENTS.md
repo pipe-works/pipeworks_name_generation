@@ -40,6 +40,12 @@
   - Default to `fix:` for repairs, regressions, missing wiring, validation hardening, and docs/code alignment.
   - Use `feat:` only for clearly user-visible net-new capability.
   - If a PR mixes repairs and new capability, split changes (or commits) so release intent is explicit.
+  - SemVer guardrails for release decisions:
+    - Patch (`x.y.Z`): bug fixes and internal repairs with no new externally observable capability/contract.
+    - Minor (`x.Y.0`): net-new user-visible capability, new endpoint/field/flow, or expanded observable behavior.
+    - Major (`X.0.0`): breaking external contract changes.
+    - For `0.y.z` pre-1.0 cadence, treat impactful breaking contract changes
+      as at least a minor bump and document the break clearly.
 - CI must run on PRs targeting `main` or `develop`:
   - Workflow: `.github/workflows/ci.yml` (reusable workflow in `pipe-works/.github`).
   - Triggers: `pull_request` to `main`/`develop`, `push` to `main`/`develop`/`release-please--*`,
