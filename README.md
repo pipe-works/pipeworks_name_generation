@@ -301,26 +301,34 @@ python -m build_tools.syllable_walk_web --output-base /path/to/corpus/output
   with a filesystem browser for source selection and live log monitoring.
 - **Walker tab**: Load corpora into dual patches (A/B) for side-by-side comparison. Generate
   syllable walks, combine into name candidates, select by policy, and export or package results.
-- **16 API endpoints** across Pipeline, Walker, Browse, and Settings groups.
+- **24 API endpoints** across Pipeline, Walker, Browse, and Settings groups.
 - Uses Python's standard library `http.server` with no external framework dependencies.
 
 ### Module Structure
 
 ```text
 build_tools/syllable_walk_web/
-    api/            # Request handlers (browse, pipeline, walker)
-    services/       # Business logic (corpus_loader, combiner_runner,
-                    #   selector_runner, walk_generator, metrics,
-                    #   packager, pipeline_runner)
+    api/            # Route handlers split by domain:
+                    #   browse.py, pipeline.py, walker.py wrapper,
+                    #   walker_common.py, walker_lock.py, walker_ops.py,
+                    #   walker_session.py, walker_cache_lock.py, walker_types.py
+    services/       # Business logic and IPC helpers:
+                    #   corpus_loader, walk_generator, combiner_runner,
+                    #   selector_runner, metrics, packager, pipeline_runner,
+                    #   pipeline_manifest, profile_reaches_cache,
+                    #   walker_run_state_store, walker_session_store,
+                    #   walker_session_lock, session_paths
     state.py        # Dataclasses (PatchState, PipelineJobState, ServerState)
+    run_discovery.py# Manifest-first run/history discovery
     server.py       # HTTP server, routing, static file serving
-    static/         # HTML, CSS, JS, fonts
+    schemas/        # JSON schemas for IPC sidecars
+    static/         # HTML, CSS, JS, fonts (walker UI split into focused modules)
 ```
 
 ### Build Tools Web Tests
 
 ```bash
-# All build tools web app tests (214 tests)
+# Build tools web app tests
 pytest tests/test_syllable_walk_web*.py tests/test_syllable_walk_server.py -v
 ```
 
