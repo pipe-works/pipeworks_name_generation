@@ -249,6 +249,15 @@ class TestRouteGet:
         body = json.loads(handler.wfile.getvalue())
         assert "sessions" in body
 
+    def test_walker_sessions_error_status(self, handler):
+        """GET sessions route should return 400 when handler returns error."""
+        with patch(
+            "build_tools.syllable_walk_web.api.walker.handle_sessions",
+            return_value={"error": "listing-failed"},
+        ):
+            handler._route_get("/api/walker/sessions")
+        handler.send_response.assert_called_once_with(400)
+
     def test_walker_analysis_invalid_patch(self, handler):
         """Test GET /api/walker/analysis/x with invalid patch returns 400."""
         handler._route_get("/api/walker/analysis/x")
@@ -339,6 +348,14 @@ class TestRoutePost:
         assert "status" in result
         assert "reason" in result
 
+    def test_walker_save_session_invalid_json(self, handler):
+        """Test POST /api/walker/save-session with malformed JSON returns 400."""
+        body = b"{bad"
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/save-session")
+        handler.send_response.assert_called_once_with(400)
+
     def test_walker_load_session_missing_id(self, handler):
         """Test POST /api/walker/load-session without session_id returns 400."""
         body = json.dumps({}).encode()
@@ -347,9 +364,25 @@ class TestRoutePost:
         handler._route_post("/api/walker/load-session")
         handler.send_response.assert_called_once_with(400)
 
+    def test_walker_load_session_invalid_json(self, handler):
+        """Test POST /api/walker/load-session with malformed JSON returns 400."""
+        body = b"{bad"
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/load-session")
+        handler.send_response.assert_called_once_with(400)
+
     def test_walker_rebuild_reach_cache_without_loaded_walker(self, handler):
         """Test POST /api/walker/rebuild-reach-cache returns 400 when not ready."""
         body = json.dumps({"patch": "a"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/rebuild-reach-cache")
+        handler.send_response.assert_called_once_with(400)
+
+    def test_walker_rebuild_reach_cache_invalid_json(self, handler):
+        """Test POST /api/walker/rebuild-reach-cache malformed JSON returns 400."""
+        body = b"{bad"
         handler.headers = {"Content-Length": str(len(body))}
         handler.rfile = io.BytesIO(body)
         handler._route_post("/api/walker/rebuild-reach-cache")
