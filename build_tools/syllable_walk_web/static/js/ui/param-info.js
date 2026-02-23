@@ -195,6 +195,41 @@ const PARAM_INFO = {
       ],
     },
   },
+  'rebuild-reach-cache': {
+    signal: 'cache health',
+    tooltip: 'Use when Reach Cache IPC is mismatch/missing/error, or after manual run-directory edits. Rebuild recomputes reaches and rewrites IPC sidecar hashes.',
+    modal: {
+      title: 'Rebuild Reach Cache',
+      rows: [
+        ['Definition',
+         'Recomputes all profile reach tables (clerical/dialect/goblin/ritual) for the currently loaded patch corpus and rewrites the run-local cache artifact.'],
+        ['When to Rebuild',
+         '<ul>' +
+         '<li>Reach Cache IPC badge is <code>mismatch</code>, <code>missing</code>, or <code>error</code>.</li>' +
+         '<li>Run directory artifacts were edited manually.</li>' +
+         '<li>You want to repair/refresh cache integrity before comparing Patch A and B outputs.</li>' +
+         '</ul>'],
+        ['When Not Needed',
+         '<ul>' +
+         '<li>Reach Cache IPC is <code>verified</code> and corpus content has not changed.</li>' +
+         '<li>You only changed runtime walk controls (seed, walk count, temperature, etc.).</li>' +
+         '</ul>'],
+        ['IPC Effects',
+         '<ul>' +
+         '<li>Writes <code>&lt;run_dir&gt;/ipc/walker_profile_reaches.v1.json</code>.</li>' +
+         '<li>Refreshes cache <code>ipc.input_hash</code> and <code>ipc.output_hash</code> in UI/API.</li>' +
+         '<li>Does not mutate corpus syllables or manifest payload; it updates reach-cache sidecar provenance.</li>' +
+         '</ul>'],
+        ['Deterministic vs Stochastic',
+         '<ul>' +
+         '<li>Rebuild is deterministic for a fixed corpus + walker graph/reach settings.</li>' +
+         '<li>Walk generation remains stochastic unless seed is fixed.</li>' +
+         '</ul>'],
+        ['Operational Note',
+         'Rebuild is patch-local. Rebuild Patch A and Patch B independently if both show non-verified cache states.'],
+      ],
+    },
+  },
   'seed': {
     signal: 'rng seed',
     tooltip: 'Controls reproducibility of stochastic transitions.',

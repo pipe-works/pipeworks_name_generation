@@ -256,6 +256,7 @@ def test_verify_session_detects_linked_run_state_mismatch(tmp_path: Path) -> Non
     session_input = {
         "session_id": payload["session_id"],
         "label": payload.get("label"),
+        "lineage": payload.get("lineage"),
         "patch_a": payload.get("patch_a"),
         "patch_b": payload.get("patch_b"),
     }
@@ -277,6 +278,69 @@ def test_verify_session_detects_linked_run_state_mismatch(tmp_path: Path) -> Non
     )
     assert verification.status == "mismatch"
     assert verification.reason == "session-a-run-state-output-hash-mismatch"
+
+
+def test_save_session_repair_creates_new_revision_and_keeps_original(tmp_path: Path) -> None:
+    """Repair saves should create a new immutable revision without overwrite."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    original = walker_session_store.save_session(
+        state=state, session_id="session_orig", label="Original"
+    )
+    assert original.status == "saved"
+    assert original.session_id == "session_orig"
+    assert original.session_path is not None and original.session_path.exists()
+    original_payload = json.loads(original.session_path.read_text(encoding="utf-8"))
+    assert original_payload["lineage"]["revision"] == 0
+    assert original_payload["lineage"]["parent_session_id"] is None
+
+    repaired = walker_session_store.save_session(
+        state=state,
+        label="Repaired",
+        repair_from_session_id="session_orig",
+    )
+    assert repaired.status == "saved"
+    assert repaired.session_id is not None
+    assert repaired.session_id != "session_orig"
+    assert repaired.session_path is not None and repaired.session_path.exists()
+    assert repaired.parent_session_id == "session_orig"
+    assert repaired.root_session_id == "session_orig"
+    assert repaired.revision == 1
+
+    repaired_payload = json.loads(repaired.session_path.read_text(encoding="utf-8"))
+    assert repaired_payload["lineage"]["root_session_id"] == "session_orig"
+    assert repaired_payload["lineage"]["parent_session_id"] == "session_orig"
+    assert repaired_payload["lineage"]["revision"] == 1
+    assert original.session_path.exists()
+    assert json.loads(original.session_path.read_text(encoding="utf-8")) == original_payload
+
+
+def test_save_session_rejects_existing_explicit_session_id(tmp_path: Path) -> None:
+    """Explicit session IDs should be immutable and cannot be overwritten."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    first = walker_session_store.save_session(state=state, session_id="session_same")
+    assert first.status == "saved"
+
+    second = walker_session_store.save_session(state=state, session_id="session_same")
+    assert second.status == "mismatch"
+    assert second.reason == "session-id-already-exists"
 
 
 def test_load_session_returns_verified_payload(tmp_path: Path) -> None:
@@ -349,6 +413,8 @@ def test_list_sessions_returns_sorted_entries_with_verification(tmp_path: Path) 
     assert [entry.session_id for entry in entries] == ["session_002", "session_001"]
     assert entries[0].verification_status == "verified"
     assert entries[0].label == "New"
+    assert entries[0].root_session_id == "session_002"
+    assert entries[0].revision == 0
     assert entries[1].verification_status == "verified"
 
 
@@ -565,6 +631,33 @@ def test_verify_session_rejects_patch_b_and_ipc_shape_variants(tmp_path: Path) -
     )
     assert block_invalid.status == "mismatch"
     assert block_invalid.reason == "session-ipc-payload-invalid"
+
+
+def test_verify_session_rejects_invalid_lineage_shape(tmp_path: Path) -> None:
+    """Verifier should reject malformed lineage metadata when present."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    saved = walker_session_store.save_session(state=state, session_id="session_lineage")
+    assert saved.session_path is not None
+
+    payload = json.loads(saved.session_path.read_text(encoding="utf-8"))
+    payload["lineage"] = {"root_session_id": "", "parent_session_id": None, "revision": 0}
+    saved.session_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    verification = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert verification.status == "mismatch"
+    assert verification.reason == "session-lineage-invalid"
 
 
 def test_verify_session_rejects_input_output_payload_drift(tmp_path: Path) -> None:

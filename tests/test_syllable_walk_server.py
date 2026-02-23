@@ -372,6 +372,22 @@ class TestRoutePost:
         handler._route_post("/api/walker/load-session")
         handler.send_response.assert_called_once_with(400)
 
+    def test_walker_session_lock_heartbeat_missing_fields(self, handler):
+        """Test POST /api/walker/session-lock/heartbeat validates request body."""
+        body = json.dumps({}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/session-lock/heartbeat")
+        handler.send_response.assert_called_once_with(400)
+
+    def test_walker_session_lock_release_missing_fields(self, handler):
+        """Test POST /api/walker/session-lock/release validates request body."""
+        body = json.dumps({}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/session-lock/release")
+        handler.send_response.assert_called_once_with(400)
+
     def test_walker_rebuild_reach_cache_without_loaded_walker(self, handler):
         """Test POST /api/walker/rebuild-reach-cache returns 400 when not ready."""
         body = json.dumps({"patch": "a"}).encode()

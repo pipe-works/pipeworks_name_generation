@@ -8,6 +8,7 @@
 'use strict';
 
 import { downloadBlob } from '../core/files.js';
+import { getWalkerSessionLockHolderId } from './corpus.js';
 
 /** @type {{
  *   state: Record<string, any>,
@@ -222,6 +223,7 @@ function initGenerateWalks() {
       const out = document.getElementById(`walks-output-${patch}`);
       setPlaceholder(out, 'Generating…');
       btn.disabled = true;
+      const holderId = getWalkerSessionLockHolderId();
 
       fetch('/api/walker/walk', {
         method: 'POST',
@@ -238,6 +240,7 @@ function initGenerateWalks() {
           max_length: maxLength,
           neighbor_limit: neighborLimit,
           seed: seed,
+          lock_holder_id: holderId,
         }),
       })
         .then(r => r.json())
@@ -402,6 +405,7 @@ function initGenerateCandidates() {
       const out = document.getElementById(`comb-output-${patch}`);
       setPlaceholder(out, 'Generating candidates…');
       btn.disabled = true;
+      reqBody.lock_holder_id = getWalkerSessionLockHolderId();
 
       fetch('/api/walker/combine', {
         method: 'POST',
@@ -476,6 +480,7 @@ function initSelectNames() {
       setPlaceholder(metaEl, 'Selecting…');
       listEl.replaceChildren();
       btn.disabled = true;
+      const holderId = getWalkerSessionLockHolderId();
 
       fetch('/api/walker/select', {
         method: 'POST',
@@ -487,6 +492,7 @@ function initSelectNames() {
           mode: mode,
           order: order,
           seed: seed,
+          lock_holder_id: holderId,
         }),
       })
         .then(r => r.json())
@@ -645,6 +651,7 @@ function initPackageBuild() {
       include_walks_b: document.getElementById('pkg-walks-b')?.checked ?? true,
       include_candidates: document.getElementById('pkg-candidates')?.checked ?? true,
       include_selections: document.getElementById('pkg-selections')?.checked ?? true,
+      lock_holder_id: getWalkerSessionLockHolderId(),
     };
 
     setPlaceholder(out, 'Building package…');

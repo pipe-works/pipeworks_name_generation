@@ -358,13 +358,35 @@
           <option value="">-- Select saved session --</option>
         </select>
         <button class="btn btn--secondary btn--sm" id="walker-load-session" type="button">Load Session</button>
+        <button class="btn btn--secondary btn--sm" id="walker-repair-session" type="button" title="Create a new repaired revision from selected session using current verified run-state">Repair Session</button>
+        <button class="btn btn--secondary btn--sm" id="walker-takeover-session-lock" type="button" title="Take over lock from another tab if needed">Take Over Lock</button>
+        <button class="btn btn--secondary btn--sm" id="walker-release-session-lock" type="button" title="Release lock held by this tab">Release Lock</button>
       </div>
       <div class="walker-session-bar__meta">
         <span class="u-muted" id="walker-session-summary">No session activity yet.</span>
-        <span class="walker-session-bar__compare">
-          <span class="u-muted">Patch Comparison</span>
-          <span class="corpus-hash-badge is-pending" id="walker-patch-compare-badge">unknown</span>
-          <span class="u-muted u-mono" id="walker-patch-compare-text">policy none</span>
+        <span class="walker-session-bar__signals">
+          <span class="walker-session-bar__compare">
+            <span class="u-muted">Patch Comparison</span>
+            <span class="corpus-hash-badge is-pending" id="walker-patch-compare-badge">unknown</span>
+            <span class="u-muted u-mono" id="walker-patch-compare-text">policy none</span>
+          </span>
+          <span class="walker-session-bar__compare">
+            <span class="u-muted">Session Integrity</span>
+            <span class="corpus-hash-badge is-pending" id="walker-session-integrity-badge" title="No session load attempted yet.">unknown</span>
+            <span class="u-muted u-mono" id="walker-session-integrity-text">not evaluated</span>
+            <button
+              class="param-info-btn"
+              id="walker-session-integrity-info"
+              type="button"
+              aria-label="Session integrity details"
+              title="Session integrity details"
+            >?</button>
+          </span>
+          <span class="walker-session-bar__compare">
+            <span class="u-muted">Session Lock</span>
+            <span class="corpus-hash-badge is-pending" id="walker-session-lock-badge" title="No session lock held.">unlocked</span>
+            <span class="u-muted u-mono" id="walker-session-lock-text">not holding lock</span>
+          </span>
         </span>
       </div>
     </section>
@@ -402,7 +424,21 @@
           </div>
           <div class="corpus-actions">
             <button class="btn btn--secondary btn--sm" id="rebuild-reach-cache-a" type="button">Rebuild Reach Cache</button>
-            <span class="u-muted u-mono corpus-actions__status" id="rebuild-reach-status-a">idle</span>
+            <span class="corpus-actions__meta">
+              <span class="corpus-hash-badge is-pending" id="rebuild-reach-badge-a">idle</span>
+              <span
+                class="u-muted u-mono corpus-actions__status param-signal"
+                id="rebuild-reach-status-a"
+                data-param="rebuild-reach-cache"
+              >no rebuild yet</span>
+              <button
+                class="param-info-btn"
+                data-param="rebuild-reach-cache"
+                id="rebuild-reach-info-a"
+                type="button"
+                aria-label="Rebuild reach cache details"
+              >?</button>
+            </span>
           </div>
         </div>
 
@@ -648,7 +684,21 @@
           </div>
           <div class="corpus-actions">
             <button class="btn btn--secondary btn--sm" id="rebuild-reach-cache-b" type="button">Rebuild Reach Cache</button>
-            <span class="u-muted u-mono corpus-actions__status" id="rebuild-reach-status-b">idle</span>
+            <span class="corpus-actions__meta">
+              <span class="corpus-hash-badge is-pending" id="rebuild-reach-badge-b">idle</span>
+              <span
+                class="u-muted u-mono corpus-actions__status param-signal"
+                id="rebuild-reach-status-b"
+                data-param="rebuild-reach-cache"
+              >no rebuild yet</span>
+              <button
+                class="param-info-btn"
+                data-param="rebuild-reach-cache"
+                id="rebuild-reach-info-b"
+                type="button"
+                aria-label="Rebuild reach cache details"
+              >?</button>
+            </span>
           </div>
         </div>
 
@@ -1661,6 +1711,23 @@
           </tbody>
         </table>
         <p class="summary-modal__note">The Walker is a constrained traversal instrument. Each parameter reshapes terrain (topology), entropy (probability), or sampling (behaviour).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Integrity modal (Level 3 progressive disclosure).
+       Explains session hash freshness vs patch comparison semantics. -->
+  <div class="modal hidden" id="session-integrity-modal" role="dialog" aria-modal="true" aria-labelledby="session-integrity-modal-title">
+    <div class="modal__backdrop" id="session-integrity-modal-backdrop"></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <h2 class="panel__heading" id="session-integrity-modal-title">Session Integrity</h2>
+        <button class="btn btn--icon" id="session-integrity-modal-close" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal__content">
+        <table class="param-modal__table">
+          <tbody id="session-integrity-modal-tbody"></tbody>
+        </table>
       </div>
     </div>
   </div>

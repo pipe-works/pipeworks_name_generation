@@ -31,6 +31,8 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_rebuild_reach_cache,
     handle_save_session,
     handle_select,
+    handle_session_lock_heartbeat,
+    handle_session_lock_release,
     handle_sessions,
     handle_stats,
     handle_walk,
@@ -807,6 +809,26 @@ class TestHandleWalk:
         result = handle_walk({"patch": "a"}, state)
         assert "error" in result
 
+    def test_walk_rejects_when_active_session_lock_owned_by_other_holder(self, loaded_state):
+        """Mutating walk action should fail when active session lock is not owned."""
+
+        loaded_state.active_session_id = "session_1"
+        loaded_state.active_session_lock_holder_id = "holder_owner"
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_lock.acquire_session_lock",
+            return_value={
+                "status": "locked",
+                "reason": "session lock held by another holder",
+                "lock": {"holder_id": "holder_owner"},
+            },
+        ):
+            result = handle_walk(
+                {"patch": "a", "count": 1, "lock_holder_id": "holder_other"},
+                loaded_state,
+            )
+        assert "error" in result
+        assert result["lock_status"] == "locked"
+
     def test_success_generates_walks(self, loaded_state):
         """Test successful walk generation."""
         mock_walks = [
@@ -1183,6 +1205,13 @@ class TestSessionEndpoints:
         assert "error" in result
         assert "session_id must be a string" in result["error"]
 
+    def test_save_session_rejects_invalid_repair_source_type(self, state):
+        """Save endpoint should reject non-string repair source session IDs."""
+
+        result = handle_save_session({"repair_from_session_id": 123}, state)
+        assert "error" in result
+        assert "repair_from_session_id must be a string" in result["error"]
+
     def test_save_session_success(self, state):
         """Save endpoint should map service result into API response shape."""
 
@@ -1199,6 +1228,9 @@ class TestSessionEndpoints:
                 patch_b_reason="patch-b-run-id-missing",
                 ipc_input_hash="a" * 64,
                 ipc_output_hash="b" * 64,
+                root_session_id="session_1",
+                parent_session_id=None,
+                revision=0,
             ),
         ):
             result = handle_save_session({"label": "Snapshot"}, state)
@@ -1209,6 +1241,9 @@ class TestSessionEndpoints:
         assert result["patch_a"]["status"] == "saved"
         assert result["patch_b"]["status"] == "skipped"
         assert result["ipc_input_hash"] == "a" * 64
+        assert result["root_session_id"] == "session_1"
+        assert result["parent_session_id"] is None
+        assert result["revision"] == 0
 
     def test_save_session_returns_error_when_service_raises(self, state):
         """Service exceptions should be mapped to API error payloads."""
@@ -1236,6 +1271,9 @@ class TestSessionEndpoints:
                     verification_status="verified",
                     verification_reason="verified",
                     session_path=Path("/tmp/sessions/session_1.json"),
+                    root_session_id="session_1",
+                    parent_session_id=None,
+                    revision=0,
                 )
             ],
         ):
@@ -1245,6 +1283,45 @@ class TestSessionEndpoints:
         assert len(result["sessions"]) == 1
         assert result["sessions"][0]["session_id"] == "session_1"
         assert result["sessions"][0]["verification_status"] == "verified"
+        assert result["sessions"][0]["root_session_id"] == "session_1"
+        assert result["sessions"][0]["revision"] == 0
+        assert result["sessions"][0]["lock_status"] == "unlocked"
+        assert result["sessions"][0]["lock"] is None
+
+    def test_sessions_list_includes_active_lock_metadata(self, state):
+        """List endpoint should include lock metadata for currently locked sessions."""
+
+        state.walker_session_locks["session_1"] = {
+            "session_id": "session_1",
+            "holder_id": "holder_abc",
+            "acquired_at_utc": "2026-02-23T12:00:00Z",
+            "refreshed_at_utc": "2026-02-23T12:00:10Z",
+            "expires_at_utc": "2099-01-01T00:00:00Z",
+            "expires_at_epoch": 4_070_908_800.0,
+        }
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.list_sessions",
+            return_value=[
+                SimpleNamespace(
+                    session_id="session_1",
+                    created_at_utc="2026-02-23T12:00:00Z",
+                    label="Snapshot",
+                    patch_a_run_id="run_a",
+                    patch_b_run_id=None,
+                    verification_status="verified",
+                    verification_reason="verified",
+                    session_path=Path("/tmp/sessions/session_1.json"),
+                    root_session_id="session_1",
+                    parent_session_id=None,
+                    revision=0,
+                )
+            ],
+        ):
+            result = handle_sessions(state)
+
+        assert result["sessions"][0]["lock_status"] == "locked"
+        assert result["sessions"][0]["lock"]["holder_id"] == "holder_abc"
 
     def test_sessions_list_returns_error_when_service_raises(self, state):
         """List endpoint should return explicit service errors."""
@@ -1283,6 +1360,62 @@ class TestSessionEndpoints:
         assert "error" not in result
         assert result["status"] == "missing"
         assert result["patch_a"]["loaded"] is False
+        assert result["patch_b"]["loaded"] is False
+
+    def test_load_session_recovers_from_stale_run_state_hash_mismatch(self, state):
+        """Hash-drift mismatch should recover via raw session payload when possible."""
+
+        stale_payload = {
+            "session_id": "session_ok",
+            "patch_a": {"run_id": "run_a"},
+            "patch_b": None,
+        }
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="mismatch",
+                    reason="session-a-run-state-output-hash-mismatch",
+                    session_id="session_ok",
+                    payload=None,
+                    session_path=Path("/tmp/sessions/session_ok.json"),
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker._read_json_object",
+                return_value=stale_payload,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                return_value={
+                    "status": "loading",
+                    "source": "annotated_json",
+                    "syllable_count": 12,
+                },
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker._restore_patch_artifacts_from_run_state",
+                return_value={
+                    "status": "verified",
+                    "reason": "run-state-restored",
+                    "restored": True,
+                    "restored_kinds": ["walks"],
+                    "run_state_ipc_input_hash": "c" * 64,
+                    "run_state_ipc_output_hash": "d" * 64,
+                },
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "mismatch"
+        assert result["reason"] == "session-a-run-state-output-hash-mismatch"
+        assert result["recovered_from_stale_session"] is True
+        assert result["patch_a"]["loaded"] is True
+        assert result["patch_a"]["restored"] is True
+        assert result["patch_a"]["verification_status"] == "verified"
         assert result["patch_b"]["loaded"] is False
 
     def test_load_session_returns_error_when_service_raises(self, state):
@@ -1455,6 +1588,212 @@ class TestSessionEndpoints:
         assert result["patch_a"]["loaded"] is True
         assert result["patch_b"]["loaded"] is True
         assert mock_load_corpus.call_count == 2
+
+    def test_load_session_restores_verified_patch_artifacts(self, state, tmp_path):
+        """Verified run-state sidecars should restore patch outputs on load."""
+
+        from build_tools.syllable_walk_web.services.walker_run_state_store import save_run_state
+
+        run_id = "run_a"
+        run_dir = tmp_path / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        persist_state = ServerState()
+        persist_state.patch_a.run_id = run_id
+        persist_state.patch_a.corpus_dir = run_dir
+        persist_state.patch_a.manifest_ipc_output_hash = "a" * 64
+        persist_state.patch_a.reach_cache_ipc_output_hash = "b" * 64
+
+        expected_walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
+        expected_candidates = [{"name": "Kari", "syllables": ["ka", "ri"], "features": {}}]
+        expected_selections = [{"name": "Kari", "syllables": ["ka", "ri"], "score": 1.0}]
+
+        assert (
+            save_run_state(
+                state=persist_state,
+                patch="a",
+                artifact_kind="walks",
+                artifact_payload={"walks": expected_walks, "params": {"count": 1, "steps": 1}},
+            ).status
+            == "saved"
+        )
+        assert (
+            save_run_state(
+                state=persist_state,
+                patch="a",
+                artifact_kind="candidates",
+                artifact_payload={"candidates": expected_candidates, "params": {"count": 1}},
+            ).status
+            == "saved"
+        )
+        assert (
+            save_run_state(
+                state=persist_state,
+                patch="a",
+                artifact_kind="selections",
+                artifact_payload={"selected_names": expected_selections, "params": {"count": 1}},
+            ).status
+            == "saved"
+        )
+
+        payload = {"session_id": "session_ok", "patch_a": {"run_id": run_id}, "patch_b": None}
+
+        def _mock_load_corpus(body, server_state):
+            patch_state = server_state.patch_a if body.get("patch") == "a" else server_state.patch_b
+            patch_state.run_id = body.get("run_id")
+            patch_state.corpus_dir = run_dir
+            patch_state.manifest_ipc_output_hash = "a" * 64
+            return {"status": "loading", "source": "annotated_json", "syllable_count": 12}
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="c" * 64,
+                    ipc_output_hash="d" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                side_effect=_mock_load_corpus,
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["loaded"] is True
+        assert result["patch_a"]["restored"] is True
+        assert result["patch_a"]["verification_status"] == "verified"
+        assert result["patch_a"]["verification_reason"] == "run-state-restored"
+        assert set(result["patch_a"]["restored_kinds"]) >= {"walks", "candidates", "selections"}
+        assert state.patch_a.walks == expected_walks
+        assert state.patch_a.candidates == expected_candidates
+        assert state.patch_a.selected_names == expected_selections
+        assert result["patch_b"]["loaded"] is False
+        assert result["patch_b"]["verification_status"] == "missing"
+
+    def test_load_session_marks_patch_mismatch_when_run_state_verification_fails(
+        self, state, tmp_path
+    ):
+        """Load should not trust sidecars when run-state verification drifts."""
+
+        from build_tools.syllable_walk_web.services.walker_run_state_store import save_run_state
+
+        run_id = "run_a"
+        run_dir = tmp_path / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        persist_state = ServerState()
+        persist_state.patch_a.run_id = run_id
+        persist_state.patch_a.corpus_dir = run_dir
+        persist_state.patch_a.manifest_ipc_output_hash = "a" * 64
+
+        assert (
+            save_run_state(
+                state=persist_state,
+                patch="a",
+                artifact_kind="walks",
+                artifact_payload={"walks": [{"formatted": "ka·ri"}], "params": {"count": 1}},
+            ).status
+            == "saved"
+        )
+
+        payload = {"session_id": "session_ok", "patch_a": {"run_id": run_id}, "patch_b": None}
+
+        def _mock_load_corpus(body, server_state):
+            patch_state = server_state.patch_a if body.get("patch") == "a" else server_state.patch_b
+            patch_state.run_id = body.get("run_id")
+            patch_state.corpus_dir = run_dir
+            # Deliberate hash drift against saved run-state.
+            patch_state.manifest_ipc_output_hash = "f" * 64
+            return {"status": "loading", "source": "annotated_json", "syllable_count": 12}
+
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="c" * 64,
+                    ipc_output_hash="d" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                side_effect=_mock_load_corpus,
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["loaded"] is True
+        assert result["patch_a"]["restored"] is False
+        assert result["patch_a"]["verification_status"] == "mismatch"
+        assert result["patch_a"]["verification_reason"] == "run-state-manifest-hash-mismatch"
+        assert result["patch_a"]["restored_kinds"] == []
+        assert state.patch_a.walks == []
+        assert state.patch_a.candidates is None
+        assert state.patch_a.selected_names == []
+
+    def test_load_session_returns_lock_conflict_when_held_elsewhere(self, state):
+        """Load should return lock conflict when another holder owns session lock."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_lock.acquire_session_lock",
+            return_value={
+                "status": "locked",
+                "reason": "session lock held by another holder",
+                "lock": {
+                    "session_id": "session_ok",
+                    "holder_id": "holder_other",
+                    "acquired_at_utc": "2026-02-23T12:00:00Z",
+                    "refreshed_at_utc": "2026-02-23T12:00:10Z",
+                    "expires_at_utc": "2026-02-23T12:00:45Z",
+                },
+            },
+        ):
+            result = handle_load_session(
+                {
+                    "session_id": "session_ok",
+                    "lock_holder_id": "holder_self",
+                },
+                state,
+            )
+
+        assert "error" in result
+        assert result["lock_status"] == "locked"
+        assert result["active_session_id"] == "session_ok"
+        assert result["lock"]["holder_id"] == "holder_other"
+
+    def test_session_lock_heartbeat_and_release_handlers(self, state):
+        """Heartbeat and release endpoints should round-trip lock ownership."""
+
+        from build_tools.syllable_walk_web.services.walker_session_lock import acquire_session_lock
+
+        acquired = acquire_session_lock(
+            state=state,
+            session_id="session_ok",
+            holder_id="holder_self",
+        )
+        assert acquired["status"] == "acquired"
+
+        heartbeat = handle_session_lock_heartbeat(
+            {"session_id": "session_ok", "lock_holder_id": "holder_self"},
+            state,
+        )
+        assert "error" not in heartbeat
+        assert heartbeat["status"] == "held"
+
+        released = handle_session_lock_release(
+            {"session_id": "session_ok", "lock_holder_id": "holder_self"},
+            state,
+        )
+        assert "error" not in released
+        assert released["status"] == "released"
 
 
 # ============================================================
