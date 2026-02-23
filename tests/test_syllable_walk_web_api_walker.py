@@ -805,9 +805,14 @@ class TestHandleWalk:
         mock_walks = [
             {"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []},
         ]
-        with patch(
-            "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
-            return_value=mock_walks,
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+                return_value=mock_walks,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+            ) as mock_save,
         ):
             result = handle_walk({"patch": "a", "count": 1}, loaded_state)
 
@@ -815,6 +820,9 @@ class TestHandleWalk:
         assert result["patch"] == "a"
         assert len(result["walks"]) == 1
         assert loaded_state.patch_a.walks == mock_walks
+        mock_save.assert_called_once()
+        assert mock_save.call_args.kwargs["patch"] == "a"
+        assert mock_save.call_args.kwargs["artifact_kind"] == "walks"
 
     def test_walk_forwards_neighbor_and_length_constraints(self, loaded_state):
         """Walk handler passes min/max length and neighbor cap to service."""
@@ -1131,9 +1139,14 @@ class TestHandleCombine:
             {"name": "Kari", "syllables": ["ka", "ri"], "features": {}},
             {"name": "Rika", "syllables": ["ri", "ka"], "features": {}},
         ]
-        with patch(
-            "build_tools.name_combiner.combiner.combine_syllables",
-            return_value=mock_candidates,
+        with (
+            patch(
+                "build_tools.name_combiner.combiner.combine_syllables",
+                return_value=mock_candidates,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+            ) as mock_save,
         ):
             result = handle_combine({"patch": "a", "count": 3, "syllables": 2}, loaded_state)
 
@@ -1141,6 +1154,9 @@ class TestHandleCombine:
         assert result["generated"] == 3
         assert result["unique"] == 2
         assert result["duplicates"] == 1
+        mock_save.assert_called_once()
+        assert mock_save.call_args.kwargs["patch"] == "a"
+        assert mock_save.call_args.kwargs["artifact_kind"] == "candidates"
 
     def test_combiner_failure_returns_error(self, loaded_state):
         """Test combiner exception returns error."""
@@ -1398,6 +1414,9 @@ class TestHandleSelect:
                     "first_name": MagicMock(description="First names", syllable_range=(2, 3))
                 },
             ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+            ) as mock_save,
         ):
             result = handle_select(
                 {"patch": "a", "name_class": "first_name"},
@@ -1407,6 +1426,9 @@ class TestHandleSelect:
         assert "error" not in result
         assert result["count"] == 1
         assert "Kari" in result["names"]
+        mock_save.assert_called_once()
+        assert mock_save.call_args.kwargs["patch"] == "a"
+        assert mock_save.call_args.kwargs["artifact_kind"] == "selections"
 
     def test_unknown_name_class_returns_error(self, state_with_candidates):
         """Test unknown name class returns error from selector_runner."""
@@ -1482,9 +1504,16 @@ class TestHandlePackage:
 
     def test_delegates_to_build_package(self, state):
         """Test package handler delegates to packager service."""
-        with patch(
-            "build_tools.syllable_walk_web.services.packager.build_package",
-            return_value=(b"PK\x03\x04content", None),
+        state.patch_a.run_id = "20260222_155258_nltk"
+        state.patch_a.walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.packager.build_package",
+                return_value=(b"PK\x03\x04content", None),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+            ) as mock_save,
         ):
             zip_bytes, filename, error = handle_package(
                 {"name": "test-pkg", "version": "1.0"}, state
@@ -1493,16 +1522,27 @@ class TestHandlePackage:
         assert error is None
         assert filename == "test-pkg-1.0.zip"
         assert zip_bytes.startswith(b"PK")
+        assert mock_save.call_count == 1
+        assert mock_save.call_args.kwargs["patch"] == "a"
+        assert mock_save.call_args.kwargs["artifact_kind"] == "package"
 
     def test_returns_error_from_packager(self, state):
         """Test error from packager is propagated."""
-        with patch(
-            "build_tools.syllable_walk_web.services.packager.build_package",
-            return_value=(b"", "Nothing to package."),
+        state.patch_a.run_id = "20260222_155258_nltk"
+        state.patch_a.walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.packager.build_package",
+                return_value=(b"", "Nothing to package."),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+            ) as mock_save,
         ):
             zip_bytes, filename, error = handle_package({}, state)
 
         assert error == "Nothing to package."
+        mock_save.assert_not_called()
 
 
 # ============================================================

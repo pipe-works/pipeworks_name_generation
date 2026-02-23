@@ -99,6 +99,35 @@ def _coerce_optional_constraint_int(
         return None, f"{field_name} must be an integer or null."
 
 
+def _persist_patch_artifact_sidecar(
+    *,
+    state: ServerState,
+    patch_key: str,
+    artifact_kind: str,
+    artifact_payload: dict[str, Any],
+) -> None:
+    """Persist one patch artifact sidecar + run-state index non-blockingly.
+
+    Persistence is best-effort for UX resilience: API responses for mutable
+    actions should still succeed even when filesystem or IPC write operations
+    fail (for example due to permission issues in custom output directories).
+    """
+
+    from build_tools.syllable_walk_web.services.walker_run_state_store import save_run_state
+
+    try:
+        save_run_state(
+            state=state,
+            patch=patch_key,
+            artifact_kind=artifact_kind,
+            artifact_payload=artifact_payload,
+        )
+    except Exception:
+        # Phase 1 policy: do not fail user actions on sidecar persistence.
+        # Verification/load endpoints will surface missing/mismatch states.
+        return
+
+
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     """Handle POST /api/walker/load-corpus.
 
@@ -437,6 +466,26 @@ def handle_walk(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
 
     # Store walks in state
     patch.walks = walks
+    _persist_patch_artifact_sidecar(
+        state=state,
+        patch_key=patch_key,
+        artifact_kind="walks",
+        artifact_payload={
+            "walks": walks,
+            "params": {
+                "profile": body.get("profile"),
+                "count": count,
+                "steps": steps,
+                "max_flips": max_flips,
+                "temperature": temperature,
+                "frequency_weight": frequency_weight,
+                "neighbor_limit": neighbor_limit,
+                "min_length": min_length,
+                "max_length": max_length,
+                "seed": seed,
+            },
+        },
+    )
 
     return {
         "patch": patch_key,
@@ -728,6 +777,23 @@ def handle_combine(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
 
     # Store in patch state
     patch.candidates = candidates
+    _persist_patch_artifact_sidecar(
+        state=state,
+        patch_key=patch_key,
+        artifact_kind="candidates",
+        artifact_payload={
+            "candidates": candidates,
+            "params": {
+                "profile": profile,
+                "syllables": body.get("syllables", 2),
+                "count": count,
+                "seed": seed,
+                "frequency_weight": frequency_weight,
+                "max_flips": body.get("max_flips", 2),
+                "temperature": body.get("temperature", 0.7),
+            },
+        },
+    )
 
     # Deduplicate — the combiner may produce duplicate names when the corpus
     # has high-frequency syllables.  Reporting the duplication rate lets the
@@ -789,6 +855,21 @@ def handle_select(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
 
     # Store selected names in state
     patch.selected_names = result["selected"]
+    _persist_patch_artifact_sidecar(
+        state=state,
+        patch_key=patch_key,
+        artifact_kind="selections",
+        artifact_payload={
+            "selected_names": result["selected"],
+            "params": {
+                "name_class": body.get("name_class", "first_name"),
+                "count": body.get("count", 100),
+                "mode": body.get("mode", "hard"),
+                "order": body.get("order", "alphabetical"),
+                "seed": body.get("seed"),
+            },
+        },
+    )
 
     return {
         "patch": patch_key,
@@ -848,17 +929,58 @@ def handle_package(body: dict[str, Any], state: ServerState) -> tuple[bytes, str
     name = body.get("name", "corpus-package")
     version = body.get("version", "0.1.0")
 
+    include_walks_a = body.get("include_walks_a", True)
+    include_walks_b = body.get("include_walks_b", True)
+    include_candidates = body.get("include_candidates", True)
+    include_selections = body.get("include_selections", True)
+
     zip_bytes, error = build_package(
         state,
         name=name,
         version=version,
-        include_walks_a=body.get("include_walks_a", True),
-        include_walks_b=body.get("include_walks_b", True),
-        include_candidates=body.get("include_candidates", True),
-        include_selections=body.get("include_selections", True),
+        include_walks_a=include_walks_a,
+        include_walks_b=include_walks_b,
+        include_candidates=include_candidates,
+        include_selections=include_selections,
     )
 
     filename = f"{name}-{version}.zip"
+    if error is None:
+        for patch_key, include_walks, patch_state in (
+            ("a", include_walks_a, state.patch_a),
+            ("b", include_walks_b, state.patch_b),
+        ):
+            # Persist package sidecar only when this patch contributed data.
+            patch_contributed = (
+                (bool(include_walks) and len(patch_state.walks) > 0)
+                or (bool(include_candidates) and patch_state.candidates is not None)
+                or (bool(include_selections) and len(patch_state.selected_names) > 0)
+            )
+            if not patch_contributed:
+                continue
+            _persist_patch_artifact_sidecar(
+                state=state,
+                patch_key=patch_key,
+                artifact_kind="package",
+                artifact_payload={
+                    "package": {
+                        "name": name,
+                        "version": version,
+                        "filename": filename,
+                        "zip_size_bytes": len(zip_bytes),
+                    },
+                    "include_flags": {
+                        "walks": bool(include_walks),
+                        "candidates": bool(include_candidates),
+                        "selections": bool(include_selections),
+                    },
+                    "patch_data_presence": {
+                        "has_walks": len(patch_state.walks) > 0,
+                        "has_candidates": patch_state.candidates is not None,
+                        "has_selections": len(patch_state.selected_names) > 0,
+                    },
+                },
+            )
     return zip_bytes, filename, error
 
 
