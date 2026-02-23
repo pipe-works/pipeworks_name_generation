@@ -85,7 +85,7 @@ the application data model.
 **Performance characteristics:**
 
 - File size: typically much smaller than canonical JSON (exact ratio depends on corpus size/content)
-- Load time: significantly faster than JSON loading for interactive tools
+- Load time: significantly faster than JSON loading for interactive tools (Walker web + TUI)
 - Memory: On-demand loading vs full file in memory
 - Query: Indexed, optimized for filtering by features
 
@@ -95,7 +95,7 @@ Integration Guide
 The corpus SQLite builder is an **optional performance optimization** that runs
 after syllable feature annotation. The JSON file remains the canonical source of
 truth, while the SQLite database provides a faster query interface for interactive
-tools like the TUI.
+Walker tools (web and TUI).
 
 Syllable Walk Web Integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,7 +163,8 @@ Syllable Walk Web Integration
 
 **When to use this tool:**
 
-- **Required for TUI performance:** If you're using ``syllable_walk_tui`` with large corpora
+- **High-value for interactive Walker performance:** If you're using
+  ``syllable_walk_tui`` or ``syllable_walk_web`` with large corpora
   (10,000+ syllables), converting to SQLite dramatically improves load times and responsiveness.
 
 - **Optional for other tools:** Command-line analysis tools can work directly with JSON files.
@@ -205,7 +206,7 @@ and **SQLite is derived data**. This means:
 - JSON files are never deleted or modified by this tool
 - SQLite databases can be regenerated at any time
 - Both formats coexist peacefully in the ``data/`` subdirectory
-- The TUI automatically prefers SQLite when available, falls back to JSON
+- Walker loaders automatically prefer SQLite when available and fall back to JSON
 
 **Performance considerations:**
 
@@ -216,9 +217,9 @@ and **SQLite is derived data**. This means:
 
 **Backwards compatibility:**
 
-The TUI maintains full backwards compatibility with JSON-only corpora. If no ``corpus.db``
-file exists, it will load from JSON with no errors. This allows gradual migration to SQLite
-without breaking existing workflows.
+Walker tools maintain full backwards compatibility with JSON-only corpora. If no
+``corpus.db`` file exists, load falls back to JSON with no errors. This allows
+gradual migration to SQLite without breaking existing workflows.
 
 **Build-time tool:**
 

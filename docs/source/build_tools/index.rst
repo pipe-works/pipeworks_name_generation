@@ -30,7 +30,7 @@ Tool Overview
    * - :doc:`name_selector`
      - Filter and rank candidates against name class policies
    * - :doc:`corpus_sqlite_builder`
-     - Convert annotated JSON to SQLite databases for fast TUI loading (optional performance optimization)
+     - Convert annotated JSON to SQLite databases for fast Walker loading (TUI + web; optional performance optimization)
    * - :doc:`syllable_walk`
      - Explore phonetic feature space via cost-based random walks (CLI)
    * - :doc:`syllable_walk_web`

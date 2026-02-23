@@ -116,15 +116,22 @@ Advanced Topics
 Architecture
 ~~~~~~~~~~~~
 
-The module is organised into four layers:
+The module is organised into backend API, backend services, frontend modules,
+discovery/state, and server wiring:
 
-**API handlers** (``api/``):
+**Backend API handlers** (``api/``):
 
 - ``browse.py`` — Filesystem directory listing
-- ``pipeline.py`` — Pipeline start, status, cancel, run discovery
-- ``walker.py`` — Corpus loading, walks, reach tables, combining, selection, export, packaging, analysis
+- ``pipeline.py`` — Pipeline start/status/cancel endpoints
+- ``walker.py`` — Thin compatibility wrapper layer (route-level entrypoints)
+- ``walker_common.py`` — Shared validation/normalization helpers
+- ``walker_lock.py`` — Active session lock enforcement helpers
+- ``walker_session.py`` — Session save/list/load and run-state restore handlers
+- ``walker_cache_lock.py`` — Reach-cache rebuild + lock heartbeat/release handlers
+- ``walker_ops.py`` — Walk/combine/reach/select/export/package/analysis handlers
+- ``walker_types.py`` — TypedDict response contracts for extracted walker handler modules
 
-**Service modules** (``services/``):
+**Backend service modules** (``services/``):
 
 - ``corpus_loader.py`` — Delegates to ``syllable_walk.db.load_syllables``
 - ``combiner_runner.py`` — Delegates to ``name_combiner.combiner``
@@ -133,25 +140,37 @@ The module is organised into four layers:
 - ``metrics.py`` — Corpus shape metrics with length bucketing and terrain scores
 - ``packager.py`` — ZIP archive building with manifest and disk persistence
 - ``pipeline_runner.py`` — Background subprocess execution with cancellation
+- ``pipeline_manifest.py`` — Manifest IPC verification helpers
+- ``profile_reaches_cache.py`` — Reach profile cache read/write/verify helpers
 - ``walker_run_state_store.py`` — Authoritative run-local IPC sidecars for patch outputs
 - ``walker_session_store.py`` — Session artifact save/list/load/verify with lineage metadata
 - ``walker_session_lock.py`` — Cooperative single-user multi-tab lock leases (UX integrity)
+- ``session_paths.py`` — Runtime resolution of sessions base and session file paths
 
-**Discovery layer**:
+**Frontend modules** (``static/js/walker/``):
+
+- ``corpus.js`` — Orchestrator for Walk tab corpus/session behavior
+- ``corpus-api.js`` — Fetch wrappers for walker/session endpoints
+- ``corpus-state.js`` — In-memory UI state model
+- ``corpus-render.js`` — Hash/verification/rebuild/compare visual rendering
+- ``corpus-tooltips.js`` — Integrity/lock badge helpers and modal content
+- ``corpus-actions-session.js`` — Save/load/repair/takeover/release session actions
+- ``corpus-actions-cache.js`` — Rebuild reach-cache action wiring
+- ``corpus-contracts.js`` — Shared JSDoc typedef contracts for frontend payloads
+- ``controls.js`` / ``reach.js`` / ``operations.js`` — Walk, reach, combine/select/package
+  controls and endpoint operations
+
+**Discovery and state**:
 
 - ``run_discovery.py`` — Manifest-driven run discovery, selection discovery,
   and History payload shaping (status, timings, stage state, IPC hashes)
-
-**State** (``state.py``):
-
-- ``PatchState`` — Per-patch data (corpus, walker, walks, candidates, selections)
-- ``PipelineJobState`` — Pipeline job status, logs, subprocess handle
-- ``ServerState`` — Composition of two patches + pipeline job + output path + optional per-patch run roots
+- ``state.py`` — ``PatchState``, ``PipelineJobState``, and ``ServerState``
 
 **Server** (``server.py``):
 
 - stdlib ``http.server.ThreadingHTTPServer`` for concurrent XHR
 - Static file serving with directory-traversal guard
+- Route dispatch into API modules
 - Lazy API imports to avoid circular dependencies
 
 Run Discovery
@@ -262,6 +281,11 @@ authority for validation and execution semantics.
 - Frontend checks (for example ``min_length <= max_length``) are UX helpers.
 - API handlers enforce the same constraints for all clients (UI and non-UI).
 - Requests that fail contract validation return JSON ``{"error": ...}`` with HTTP 400.
+- Backend response contracts for extracted walker handlers are declared in
+  ``api/walker_types.py`` (TypedDict models).
+- Frontend request/response contract aliases are centralized in
+  ``static/js/walker/corpus-contracts.js`` (JSDoc typedefs) and reused by
+  corpus/session modules.
 
 Examples of API-authoritative behavior:
 
@@ -442,7 +466,8 @@ Key request bodies for current API routes:
        optional ``repair_from_session_id`` (immutable revision mode),
        optional ``lock_holder_id`` (required when active session is lock-guarded)
    * - ``POST /api/walker/load-session``
-     - ``session_id`` (required), ``lock_holder_id`` (required),
+     - ``session_id`` (required), optional ``lock_holder_id`` (recommended for
+       lock-coordinated multi-tab flows; required when using ``force_lock``),
        optional ``force_lock`` (take-over flow)
    * - ``POST /api/walker/walk``
      - ``patch``, ``count``, ``steps``, ``seed``, optional ``profile``.
@@ -508,8 +533,10 @@ Walker Endpoint Contract Details
      - ``status``, ``reason``, ``session_id``, per-patch save status/reason,
        ``ipc_input_hash``, ``ipc_output_hash``, lineage fields.
    * - ``POST /api/walker/load-session``
-     - Requires ``session_id`` and ``lock_holder_id``.
-       Optional ``force_lock`` allows explicit take-over.
+     - Requires ``session_id``.
+       ``lock_holder_id`` is optional but recommended for lock-coordinated
+       multi-tab flows; ``force_lock`` requires ``lock_holder_id`` and enables
+       explicit take-over.
        Verifies session artifact, loads referenced patch runs, restores only verified
        run-state sidecars. Stale hash-drift session payloads may be loaded for continuity
        but remain explicitly integrity-signaled.
