@@ -13,6 +13,18 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from build_tools.syllable_walk_web.api.walker_lock import (
+    clear_active_session_context as _clear_active_session_context_impl,
+)
+from build_tools.syllable_walk_web.api.walker_lock import (
+    coerce_lock_holder_id as _coerce_lock_holder_id_impl,
+)
+from build_tools.syllable_walk_web.api.walker_lock import (
+    enforce_active_session_lock as _enforce_active_session_lock_impl,
+)
+from build_tools.syllable_walk_web.api.walker_lock import (
+    lock_conflict_error as _lock_conflict_error_impl,
+)
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
 _MISSING = object()
@@ -160,102 +172,32 @@ def _compute_patch_comparison(
 
 
 def _coerce_lock_holder_id(body: dict[str, Any]) -> tuple[str | None, str | None]:
-    """Extract optional ``lock_holder_id`` from request body.
+    """Backward-compatible wrapper for lock holder coercion helper."""
 
-    Returns:
-        Tuple ``(holder_id, error_message)`` where ``holder_id`` is normalized
-        when present, and ``error_message`` is non-null when input is invalid.
-    """
-
-    raw_holder = body.get("lock_holder_id")
-    if raw_holder is None:
-        return None, None
-    if not isinstance(raw_holder, str):
-        return None, "lock_holder_id must be a string when provided."
-    holder_id = raw_holder.strip()
-    if not holder_id:
-        return None, "lock_holder_id must not be blank when provided."
-    return holder_id, None
+    return _coerce_lock_holder_id_impl(body)
 
 
 def _lock_conflict_error(
     *, active_session_id: str, lock_payload: dict[str, Any] | None
 ) -> dict[str, Any]:
-    """Build one deterministic cooperative-lock conflict error payload."""
+    """Backward-compatible wrapper for lock conflict payload helper."""
 
-    return {
-        "error": (
-            "Session is locked by another tab/window. "
-            "Use Take Over Lock to continue from this tab."
-        ),
-        "lock_status": "locked",
-        "active_session_id": active_session_id,
-        "lock": lock_payload,
-    }
+    return _lock_conflict_error_impl(
+        active_session_id=active_session_id,
+        lock_payload=lock_payload,
+    )
 
 
 def _enforce_active_session_lock(body: dict[str, Any], state: ServerState) -> dict[str, Any] | None:
-    """Enforce cooperative lock ownership for active-session mutating actions.
+    """Backward-compatible wrapper for active-session lock enforcement."""
 
-    This lock check is intentionally a single-user UX consistency guard for
-    multi-tab coordination. It is not an auth boundary or anti-malicious control.
-    """
-
-    active_session_id = state.active_session_id
-    active_holder_id = state.active_session_lock_holder_id
-    if not isinstance(active_session_id, str) or not active_session_id:
-        return None
-    if not isinstance(active_holder_id, str) or not active_holder_id:
-        return None
-
-    holder_id, holder_error = _coerce_lock_holder_id(body)
-    if holder_error is not None:
-        return {
-            "error": (
-                "Active session lock requires lock_holder_id on mutating requests. "
-                f"{holder_error}"
-            ),
-            "lock_status": "error",
-            "active_session_id": active_session_id,
-        }
-    if holder_id is None:
-        return {
-            "error": "Active session is locked; missing lock_holder_id for this request.",
-            "lock_status": "locked",
-            "active_session_id": active_session_id,
-        }
-
-    from build_tools.syllable_walk_web.services.walker_session_lock import acquire_session_lock
-
-    lock_result = acquire_session_lock(
-        state=state,
-        session_id=active_session_id,
-        holder_id=holder_id,
-        force=False,
-    )
-    lock_status = lock_result.get("status")
-    if lock_status in {"acquired", "held"}:
-        state.active_session_lock_holder_id = holder_id
-        return None
-    if lock_status == "locked":
-        return _lock_conflict_error(
-            active_session_id=active_session_id,
-            lock_payload=(
-                lock_result.get("lock") if isinstance(lock_result.get("lock"), dict) else None
-            ),
-        )
-    return {
-        "error": f"Session lock validation failed: {lock_result.get('reason', 'unknown')}",
-        "lock_status": "error",
-        "active_session_id": active_session_id,
-    }
+    return _enforce_active_session_lock_impl(body, state)
 
 
 def _clear_active_session_context(state: ServerState) -> None:
-    """Clear active loaded-session context from server state."""
+    """Backward-compatible wrapper for active-session context clear helper."""
 
-    state.active_session_id = None
-    state.active_session_lock_holder_id = None
+    _clear_active_session_context_impl(state)
 
 
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
