@@ -339,6 +339,35 @@
 
   <!-- ── WALKER: WALK (main four-column) ── -->
   <main class="app-main screen" id="screen-walker-main" role="main" hidden>
+    <section class="walker-session-bar panel panel--dark" aria-label="Walker session controls">
+      <div class="walker-session-bar__row">
+        <label class="control-label" for="walker-session-label">Session Label</label>
+        <input
+          class="input"
+          id="walker-session-label"
+          type="text"
+          placeholder="optional label (e.g. clerical baseline)"
+          aria-label="Optional session label"
+        />
+        <button class="btn btn--secondary btn--sm" id="walker-save-session" type="button">Save Session</button>
+        <button class="btn btn--icon" id="walker-refresh-sessions" type="button" aria-label="Refresh sessions" title="Refresh sessions">⟳</button>
+      </div>
+      <div class="walker-session-bar__row">
+        <label class="control-label" for="walker-session-select">Saved Sessions</label>
+        <select class="select" id="walker-session-select" aria-label="Load saved session">
+          <option value="">-- Select saved session --</option>
+        </select>
+        <button class="btn btn--secondary btn--sm" id="walker-load-session" type="button">Load Session</button>
+      </div>
+      <div class="walker-session-bar__meta">
+        <span class="u-muted" id="walker-session-summary">No session activity yet.</span>
+        <span class="walker-session-bar__compare">
+          <span class="u-muted">Patch Comparison</span>
+          <span class="corpus-hash-badge is-pending" id="walker-patch-compare-badge">unknown</span>
+          <span class="u-muted u-mono" id="walker-patch-compare-text">policy none</span>
+        </span>
+      </div>
+    </section>
     <div class="walk-layout">
 
       <!-- ── ROW 1, COL 1: Patch A ── -->
@@ -370,6 +399,10 @@
                 <span class="corpus-hash-value u-mono u-muted" id="corpus-cache-ipc-a">in — · out —</span>
               </span>
             </div>
+          </div>
+          <div class="corpus-actions">
+            <button class="btn btn--secondary btn--sm" id="rebuild-reach-cache-a" type="button">Rebuild Reach Cache</button>
+            <span class="u-muted u-mono corpus-actions__status" id="rebuild-reach-status-a">idle</span>
           </div>
         </div>
 
@@ -612,6 +645,10 @@
                 <span class="corpus-hash-value u-mono u-muted" id="corpus-cache-ipc-b">in — · out —</span>
               </span>
             </div>
+          </div>
+          <div class="corpus-actions">
+            <button class="btn btn--secondary btn--sm" id="rebuild-reach-cache-b" type="button">Rebuild Reach Cache</button>
+            <span class="u-muted u-mono corpus-actions__status" id="rebuild-reach-status-b">idle</span>
           </div>
         </div>
 
