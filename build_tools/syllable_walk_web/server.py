@@ -127,6 +127,7 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
         )
         from build_tools.syllable_walk_web.api.walker import (
             handle_analysis,
+            handle_sessions,
             handle_stats,
         )
 
@@ -146,6 +147,11 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
         # Walker
         if path == "/api/walker/stats":
             self._send_json(handle_stats(self.state))
+            return
+        if path == "/api/walker/sessions":
+            result = handle_sessions(self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
             return
         if path.startswith("/api/walker/analysis/"):
             patch_key = path.split("/")[-1]
@@ -201,8 +207,10 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
             handle_combine,
             handle_export,
             handle_load_corpus,
+            handle_load_session,
             handle_package,
             handle_reach_syllables,
+            handle_save_session,
             handle_select,
             handle_walk,
         )
@@ -273,6 +281,24 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
                 self._send_error(400, "Invalid JSON")
                 return
             result = handle_load_corpus(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/save-session":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_save_session(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/load-session":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_load_session(body, self.state)
             status = 400 if "error" in result else 200
             self._send_json(result, status=status)
             return

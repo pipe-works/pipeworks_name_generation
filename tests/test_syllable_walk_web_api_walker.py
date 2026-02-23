@@ -1,9 +1,10 @@
 """Tests for the walker API handlers.
 
-This module tests all eight walker API handlers:
+This module tests walker API handlers:
 - handle_load_corpus: corpus loading and walker init
 - handle_walk: walk generation
 - handle_stats: dual-patch state reporting
+- handle_save_session / handle_sessions / handle_load_session: session IPC APIs
 - handle_combine: candidate generation
 - handle_select: name selection
 - handle_export: name export
@@ -11,6 +12,8 @@ This module tests all eight walker API handlers:
 - handle_analysis: corpus metrics
 """
 
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,9 +25,12 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_combine,
     handle_export,
     handle_load_corpus,
+    handle_load_session,
     handle_package,
     handle_reach_syllables,
+    handle_save_session,
     handle_select,
+    handle_sessions,
     handle_stats,
     handle_walk,
 )
@@ -1112,6 +1118,158 @@ class TestHandleStats:
         result = handle_stats(loaded_state)
         assert "reaches" in result["patch_a"]
         assert "reaches" not in result["patch_b"]
+
+    def test_stats_include_patch_comparison_same_hash(self, loaded_state):
+        """Stats should report same corpus relation when hashes match."""
+
+        loaded_state.patch_a.manifest_ipc_output_hash = "a" * 64
+        loaded_state.patch_b.manifest_ipc_output_hash = "a" * 64
+        result = handle_stats(loaded_state)
+        comparison = result["patch_comparison"]
+        assert comparison["corpus_hash_relation"] == "same"
+        assert comparison["policy"] == "none"
+
+    def test_stats_include_patch_comparison_different_hash(self, loaded_state):
+        """Stats should report warn policy when corpus hashes differ."""
+
+        loaded_state.patch_a.manifest_ipc_output_hash = "a" * 64
+        loaded_state.patch_b.manifest_ipc_output_hash = "b" * 64
+        result = handle_stats(loaded_state)
+        comparison = result["patch_comparison"]
+        assert comparison["corpus_hash_relation"] == "different"
+        assert comparison["policy"] == "warn"
+
+
+# ============================================================
+# session endpoints
+# ============================================================
+
+
+class TestSessionEndpoints:
+    """Test session save/list/load API handlers."""
+
+    def test_save_session_rejects_invalid_label_type(self, state):
+        """Save endpoint should reject non-string labels."""
+
+        result = handle_save_session({"label": 123}, state)
+        assert "error" in result
+        assert "label must be a string" in result["error"]
+
+    def test_save_session_success(self, state):
+        """Save endpoint should map service result into API response shape."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.save_session",
+            return_value=SimpleNamespace(
+                status="saved",
+                reason="saved",
+                session_id="session_1",
+                session_path=Path("/tmp/sessions/session_1.json"),
+                patch_a_status="saved",
+                patch_a_reason="saved",
+                patch_b_status="skipped",
+                patch_b_reason="patch-b-run-id-missing",
+                ipc_input_hash="a" * 64,
+                ipc_output_hash="b" * 64,
+            ),
+        ):
+            result = handle_save_session({"label": "Snapshot"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "saved"
+        assert result["session_id"] == "session_1"
+        assert result["patch_a"]["status"] == "saved"
+        assert result["patch_b"]["status"] == "skipped"
+        assert result["ipc_input_hash"] == "a" * 64
+
+    def test_sessions_list_success(self, state):
+        """List endpoint should return serialized session entries."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.list_sessions",
+            return_value=[
+                SimpleNamespace(
+                    session_id="session_1",
+                    created_at_utc="2026-02-23T12:00:00Z",
+                    label="Snapshot",
+                    patch_a_run_id="run_a",
+                    patch_b_run_id=None,
+                    verification_status="verified",
+                    verification_reason="verified",
+                    session_path=Path("/tmp/sessions/session_1.json"),
+                )
+            ],
+        ):
+            result = handle_sessions(state)
+
+        assert "error" not in result
+        assert len(result["sessions"]) == 1
+        assert result["sessions"][0]["session_id"] == "session_1"
+        assert result["sessions"][0]["verification_status"] == "verified"
+
+    def test_load_session_requires_session_id(self, state):
+        """Load endpoint should reject missing/invalid session IDs."""
+
+        result = handle_load_session({}, state)
+        assert "error" in result
+        assert "session_id" in result["error"]
+
+    def test_load_session_returns_non_verified_status(self, state):
+        """Load endpoint should return verification result without restoring."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+            return_value=SimpleNamespace(
+                status="missing",
+                reason="session-missing",
+                session_id="session_404",
+                payload=None,
+                ipc_input_hash=None,
+                ipc_output_hash=None,
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_404"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "missing"
+        assert result["patch_a"]["loaded"] is False
+        assert result["patch_b"]["loaded"] is False
+
+    def test_load_session_verified_starts_patch_loads(self, state):
+        """Verified session should trigger patch-level corpus load requests."""
+
+        payload = {
+            "session_id": "session_ok",
+            "patch_a": {"run_id": "run_a"},
+            "patch_b": {"run_id": "run_b"},
+        }
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                side_effect=[
+                    {"status": "loading", "source": "annotated_json", "syllable_count": 10},
+                    {"status": "loading", "source": "annotated_json", "syllable_count": 12},
+                ],
+            ) as mock_load_corpus,
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "verified"
+        assert result["patch_a"]["loaded"] is True
+        assert result["patch_b"]["loaded"] is True
+        assert mock_load_corpus.call_count == 2
 
 
 # ============================================================

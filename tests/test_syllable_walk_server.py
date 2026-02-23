@@ -242,6 +242,13 @@ class TestRouteGet:
         assert "patch_a" in body
         assert "patch_b" in body
 
+    def test_walker_sessions(self, handler):
+        """Test GET /api/walker/sessions returns sessions payload."""
+        handler._route_get("/api/walker/sessions")
+        handler.send_response.assert_called_once_with(200)
+        body = json.loads(handler.wfile.getvalue())
+        assert "sessions" in body
+
     def test_walker_analysis_invalid_patch(self, handler):
         """Test GET /api/walker/analysis/x with invalid patch returns 400."""
         handler._route_get("/api/walker/analysis/x")
@@ -319,6 +326,25 @@ class TestRoutePost:
         handler.headers = {"Content-Length": str(len(body))}
         handler.rfile = io.BytesIO(body)
         handler._route_post("/api/walker/walk")
+        handler.send_response.assert_called_once_with(400)
+
+    def test_walker_save_session(self, handler):
+        """Test POST /api/walker/save-session returns save response."""
+        body = json.dumps({}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/save-session")
+        handler.send_response.assert_called_once_with(200)
+        result = json.loads(handler.wfile.getvalue())
+        assert "status" in result
+        assert "reason" in result
+
+    def test_walker_load_session_missing_id(self, handler):
+        """Test POST /api/walker/load-session without session_id returns 400."""
+        body = json.dumps({}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/load-session")
         handler.send_response.assert_called_once_with(400)
 
     def test_settings_output_base_invalid(self, handler):
