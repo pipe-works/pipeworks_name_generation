@@ -5,37 +5,42 @@
 
 'use strict';
 
+import {
+  heartbeatWalkerSessionLock,
+  releaseWalkerSessionLock,
+  listWalkerSessions,
+  getWalkerStats,
+  loadWalkerSession,
+  saveWalkerSession,
+  rebuildWalkerReachCache,
+  listPipelineRuns,
+  loadWalkerCorpus,
+  sendWalkerSessionLockReleaseBeacon,
+} from './corpus-api.js';
+import {
+  getCorpusRunsByPatch,
+  setCorpusRunsByPatch,
+  getWalkerReadyPoller,
+  setWalkerReadyPoller,
+  replaceSessionEntries,
+  getSessionEntry,
+  hasSessionEntry,
+  getSessionIntegrityState,
+  setSessionIntegrityState,
+  resetSessionIntegrityState,
+  getSessionLockState,
+  setSessionLockState,
+  resetSessionLockState,
+  getSessionLockHeartbeatTimer,
+  setSessionLockHeartbeatTimer,
+} from './corpus-state.js';
+
 /** @type {{
  *   state: Record<string, any>,
  *   setStatus: (msg: string) => void,
  *   updateReachValues: (patch: string, reaches: Record<string, any>) => void
  * } | null} */
 let _ctx = null;
-
-/* per-patch run lists from /api/pipeline/runs */
-let _corpusRunsByPatch = { a: [], b: [] };
-/* { a: intervalId, b: intervalId } - per-patch polling timers */
-let _walkerReadyPollers = {};
-/* saved sessions map keyed by session_id */
-let _sessionEntriesById = {};
-/* last computed session integrity state for tooltip/modal rendering */
-let _sessionIntegrityState = {
-  status: 'unknown',
-  reason: 'No session load has been evaluated yet.',
-  recoveredFromStale: false,
-  patchA: null,
-  patchB: null,
-  topStatus: 'unknown',
-  topReason: 'not evaluated',
-};
-/* active session-lock status for this browser tab */
-let _sessionLockState = {
-  status: 'unlocked',
-  reason: 'No session lock held.',
-  sessionId: null,
-  lock: null,
-};
-let _sessionLockHeartbeatTimer = null;
 
 const SESSION_LOCK_HOLDER_STORAGE_KEY = 'pipeworks.walker.lock_holder_id';
 const SESSION_LOCK_HEARTBEAT_MS = 10_000;
@@ -427,7 +432,7 @@ function sessionLockBadgeClass(status) {
  * @returns {void}
  */
 function setSessionLockSignal(lockState) {
-  _sessionLockState = lockState;
+  setSessionLockState(lockState);
   const badge = document.getElementById('walker-session-lock-badge');
   const text = document.getElementById('walker-session-lock-text');
   if (!badge || !text) return;
@@ -566,7 +571,7 @@ function deriveSessionIntegrity(rawPayload) {
  * @returns {void}
  */
 function setSessionIntegrity(integrity) {
-  _sessionIntegrityState = integrity;
+  setSessionIntegrityState(integrity);
   const badge = document.getElementById('walker-session-integrity-badge');
   const text = document.getElementById('walker-session-integrity-text');
   if (!badge || !text) return;
@@ -619,13 +624,14 @@ function renderSessionIntegrityModal() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const meta = SESSION_INTEGRITY_META[_sessionIntegrityState.status] || SESSION_INTEGRITY_META.unknown;
+  const integrity = getSessionIntegrityState();
+  const meta = SESSION_INTEGRITY_META[integrity.status] || SESSION_INTEGRITY_META.unknown;
   const rows = [
     ['Current State', meta.label.toUpperCase()],
     ['Short Meaning', meta.tooltip],
-    ['Current Reason', _sessionIntegrityState.reason],
-    ['Patch A', sessionIntegrityPatchDetail('A', _sessionIntegrityState.patchA)],
-    ['Patch B', sessionIntegrityPatchDetail('B', _sessionIntegrityState.patchB)],
+    ['Current Reason', integrity.reason],
+    ['Patch A', sessionIntegrityPatchDetail('A', integrity.patchA)],
+    ['Patch B', sessionIntegrityPatchDetail('B', integrity.patchB)],
     [
       'Compared To Patch Comparison',
       'Patch Comparison checks current Patch A/B corpus baseline relation (same/different). Session Integrity checks saved-session freshness and run-state trust.',
@@ -779,9 +785,10 @@ function formatSessionLoadSummary(payload) {
  * @returns {void}
  */
 function stopSessionLockHeartbeat() {
-  if (_sessionLockHeartbeatTimer) {
-    clearInterval(_sessionLockHeartbeatTimer);
-    _sessionLockHeartbeatTimer = null;
+  const timer = getSessionLockHeartbeatTimer();
+  if (timer) {
+    clearInterval(timer);
+    setSessionLockHeartbeatTimer(null);
   }
 }
 
@@ -793,15 +800,10 @@ function stopSessionLockHeartbeat() {
  */
 async function sendSessionLockHeartbeat(sessionId) {
   const holderId = getWalkerSessionLockHolderId();
-  const response = await fetch('/api/walker/session-lock/heartbeat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      session_id: sessionId,
-      lock_holder_id: holderId,
-    }),
+  const payload = await heartbeatWalkerSessionLock({
+    sessionId,
+    lockHolderId: holderId,
   });
-  const payload = await response.json();
   if (payload.error) {
     throw new Error(payload.error);
   }
@@ -822,7 +824,7 @@ async function sendSessionLockHeartbeat(sessionId) {
 function startSessionLockHeartbeat(sessionId) {
   stopSessionLockHeartbeat();
   if (!sessionId) return;
-  _sessionLockHeartbeatTimer = setInterval(() => {
+  const timer = setInterval(() => {
     sendSessionLockHeartbeat(sessionId).catch(err => {
       stopSessionLockHeartbeat();
       setSessionLockSignal({
@@ -833,6 +835,7 @@ function startSessionLockHeartbeat(sessionId) {
       });
     });
   }, SESSION_LOCK_HEARTBEAT_MS);
+  setSessionLockHeartbeatTimer(timer);
 }
 
 /**
@@ -843,15 +846,10 @@ function startSessionLockHeartbeat(sessionId) {
  */
 async function releaseSessionLock(sessionId) {
   const holderId = getWalkerSessionLockHolderId();
-  const response = await fetch('/api/walker/session-lock/release', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      session_id: sessionId,
-      lock_holder_id: holderId,
-    }),
+  const payload = await releaseWalkerSessionLock({
+    sessionId,
+    lockHolderId: holderId,
   });
-  const payload = await response.json();
   if (payload.error) {
     throw new Error(payload.error);
   }
@@ -918,8 +916,7 @@ async function refreshSessionList(opts = {}) {
 
   let payload = null;
   try {
-    const response = await fetch('/api/walker/sessions');
-    payload = await response.json();
+    payload = await listWalkerSessions();
   } catch (err) {
     _ctx.setStatus(`Failed to load sessions: ${err.message}`);
   } finally {
@@ -927,12 +924,7 @@ async function refreshSessionList(opts = {}) {
       _ctx.setStatus(`Failed to load sessions: ${payload.error}`);
     } else if (payload) {
       const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
-      _sessionEntriesById = {};
-      sessions.forEach(entry => {
-        if (entry && typeof entry.session_id === 'string' && entry.session_id.length > 0) {
-          _sessionEntriesById[entry.session_id] = entry;
-        }
-      });
+      replaceSessionEntries(sessions);
 
       while (select.options.length > 1) {
         select.remove(1);
@@ -946,7 +938,7 @@ async function refreshSessionList(opts = {}) {
         select.appendChild(option);
       });
 
-      if (selectedId && Object.prototype.hasOwnProperty.call(_sessionEntriesById, selectedId)) {
+      if (selectedId && hasSessionEntry(selectedId)) {
         select.value = selectedId;
       } else {
         select.value = '';
@@ -981,8 +973,7 @@ async function refreshSessionList(opts = {}) {
 async function refreshWalkerStatsMicroState() {
   let stats;
   try {
-    const response = await fetch('/api/walker/stats');
-    stats = await response.json();
+    stats = await getWalkerStats();
   } catch {
     return;
   }
@@ -1034,6 +1025,8 @@ export function initCorpus(ctx) {
   initCorpusDropdowns();
   initSessionControls();
   initSessionIntegrityModal();
+  resetSessionIntegrityState();
+  resetSessionLockState();
   setSessionIntegrity(deriveSessionIntegrity(null));
   setSessionLockSignal({
     status: 'unlocked',
@@ -1042,20 +1035,20 @@ export function initCorpus(ctx) {
     lock: null,
   });
   window.addEventListener('beforeunload', () => {
+    const lockState = getSessionLockState();
     if (
-      !_sessionLockState
-      || !_sessionLockState.sessionId
-      || !['acquired', 'held', 'taken_over'].includes(_sessionLockState.status)
+      !lockState
+      || !lockState.sessionId
+      || !['acquired', 'held', 'taken_over'].includes(lockState.status)
     ) {
       return;
     }
     const holderId = getWalkerSessionLockHolderId();
-    const body = JSON.stringify({
-      session_id: _sessionLockState.sessionId,
-      lock_holder_id: holderId,
-    });
     try {
-      navigator.sendBeacon('/api/walker/session-lock/release', body);
+      sendWalkerSessionLockReleaseBeacon({
+        sessionId: lockState.sessionId,
+        lockHolderId: holderId,
+      });
     } catch {
       /* best-effort release only */
     }
@@ -1098,7 +1091,7 @@ function initCorpusDropdowns() {
       if (!runId) return; /* placeholder selected - nothing to do */
 
       /* Look up the full run object for metadata (syllable count, etc.) */
-      const run = (_corpusRunsByPatch[patch] || []).find(r => getRunId(r) === runId);
+      const run = getCorpusRunsByPatch(patch).find(r => getRunId(r) === runId);
       if (!run) return;
 
       loadCorpus(patch, runId);
@@ -1198,16 +1191,11 @@ function initSessionControls() {
 
   const loadSessionById = async (sessionId, opts = {}) => {
     const forceLock = Boolean(opts.forceLock);
-    const response = await fetch('/api/walker/load-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        lock_holder_id: holderId,
-        force_lock: forceLock,
-      }),
+    const payload = await loadWalkerSession({
+      sessionId,
+      lockHolderId: holderId,
+      forceLock,
     });
-    const payload = await response.json();
     if (payload.error) {
       const error = new Error(payload.error);
       error.payload = payload;
@@ -1231,12 +1219,7 @@ function initSessionControls() {
       saveBtn.disabled = true;
       _ctx.setStatus('Saving walker session…');
       try {
-        const response = await fetch('/api/walker/save-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const payload = await response.json();
+        const payload = await saveWalkerSession(body);
         if (payload.error) {
           summaryEl.textContent = `Save failed: ${payload.error}`;
           _ctx.setStatus(`Session save failed: ${payload.error}`);
@@ -1329,7 +1312,7 @@ function initSessionControls() {
   if (releaseLockBtn && summaryEl) {
     releaseLockBtn.addEventListener('click', async () => {
       const selectedSessionId = selectEl && typeof selectEl.value === 'string' ? selectEl.value : '';
-      const sessionId = selectedSessionId || _sessionLockState.sessionId;
+      const sessionId = selectedSessionId || getSessionLockState().sessionId;
       if (!sessionId) {
         _ctx.setStatus('No session lock to release');
         return;
@@ -1371,7 +1354,7 @@ function initSessionControls() {
         /* Ensure patch context matches selected session before writing repair revision. */
         await loadSessionById(sessionId, { forceLock: false });
 
-        const selectedEntry = _sessionEntriesById[sessionId] || null;
+        const selectedEntry = getSessionEntry(sessionId);
         const body = {
           repair_from_session_id: sessionId,
           lock_holder_id: holderId,
@@ -1384,12 +1367,7 @@ function initSessionControls() {
           body.label = selectedEntry.label.trim();
         }
 
-        const saveResponse = await fetch('/api/walker/save-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const savePayload = await saveResponse.json();
+        const savePayload = await saveWalkerSession(body);
         if (savePayload.error) {
           summaryEl.textContent = `Repair failed: ${savePayload.error}`;
           _ctx.setStatus(`Session repair failed: ${savePayload.error}`);
@@ -1440,16 +1418,11 @@ function initSessionControls() {
       _ctx.setStatus(`Patch ${P}: rebuilding reach cache…`);
 
       try {
-        const response = await fetch('/api/walker/rebuild-reach-cache', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            patch,
-            run_id: runId,
-            lock_holder_id: holderId,
-          }),
+        const payload = await rebuildWalkerReachCache({
+          patch,
+          runId,
+          lockHolderId: holderId,
         });
-        const payload = await response.json();
         if (payload.error) {
           setRebuildStatus(patch, {
             state: 'error',
@@ -1494,11 +1467,10 @@ export function populateCorpusDropdowns() {
    * tells the server which directory to discover from. */
   return Promise.all(
     ['a', 'b'].map(patch =>
-      fetch(`/api/pipeline/runs?patch=${patch}`)
-        .then(r => r.json())
+      listPipelineRuns(patch)
         .then(data => {
           const runs = data.runs || [];
-          _corpusRunsByPatch[patch] = runs;
+          setCorpusRunsByPatch(patch, runs);
 
           const select = document.getElementById(`corpus-select-${patch}`);
           if (!select) return;
@@ -1569,16 +1541,11 @@ function loadCorpus(patch, runId) {
   _ctx.setStatus(`Patch ${P}: loading corpus ${runId}…`);
   const holderId = getWalkerSessionLockHolderId();
 
-  fetch('/api/walker/load-corpus', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      patch: patch,
-      run_id: runId,
-      lock_holder_id: holderId,
-    }),
+  loadWalkerCorpus({
+    patch: patch,
+    runId,
+    lockHolderId: holderId,
   })
-    .then(r => r.json())
     .then(data => {
       if (data.error) {
         setCorpusStatus(patch, `Error: ${data.error}`, 'error');
@@ -1616,13 +1583,13 @@ function pollWalkerReady(patch) {
   const patchKey = `patch_${patch}`;
 
   /* Clear any existing poller */
-  if (_walkerReadyPollers[patch]) {
-    clearInterval(_walkerReadyPollers[patch]);
+  const existingPoller = getWalkerReadyPoller(patch);
+  if (existingPoller) {
+    clearInterval(existingPoller);
   }
 
-  _walkerReadyPollers[patch] = setInterval(() => {
-    fetch('/api/walker/stats')
-      .then(r => r.json())
+  const poller = setInterval(() => {
+    getWalkerStats()
       .then(data => {
         const info = data[patchKey];
         if (!info) return;
@@ -1652,8 +1619,9 @@ function pollWalkerReady(patch) {
         );
 
         if (info.loader_status === 'error' || info.loading_error) {
-          clearInterval(_walkerReadyPollers[patch]);
-          _walkerReadyPollers[patch] = null;
+          const activePoller = getWalkerReadyPoller(patch);
+          if (activePoller) clearInterval(activePoller);
+          setWalkerReadyPoller(patch, null);
           const runId = _ctx.state[`corpus${P}`] || info.corpus || 'unknown-run';
           const message = info.loading_error || 'Walker initialisation failed';
           setCorpusStatus(patch, `${runId} · ${message}`, 'error');
@@ -1662,8 +1630,9 @@ function pollWalkerReady(patch) {
         }
 
         if (info.walker_ready || info.loader_status === 'ready') {
-          clearInterval(_walkerReadyPollers[patch]);
-          _walkerReadyPollers[patch] = null;
+          const activePoller = getWalkerReadyPoller(patch);
+          if (activePoller) clearInterval(activePoller);
+          setWalkerReadyPoller(patch, null);
           const runId = _ctx.state[`corpus${P}`];
           const count = info.syllable_count ? info.syllable_count.toLocaleString() : '?';
           setCorpusStatus(patch, `${runId} · ${count} syllables · walker ready ✓`, 'loaded');
@@ -1684,4 +1653,5 @@ function pollWalkerReady(patch) {
       })
       .catch(() => { /* ignore polling errors */ });
   }, 1000);
+  setWalkerReadyPoller(patch, poller);
 }
