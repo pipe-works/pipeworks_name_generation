@@ -133,6 +133,9 @@ The module is organised into four layers:
 - ``metrics.py`` — Corpus shape metrics with length bucketing and terrain scores
 - ``packager.py`` — ZIP archive building with manifest and disk persistence
 - ``pipeline_runner.py`` — Background subprocess execution with cancellation
+- ``walker_run_state_store.py`` — Authoritative run-local IPC sidecars for patch outputs
+- ``walker_session_store.py`` — Session artifact save/list/load/verify with lineage metadata
+- ``walker_session_lock.py`` — Cooperative single-user multi-tab lock leases (UX integrity)
 
 **Discovery layer**:
 
@@ -363,6 +366,15 @@ API Endpoints
    * - ``/api/walker/load-corpus``
      - POST
      - Load a run's corpus into a patch (builds walker in background)
+   * - ``/api/walker/sessions``
+     - GET
+     - List saved dual-patch sessions with verification and lock metadata
+   * - ``/api/walker/save-session``
+     - POST
+     - Persist current patch assignments as one immutable session revision
+   * - ``/api/walker/load-session``
+     - POST
+     - Load one saved session, verify references, restore trusted sidecars
    * - ``/api/walker/walk``
      - POST
      - Generate syllable walks with validated constraints and optional seed
@@ -381,9 +393,18 @@ API Endpoints
    * - ``/api/walker/package``
      - POST
      - Build ZIP archive with manifest (binary response) and persist package files to disk
+   * - ``/api/walker/rebuild-reach-cache``
+     - POST
+     - Recompute and rewrite reach-cache IPC artifact for one loaded patch
+   * - ``/api/walker/session-lock/heartbeat``
+     - POST
+     - Refresh active session lock lease for one holder
+   * - ``/api/walker/session-lock/release``
+     - POST
+     - Release active session lock lease for one holder
    * - ``/api/settings``
      - GET
-     - Get current server settings (output base path)
+     - Get current server settings (resolved ``output_base`` and ``sessions_base``)
    * - ``/api/settings/output-base``
      - POST
      - Update the output base directory
@@ -398,6 +419,10 @@ Common Request Fields
 
 Key request bodies for current API routes:
 
+- For mutating Walker endpoints (``load-corpus``, ``walk``, ``combine``,
+  ``select``, ``package``, ``rebuild-reach-cache``), include
+  ``lock_holder_id`` when operating against an actively locked session.
+
 .. list-table::
    :header-rows: 1
    :widths: 35 65
@@ -410,25 +435,44 @@ Key request bodies for current API routes:
        ``min_syllable_length``/``max_syllable_length`` (defaults ``2``/``8``),
        ``run_normalize``/``run_annotate`` (default ``true``/``true``)
    * - ``POST /api/walker/load-corpus``
-     - ``patch`` (``a``/``b``), ``run_id`` (required non-empty string)
+     - ``patch`` (``a``/``b``), ``run_id`` (required non-empty string),
+       optional ``lock_holder_id`` (required when active session is lock-guarded)
+   * - ``POST /api/walker/save-session``
+     - optional ``label``, optional ``session_id`` (explicit id mode),
+       optional ``repair_from_session_id`` (immutable revision mode),
+       optional ``lock_holder_id`` (required when active session is lock-guarded)
+   * - ``POST /api/walker/load-session``
+     - ``session_id`` (required), ``lock_holder_id`` (required),
+       optional ``force_lock`` (take-over flow)
    * - ``POST /api/walker/walk``
      - ``patch``, ``count``, ``steps``, ``seed``, optional ``profile``.
        Custom constraints are always accepted: ``max_flips``, ``temperature``,
        ``frequency_weight``, ``neighbor_limit``, ``min_length``, ``max_length``.
        API validates ranges (for example ``min_length <= max_length``).
+       Include ``lock_holder_id`` when session lock is active.
    * - ``POST /api/walker/combine``
      - ``patch``, ``count``, ``syllables`` (int or list), ``seed``.
        Flat mode: ``frequency_weight``.
        Walk mode: ``profile`` (named or ``custom``); custom supports
-       ``max_flips``, ``temperature``, ``frequency_weight``
+       ``max_flips``, ``temperature``, ``frequency_weight``.
+       Include ``lock_holder_id`` when session lock is active.
    * - ``POST /api/walker/reach-syllables``
      - ``patch`` and ``profile`` (must match one of the precomputed profile keys)
    * - ``POST /api/walker/select``
      - ``patch``, ``name_class``, ``count``, ``mode`` (``hard``/``soft``),
-       ``order`` (``alphabetical``/``random``), ``seed``
+       ``order`` (``alphabetical``/``random``), ``seed``.
+       Include ``lock_holder_id`` when session lock is active.
    * - ``POST /api/walker/package``
      - ``name``, ``version``, include flags:
-       ``include_walks_a``, ``include_walks_b``, ``include_candidates``, ``include_selections``
+       ``include_walks_a``, ``include_walks_b``, ``include_candidates``, ``include_selections``.
+       Include ``lock_holder_id`` when session lock is active.
+   * - ``POST /api/walker/rebuild-reach-cache``
+     - ``patch`` (required), optional ``run_id`` (must match loaded patch context if provided),
+       optional ``lock_holder_id`` (required when session lock is active)
+   * - ``POST /api/walker/session-lock/heartbeat``
+     - ``session_id`` and ``lock_holder_id`` (both required)
+   * - ``POST /api/walker/session-lock/release``
+     - ``session_id`` and ``lock_holder_id`` (both required)
 
 Walker Endpoint Contract Details
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -442,24 +486,48 @@ Walker Endpoint Contract Details
      - Success payload highlights
    * - ``GET /api/walker/stats``
      - No request body. Returns state for both patches, including ``loader_status`` and
-       optional ``reaches`` map when available.
+       optional ``reaches`` map when available. Includes ``patch_comparison``
+       with ``corpus_hash_relation`` and policy semantics.
      - ``patch_a`` / ``patch_b`` objects with corpus, readiness, loading/error fields,
-       and ``has_*`` flags.
+       ``has_*`` flags, and top-level ``patch_comparison``.
    * - ``POST /api/walker/load-corpus``
      - Requires ``patch in {"a","b"}`` and non-empty ``run_id``.
        Errors for invalid patch, missing run, or corpus load failure.
+       If active session lock is set, requires matching ``lock_holder_id``.
      - ``patch``, ``run_id``, ``corpus_type``, ``syllable_count``, ``source``,
        ``status="loading"``.
+   * - ``GET /api/walker/sessions``
+     - No request body. Lists saved session artifacts ordered newest-first.
+       Includes verification, lineage, and lock metadata.
+     - ``sessions`` list with ``session_id``, patch run ids, verification status/reason,
+       ``root_session_id``, ``parent_session_id``, ``revision``, ``lock_status``, ``lock``.
+   * - ``POST /api/walker/save-session``
+     - Saves current patch references as session IPC artifact.
+       ``session_id`` and ``repair_from_session_id`` are mutually exclusive.
+       If active session lock is set, requires matching ``lock_holder_id``.
+     - ``status``, ``reason``, ``session_id``, per-patch save status/reason,
+       ``ipc_input_hash``, ``ipc_output_hash``, lineage fields.
+   * - ``POST /api/walker/load-session``
+     - Requires ``session_id`` and ``lock_holder_id``.
+       Optional ``force_lock`` allows explicit take-over.
+       Verifies session artifact, loads referenced patch runs, restores only verified
+       run-state sidecars. Stale hash-drift session payloads may be loaded for continuity
+       but remain explicitly integrity-signaled.
+     - Per-patch ``loaded``/``restored``/``restored_kinds`` and
+       ``verification_status``/``verification_reason``, plus ``session_lock`` block and
+       ``recovered_from_stale_session`` flag.
    * - ``POST /api/walker/walk``
      - Requires ready walker for target patch. Validates numeric fields:
        ``count >= 1``, ``steps >= 0``, ``max_flips >= 1``, ``neighbor_limit >= 1``,
        ``min_length >= 1``, ``max_length >= 1``, ``min_length <= max_length``,
        ``temperature > 0``, and integer-or-null seed.
+       If active session lock is set, requires matching ``lock_holder_id``.
      - ``patch`` and ``walks`` (each walk includes ``formatted``, ``syllables``, ``steps``).
    * - ``POST /api/walker/combine``
      - Requires loaded corpus. ``profile`` controls mode:
        absent/``flat`` uses flat combiner; named/custom profile uses walker path and
-       requires walker readiness.
+       requires walker readiness. If active session lock is set, requires matching
+       ``lock_holder_id``.
      - ``generated``, ``unique``, ``duplicates``, ``syllables``, ``source``.
    * - ``POST /api/walker/reach-syllables``
      - Requires precomputed reaches and valid ``profile`` key for target patch.
@@ -468,13 +536,28 @@ Walker Endpoint Contract Details
    * - ``POST /api/walker/select``
      - Requires existing candidates. Validates patch and delegates policy validation to
        selector service (unknown name class returns error).
+       If active session lock is set, requires matching ``lock_holder_id``.
      - ``name_class``, ``mode``, ``count``, ``requested``, ``names``.
    * - ``POST /api/walker/export``
      - Requires prior selection output for target patch.
      - ``patch``, ``count``, ``names``.
    * - ``POST /api/walker/package``
      - Accepts package metadata and include flags. Builds ZIP from in-memory state.
+       If active session lock is set, requires matching ``lock_holder_id``.
      - Binary ZIP response with attachment filename ``<name>-<version>.zip``.
+   * - ``POST /api/walker/rebuild-reach-cache``
+     - Requires loaded walker and patch context. Optional ``run_id`` must match loaded
+       patch run when provided. If active session lock is set, requires matching
+       ``lock_holder_id``.
+     - ``status="rebuilt"``, ``patch``, ``run_id``, cache IPC hashes, verification status/reason.
+   * - ``POST /api/walker/session-lock/heartbeat``
+     - Requires ``session_id`` and ``lock_holder_id``.
+       Returns ``held`` for active lease, ``missing`` when lease absent, and error payload on conflicts.
+     - ``status``/``reason`` and ``lock`` payload when available.
+   * - ``POST /api/walker/session-lock/release``
+     - Requires ``session_id`` and ``lock_holder_id``.
+       Release succeeds only for the current lock owner.
+     - ``status``/``reason`` and released ``lock`` payload when available.
 
 Pipeline Configure ↔ API Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -615,6 +698,112 @@ High-value fields used by History and diagnostics:
   - ``input_hash`` from canonical run configuration
   - ``output_hash`` from canonical artifact+metric payload
   - library metadata (version/ref) for provenance
+
+Patch A/B Session IPC, Locks, and Rebuild Semantics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Session and patch restoration now use authoritative IPC artifacts:
+
+- Run-level state artifact:
+
+  - ``<run_dir>/ipc/walker_run_state.v1.json``
+
+- Patch output sidecars (written and verified per run):
+
+  - ``<run_dir>/ipc/patch_a_walks.v1.json``
+  - ``<run_dir>/ipc/patch_a_candidates.v1.json``
+  - ``<run_dir>/ipc/patch_a_selections.v1.json``
+  - ``<run_dir>/ipc/patch_a_package.v1.json``
+  - same pattern for Patch B (``patch_b_*``)
+
+- Session artifact (runtime sessions base, not hardcoded to ``_working``):
+
+  - ``<sessions_base>/<session_id>.json``
+  - ``sessions_base`` resolves from explicit config override or defaults to
+    ``<output_base>/sessions``
+
+Session lineage fields:
+
+- ``root_session_id``: immutable origin session id
+- ``parent_session_id``: immediate source session id for repaired revisions
+- ``revision``: integer revision counter (original is ``0``)
+
+Verification status semantics (API authority):
+
+- ``verified``: all relevant IPC links/hashes are valid and trusted
+- ``mismatch``: artifact exists but linkage/hash verification failed
+- ``missing``: artifact or required hash fields are absent
+- ``error``: parse/read/validation/internal failure
+
+Stale session recovery vs repair:
+
+- Recovery on load-session is intentionally narrow: hash-drift mismatch can be
+  loaded for continuity if the raw payload is readable.
+- Recovery does not auto-upgrade trust. The result remains integrity-signaled
+  (stale/mismatch) until repaired.
+- Repair creates a new immutable revision (new ``session_id`` with lineage) and
+  preserves prior artifact history.
+
+Cooperative lock model:
+
+- Endpoints:
+
+  - ``POST /api/walker/session-lock/heartbeat``
+  - ``POST /api/walker/session-lock/release``
+
+- Lock lease TTL is currently 45 seconds and refreshed by heartbeat.
+- ``load-session`` acquires lock with ``lock_holder_id`` and optional ``force_lock``
+  (take-over flow).
+- Mutating endpoints enforce active session lock ownership.
+- This is an integrity/UX coordination mechanism for single-user multi-tab use,
+  not a security or authorization boundary.
+
+Patch comparison and rebuild policy decisions:
+
+- ``GET /api/walker/stats`` exposes:
+
+  - ``patch_comparison.corpus_hash_relation``: ``same`` | ``different`` | ``unknown``
+  - ``patch_comparison.policy``: currently ``warn`` | ``none``
+
+- Current product policy keeps compare mode as warn-only/no-policy
+  (no ``block`` mode yet).
+- ``POST /api/walker/rebuild-reach-cache`` is already an explicit rebuild action.
+  We intentionally do not expose a separate force/invalidate mode at this stage.
+
+Manual QA Checklist (Phase 5)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this checklist when validating Walker session IPC behavior:
+
+1. Two-tab lock conflict:
+
+   - Load same session in tab A and tab B with different holders.
+   - Confirm tab B shows lock conflict and cannot mutate without take-over.
+   - Take over in tab B and confirm tab A heartbeats/release reflect loss of ownership.
+
+2. Stale recovery and immutable repair:
+
+   - Create a stale-session condition (hash drift), then load session.
+   - Confirm load is continuity-tolerant but explicitly marked stale/mismatch.
+   - Run repair and verify new ``session_id`` with incremented lineage revision.
+   - Confirm original session artifact remains unchanged.
+
+3. Rebuild reach-cache states:
+
+   - Trigger rebuild and verify transition through guidance states
+     (for example rebuilding -> rebuilt/verified).
+   - Validate status handling for ``verified``, ``recommended``, ``missing``, ``error``.
+   - Confirm IPC hashes update after successful rebuild.
+
+4. Session list and detail integrity:
+
+   - Verify ``GET /api/walker/sessions`` shows verification, lineage, and lock metadata.
+   - Confirm UI labels and run detail reflect backend verification outputs exactly.
+
+5. Regression safety:
+
+   - Validate walk/combine/select/package flows still work when session features are unused.
+   - Validate pipeline tab behavior is unchanged.
 
 Notes
 -----
