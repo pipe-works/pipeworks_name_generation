@@ -1,9 +1,10 @@
 """Tests for the walker API handlers.
 
-This module tests all eight walker API handlers:
+This module tests walker API handlers:
 - handle_load_corpus: corpus loading and walker init
 - handle_walk: walk generation
 - handle_stats: dual-patch state reporting
+- handle_save_session / handle_sessions / handle_load_session: session IPC APIs
 - handle_combine: candidate generation
 - handle_select: name selection
 - handle_export: name export
@@ -11,6 +12,8 @@ This module tests all eight walker API handlers:
 - handle_analysis: corpus metrics
 """
 
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,9 +25,13 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_combine,
     handle_export,
     handle_load_corpus,
+    handle_load_session,
     handle_package,
     handle_reach_syllables,
+    handle_rebuild_reach_cache,
+    handle_save_session,
     handle_select,
+    handle_sessions,
     handle_stats,
     handle_walk,
 )
@@ -824,6 +831,26 @@ class TestHandleWalk:
         assert mock_save.call_args.kwargs["patch"] == "a"
         assert mock_save.call_args.kwargs["artifact_kind"] == "walks"
 
+    def test_walk_succeeds_when_sidecar_persist_raises(self, loaded_state):
+        """Sidecar persistence failures should not fail walk API responses."""
+
+        mock_walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walk_generator.generate_walks",
+                return_value=mock_walks,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.walker_run_state_store.save_run_state",
+                side_effect=RuntimeError("io-error"),
+            ),
+        ):
+            result = handle_walk({"patch": "a", "count": 1}, loaded_state)
+
+        assert "error" not in result
+        assert result["patch"] == "a"
+        assert result["walks"] == mock_walks
+
     def test_walk_forwards_neighbor_and_length_constraints(self, loaded_state):
         """Walk handler passes min/max length and neighbor cap to service."""
         mock_walks = [{"formatted": "ka·ri", "syllables": ["ka", "ri"], "steps": []}]
@@ -1112,6 +1139,553 @@ class TestHandleStats:
         result = handle_stats(loaded_state)
         assert "reaches" in result["patch_a"]
         assert "reaches" not in result["patch_b"]
+
+    def test_stats_include_patch_comparison_same_hash(self, loaded_state):
+        """Stats should report same corpus relation when hashes match."""
+
+        loaded_state.patch_a.manifest_ipc_output_hash = "a" * 64
+        loaded_state.patch_b.manifest_ipc_output_hash = "a" * 64
+        result = handle_stats(loaded_state)
+        comparison = result["patch_comparison"]
+        assert comparison["corpus_hash_relation"] == "same"
+        assert comparison["policy"] == "none"
+
+    def test_stats_include_patch_comparison_different_hash(self, loaded_state):
+        """Stats should report warn policy when corpus hashes differ."""
+
+        loaded_state.patch_a.manifest_ipc_output_hash = "a" * 64
+        loaded_state.patch_b.manifest_ipc_output_hash = "b" * 64
+        result = handle_stats(loaded_state)
+        comparison = result["patch_comparison"]
+        assert comparison["corpus_hash_relation"] == "different"
+        assert comparison["policy"] == "warn"
+
+
+# ============================================================
+# session endpoints
+# ============================================================
+
+
+class TestSessionEndpoints:
+    """Test session save/list/load API handlers."""
+
+    def test_save_session_rejects_invalid_label_type(self, state):
+        """Save endpoint should reject non-string labels."""
+
+        result = handle_save_session({"label": 123}, state)
+        assert "error" in result
+        assert "label must be a string" in result["error"]
+
+    def test_save_session_rejects_invalid_session_id_type(self, state):
+        """Save endpoint should reject non-string session IDs."""
+
+        result = handle_save_session({"session_id": 123}, state)
+        assert "error" in result
+        assert "session_id must be a string" in result["error"]
+
+    def test_save_session_success(self, state):
+        """Save endpoint should map service result into API response shape."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.save_session",
+            return_value=SimpleNamespace(
+                status="saved",
+                reason="saved",
+                session_id="session_1",
+                session_path=Path("/tmp/sessions/session_1.json"),
+                patch_a_status="saved",
+                patch_a_reason="saved",
+                patch_b_status="skipped",
+                patch_b_reason="patch-b-run-id-missing",
+                ipc_input_hash="a" * 64,
+                ipc_output_hash="b" * 64,
+            ),
+        ):
+            result = handle_save_session({"label": "Snapshot"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "saved"
+        assert result["session_id"] == "session_1"
+        assert result["patch_a"]["status"] == "saved"
+        assert result["patch_b"]["status"] == "skipped"
+        assert result["ipc_input_hash"] == "a" * 64
+
+    def test_save_session_returns_error_when_service_raises(self, state):
+        """Service exceptions should be mapped to API error payloads."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.save_session",
+            side_effect=RuntimeError("disk-full"),
+        ):
+            result = handle_save_session({"label": "Snapshot"}, state)
+        assert "error" in result
+        assert "Session save failed" in result["error"]
+
+    def test_sessions_list_success(self, state):
+        """List endpoint should return serialized session entries."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.list_sessions",
+            return_value=[
+                SimpleNamespace(
+                    session_id="session_1",
+                    created_at_utc="2026-02-23T12:00:00Z",
+                    label="Snapshot",
+                    patch_a_run_id="run_a",
+                    patch_b_run_id=None,
+                    verification_status="verified",
+                    verification_reason="verified",
+                    session_path=Path("/tmp/sessions/session_1.json"),
+                )
+            ],
+        ):
+            result = handle_sessions(state)
+
+        assert "error" not in result
+        assert len(result["sessions"]) == 1
+        assert result["sessions"][0]["session_id"] == "session_1"
+        assert result["sessions"][0]["verification_status"] == "verified"
+
+    def test_sessions_list_returns_error_when_service_raises(self, state):
+        """List endpoint should return explicit service errors."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.list_sessions",
+            side_effect=RuntimeError("read-error"),
+        ):
+            result = handle_sessions(state)
+        assert "error" in result
+        assert "Session listing failed" in result["error"]
+
+    def test_load_session_requires_session_id(self, state):
+        """Load endpoint should reject missing/invalid session IDs."""
+
+        result = handle_load_session({}, state)
+        assert "error" in result
+        assert "session_id" in result["error"]
+
+    def test_load_session_returns_non_verified_status(self, state):
+        """Load endpoint should return verification result without restoring."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+            return_value=SimpleNamespace(
+                status="missing",
+                reason="session-missing",
+                session_id="session_404",
+                payload=None,
+                ipc_input_hash=None,
+                ipc_output_hash=None,
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_404"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "missing"
+        assert result["patch_a"]["loaded"] is False
+        assert result["patch_b"]["loaded"] is False
+
+    def test_load_session_returns_error_when_service_raises(self, state):
+        """Load endpoint should map service exceptions to API errors."""
+
+        with patch(
+            "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+            side_effect=RuntimeError("io-error"),
+        ):
+            result = handle_load_session({"session_id": "session_1"}, state)
+        assert "error" in result
+        assert "Session load failed" in result["error"]
+
+    def test_load_session_handles_absent_patch_reference(self, state):
+        """Verified session with absent patch ref should be marked missing."""
+
+        payload = {"session_id": "session_ok", "patch_a": None, "patch_b": {"run_id": "run_b"}}
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                return_value={
+                    "status": "loading",
+                    "source": "annotated_json",
+                    "syllable_count": 12,
+                },
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["verification_status"] == "missing"
+        assert result["patch_b"]["loaded"] is True
+
+    def test_load_session_handles_invalid_patch_reference_shape(self, state):
+        """Verified session with non-object patch ref should be mismatch."""
+
+        payload = {"session_id": "session_ok", "patch_a": "bad", "patch_b": {"run_id": "run_b"}}
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                return_value={
+                    "status": "loading",
+                    "source": "annotated_json",
+                    "syllable_count": 12,
+                },
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["verification_status"] == "mismatch"
+        assert result["patch_b"]["loaded"] is True
+
+    def test_load_session_handles_missing_run_id_in_patch_reference(self, state):
+        """Verified session with missing run_id should be mismatch."""
+
+        payload = {"session_id": "session_ok", "patch_a": {}, "patch_b": {"run_id": "run_b"}}
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                return_value={
+                    "status": "loading",
+                    "source": "annotated_json",
+                    "syllable_count": 12,
+                },
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["verification_status"] == "mismatch"
+        assert result["patch_b"]["loaded"] is True
+
+    def test_load_session_handles_patch_load_error(self, state):
+        """Patch load errors should be surfaced for the affected patch."""
+
+        payload = {
+            "session_id": "session_ok",
+            "patch_a": {"run_id": "run_a"},
+            "patch_b": {"run_id": "run_b"},
+        }
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                side_effect=[
+                    {"error": "Run not found"},
+                    {"status": "loading", "source": "annotated_json", "syllable_count": 12},
+                ],
+            ),
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert result["patch_a"]["loaded"] is False
+        assert result["patch_a"]["verification_status"] == "error"
+        assert result["patch_b"]["loaded"] is True
+
+    def test_load_session_verified_starts_patch_loads(self, state):
+        """Verified session should trigger patch-level corpus load requests."""
+
+        payload = {
+            "session_id": "session_ok",
+            "patch_a": {"run_id": "run_a"},
+            "patch_b": {"run_id": "run_b"},
+        }
+        with (
+            patch(
+                "build_tools.syllable_walk_web.services.walker_session_store.load_session",
+                return_value=SimpleNamespace(
+                    status="verified",
+                    reason="verified",
+                    session_id="session_ok",
+                    payload=payload,
+                    ipc_input_hash="a" * 64,
+                    ipc_output_hash="b" * 64,
+                ),
+            ),
+            patch(
+                "build_tools.syllable_walk_web.api.walker.handle_load_corpus",
+                side_effect=[
+                    {"status": "loading", "source": "annotated_json", "syllable_count": 10},
+                    {"status": "loading", "source": "annotated_json", "syllable_count": 12},
+                ],
+            ) as mock_load_corpus,
+        ):
+            result = handle_load_session({"session_id": "session_ok"}, state)
+
+        assert "error" not in result
+        assert result["status"] == "verified"
+        assert result["patch_a"]["loaded"] is True
+        assert result["patch_b"]["loaded"] is True
+        assert mock_load_corpus.call_count == 2
+
+
+# ============================================================
+# handle_rebuild_reach_cache
+# ============================================================
+
+
+class TestHandleRebuildReachCache:
+    """Test POST /api/walker/rebuild-reach-cache handler."""
+
+    def test_error_when_patch_invalid(self, loaded_state):
+        """Invalid patch values should return an error."""
+
+        result = handle_rebuild_reach_cache({"patch": "x"}, loaded_state)
+        assert "error" in result
+
+    def test_error_when_walker_not_ready(self, state):
+        """Rebuild requires a loaded walker."""
+
+        result = handle_rebuild_reach_cache({"patch": "a"}, state)
+        assert "error" in result
+        assert "Walker not ready" in result["error"]
+
+    def test_error_when_run_id_mismatches_loaded_patch(self, loaded_state):
+        """Explicit run_id must match current patch context when provided."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        result = handle_rebuild_reach_cache({"patch": "a", "run_id": "run_b"}, loaded_state)
+        assert "error" in result
+        assert "run_id mismatch" in result["error"]
+
+    def test_error_when_run_id_has_invalid_type(self, loaded_state):
+        """run_id must be a non-empty string when provided."""
+
+        result = handle_rebuild_reach_cache({"patch": "a", "run_id": 123}, loaded_state)
+        assert "error" in result
+        assert "run_id must be a non-empty string" in result["error"]
+
+    def test_error_when_corpus_dir_missing(self, loaded_state):
+        """A loaded walker still requires a run directory for cache writes."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = None
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+        result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+        assert "error" in result
+        assert "Run directory missing" in result["error"]
+
+    def test_error_when_run_id_missing(self, loaded_state):
+        """A loaded walker with no run ID cannot rebuild cache deterministically."""
+
+        loaded_state.patch_a.run_id = None
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+        result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+        assert "error" in result
+        assert "run_id missing" in result["error"]
+
+    def test_error_when_reach_compute_fails(self, loaded_state):
+        """Reach-compute exceptions should return an explicit API error."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+        with patch(
+            "build_tools.syllable_walk.reach.compute_all_reaches",
+            side_effect=RuntimeError("compute-failed"),
+        ):
+            result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+        assert "error" in result
+        assert "Failed to compute profile reaches" in result["error"]
+
+    def test_error_when_reach_cache_write_fails(self, loaded_state):
+        """Failed cache writes should return an explicit API error."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+        with (
+            patch("build_tools.syllable_walk.reach.compute_all_reaches", return_value={}),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=False,
+            ),
+        ):
+            result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+        assert "error" in result
+        assert "Failed to write reach cache artifact" in result["error"]
+
+    def test_rebuild_sets_error_status_when_hashes_missing(self, loaded_state):
+        """Rebuild should surface missing IPC hashes as verification error."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+        mock_reaches = {
+            "clerical": ReachResult(
+                profile_name="clerical",
+                reach=1,
+                total=1,
+                threshold=0.001,
+                max_flips=1,
+                temperature=0.3,
+                frequency_weight=1.0,
+                computation_ms=1.0,
+            ),
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=1,
+                total=1,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=1.0,
+            ),
+            "goblin": ReachResult(
+                profile_name="goblin",
+                reach=1,
+                total=1,
+                threshold=0.001,
+                max_flips=2,
+                temperature=1.0,
+                frequency_weight=0.5,
+                computation_ms=1.0,
+            ),
+            "ritual": ReachResult(
+                profile_name="ritual",
+                reach=1,
+                total=1,
+                threshold=0.001,
+                max_flips=3,
+                temperature=2.5,
+                frequency_weight=-1.0,
+                computation_ms=1.0,
+            ),
+        }
+        with (
+            patch("build_tools.syllable_walk.reach.compute_all_reaches", return_value=mock_reaches),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=True,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.read_cached_profile_reach_hashes",
+                return_value=(None, None),
+            ),
+        ):
+            result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+        assert result["verification_status"] == "error"
+        assert result["verification_reason"] == "cache-rebuilt-hashes-missing"
+
+    def test_success_rebuilds_reach_cache(self, loaded_state):
+        """Rebuild should recompute reaches and refresh IPC hash fields."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+
+        mock_reaches = {
+            "clerical": ReachResult(
+                profile_name="clerical",
+                reach=10,
+                total=100,
+                threshold=0.001,
+                max_flips=1,
+                temperature=0.3,
+                frequency_weight=1.0,
+                computation_ms=5.0,
+            ),
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=20,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=6.0,
+            ),
+            "goblin": ReachResult(
+                profile_name="goblin",
+                reach=30,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=1.0,
+                frequency_weight=0.5,
+                computation_ms=7.0,
+            ),
+            "ritual": ReachResult(
+                profile_name="ritual",
+                reach=40,
+                total=100,
+                threshold=0.001,
+                max_flips=3,
+                temperature=2.5,
+                frequency_weight=-1.0,
+                computation_ms=8.0,
+            ),
+        }
+
+        with (
+            patch(
+                "build_tools.syllable_walk.reach.compute_all_reaches",
+                return_value=mock_reaches,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=True,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.read_cached_profile_reach_hashes",
+                return_value=("a" * 64, "b" * 64),
+            ),
+        ):
+            result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+
+        assert "error" not in result
+        assert result["status"] == "rebuilt"
+        assert result["verification_status"] == "verified"
+        assert loaded_state.patch_a.reach_cache_ipc_input_hash == "a" * 64
+        assert loaded_state.patch_a.reach_cache_ipc_output_hash == "b" * 64
+        assert loaded_state.patch_a.profile_reaches == mock_reaches
 
 
 # ============================================================

@@ -128,6 +128,36 @@ def _persist_patch_artifact_sidecar(
         return
 
 
+def _compute_patch_comparison(
+    *,
+    patch_a_manifest_hash: str | None,
+    patch_b_manifest_hash: str | None,
+) -> dict[str, str]:
+    """Compute corpus-hash relationship and policy signal for Patch A/B.
+
+    Returns a compact API object used by UI and automation clients to determine
+    whether Patch A and Patch B are operating on the same manifest baseline.
+    """
+
+    if not _is_sha256_hex(patch_a_manifest_hash) or not _is_sha256_hex(patch_b_manifest_hash):
+        return {
+            "corpus_hash_relation": "unknown",
+            "policy": "none",
+            "reason": "manifest-hash-unavailable",
+        }
+    if patch_a_manifest_hash == patch_b_manifest_hash:
+        return {
+            "corpus_hash_relation": "same",
+            "policy": "none",
+            "reason": "patch-manifest-hashes-match",
+        }
+    return {
+        "corpus_hash_relation": "different",
+        "policy": "warn",
+        "reason": "patch-manifest-hashes-differ",
+    }
+
+
 def handle_load_corpus(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     """Handle POST /api/walker/load-corpus.
 
@@ -557,6 +587,276 @@ def handle_stats(state: ServerState) -> dict[str, Any]:
     return {
         "patch_a": _patch_info(state.patch_a),
         "patch_b": _patch_info(state.patch_b),
+        "patch_comparison": _compute_patch_comparison(
+            patch_a_manifest_hash=state.patch_a.manifest_ipc_output_hash,
+            patch_b_manifest_hash=state.patch_b.manifest_ipc_output_hash,
+        ),
+    }
+
+
+def handle_save_session(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
+    """Handle POST /api/walker/save-session.
+
+    Persists one dual-patch session artifact under the runtime-resolved
+    sessions base directory.
+    """
+
+    from build_tools.syllable_walk_web.services.session_paths import resolve_sessions_base
+    from build_tools.syllable_walk_web.services.walker_session_store import save_session
+
+    label = body.get("label")
+    session_id = body.get("session_id")
+
+    if label is not None and not isinstance(label, str):
+        return {"error": "label must be a string or null."}
+    if session_id is not None and not isinstance(session_id, str):
+        return {"error": "session_id must be a string or null."}
+
+    try:
+        result = save_session(
+            state=state,
+            label=label,
+            session_id=session_id,
+        )
+    except Exception as e:
+        return {"error": f"Session save failed: {e}"}
+
+    return {
+        "status": result.status,
+        "reason": result.reason,
+        "session_id": result.session_id,
+        "session_path": str(result.session_path) if isinstance(result.session_path, Path) else None,
+        "sessions_base": str(
+            resolve_sessions_base(
+                output_base=state.output_base,
+                configured_sessions_base=state.sessions_base,
+            )
+        ),
+        "patch_a": {
+            "status": result.patch_a_status,
+            "reason": result.patch_a_reason,
+        },
+        "patch_b": {
+            "status": result.patch_b_status,
+            "reason": result.patch_b_reason,
+        },
+        "ipc_input_hash": result.ipc_input_hash,
+        "ipc_output_hash": result.ipc_output_hash,
+    }
+
+
+def handle_sessions(state: ServerState) -> dict[str, Any]:
+    """Handle GET /api/walker/sessions.
+
+    Returns saved session artifacts ordered newest-first with verification
+    metadata so clients can decide what is safe to load.
+    """
+
+    from build_tools.syllable_walk_web.services.walker_session_store import list_sessions
+
+    try:
+        entries = list_sessions(
+            output_base=state.output_base,
+            configured_sessions_base=state.sessions_base,
+        )
+    except Exception as e:
+        return {"error": f"Session listing failed: {e}"}
+
+    return {
+        "sessions": [
+            {
+                "session_id": entry.session_id,
+                "created_at_utc": entry.created_at_utc,
+                "label": entry.label,
+                "patch_a_run_id": entry.patch_a_run_id,
+                "patch_b_run_id": entry.patch_b_run_id,
+                "verification_status": entry.verification_status,
+                "verification_reason": entry.verification_reason,
+                "session_path": str(entry.session_path),
+            }
+            for entry in entries
+        ]
+    }
+
+
+def handle_load_session(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
+    """Handle POST /api/walker/load-session.
+
+    Verifies one persisted session payload and triggers corpus loading for each
+    referenced patch run. This reuses the existing corpus-load API semantics
+    rather than mutating state via internal shortcuts.
+    """
+
+    from build_tools.syllable_walk_web.services.walker_session_store import load_session
+
+    raw_session_id = body.get("session_id")
+    if not isinstance(raw_session_id, str) or not raw_session_id.strip():
+        return {"error": "Missing or invalid session_id."}
+    session_id = raw_session_id.strip()
+
+    try:
+        result = load_session(
+            session_id=session_id,
+            output_base=state.output_base,
+            configured_sessions_base=state.sessions_base,
+        )
+    except Exception as e:
+        return {"error": f"Session load failed: {e}"}
+
+    if result.status != "verified" or not isinstance(result.payload, dict):
+        return {
+            "status": result.status,
+            "reason": result.reason,
+            "session_id": result.session_id or session_id,
+            "ipc_input_hash": result.ipc_input_hash,
+            "ipc_output_hash": result.ipc_output_hash,
+            "patch_a": {
+                "loaded": False,
+                "restored": False,
+                "verification_status": result.status,
+                "verification_reason": result.reason,
+            },
+            "patch_b": {
+                "loaded": False,
+                "restored": False,
+                "verification_status": result.status,
+                "verification_reason": result.reason,
+            },
+        }
+
+    payload = result.payload
+    patch_load_results: dict[str, dict[str, Any]] = {}
+    for patch_key in ("a", "b"):
+        patch_ref = payload.get(f"patch_{patch_key}")
+        if patch_ref is None:
+            patch_load_results[patch_key] = {
+                "loaded": False,
+                "restored": False,
+                "verification_status": "missing",
+                "verification_reason": f"session-patch-{patch_key}-absent",
+                "run_id": None,
+            }
+            continue
+        if not isinstance(patch_ref, dict):
+            patch_load_results[patch_key] = {
+                "loaded": False,
+                "restored": False,
+                "verification_status": "mismatch",
+                "verification_reason": f"session-patch-{patch_key}-invalid",
+                "run_id": None,
+            }
+            continue
+        run_id = patch_ref.get("run_id")
+        if not isinstance(run_id, str) or not run_id.strip():
+            patch_load_results[patch_key] = {
+                "loaded": False,
+                "restored": False,
+                "verification_status": "mismatch",
+                "verification_reason": f"session-patch-{patch_key}-run-id-missing",
+                "run_id": None,
+            }
+            continue
+
+        load_result = handle_load_corpus({"patch": patch_key, "run_id": run_id}, state)
+        if "error" in load_result:
+            patch_load_results[patch_key] = {
+                "loaded": False,
+                "restored": False,
+                "verification_status": "error",
+                "verification_reason": str(load_result["error"]),
+                "run_id": run_id,
+            }
+            continue
+
+        patch_load_results[patch_key] = {
+            "loaded": True,
+            "restored": False,
+            "verification_status": "verified",
+            "verification_reason": "session-load-started",
+            "run_id": run_id,
+            "status": load_result.get("status"),
+            "source": load_result.get("source"),
+            "syllable_count": load_result.get("syllable_count"),
+        }
+
+    return {
+        "status": "verified",
+        "reason": "verified",
+        "session_id": payload.get("session_id", session_id),
+        "ipc_input_hash": result.ipc_input_hash,
+        "ipc_output_hash": result.ipc_output_hash,
+        "patch_a": patch_load_results["a"],
+        "patch_b": patch_load_results["b"],
+    }
+
+
+def handle_rebuild_reach_cache(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
+    """Handle POST /api/walker/rebuild-reach-cache.
+
+    Recomputes profile reach tables for one loaded patch and rewrites the
+    run-local IPC cache artifact.
+    """
+
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
+
+    requested_run_id = body.get("run_id")
+    if requested_run_id is not None and (
+        not isinstance(requested_run_id, str) or not requested_run_id.strip()
+    ):
+        return {"error": "run_id must be a non-empty string when provided."}
+    if isinstance(requested_run_id, str) and patch.run_id and requested_run_id != patch.run_id:
+        return {"error": f"run_id mismatch for patch {patch_key.upper()}."}
+
+    if not patch.walker_ready or patch.walker is None:
+        return {"error": f"Walker not ready for patch {patch_key.upper()}. Load a corpus first."}
+    if not isinstance(patch.corpus_dir, Path):
+        return {"error": f"Run directory missing for patch {patch_key.upper()}."}
+    if not isinstance(patch.run_id, str) or not patch.run_id.strip():
+        return {"error": f"run_id missing for patch {patch_key.upper()}."}
+
+    from build_tools.syllable_walk.reach import compute_all_reaches
+    from build_tools.syllable_walk_web.services.profile_reaches_cache import (
+        read_cached_profile_reach_hashes,
+        write_cached_profile_reaches,
+    )
+
+    try:
+        profile_reaches = compute_all_reaches(patch.walker)
+    except Exception as e:
+        return {"error": f"Failed to compute profile reaches: {e}"}
+
+    wrote = write_cached_profile_reaches(
+        run_dir=patch.corpus_dir,
+        run_id=patch.run_id,
+        walker=patch.walker,
+        profile_reaches=profile_reaches,
+    )
+    if not wrote:
+        return {"error": "Failed to write reach cache artifact."}
+
+    cache_input_hash, cache_output_hash = read_cached_profile_reach_hashes(patch.corpus_dir)
+    patch.profile_reaches = profile_reaches
+    patch.reach_cache_status = "hit"
+    patch.reach_cache_ipc_input_hash = cache_input_hash
+    patch.reach_cache_ipc_output_hash = cache_output_hash
+    if _is_sha256_hex(cache_input_hash) and _is_sha256_hex(cache_output_hash):
+        patch.reach_cache_ipc_verification_status = "verified"
+        patch.reach_cache_ipc_verification_reason = "cache-rebuilt"
+    else:
+        patch.reach_cache_ipc_verification_status = "error"
+        patch.reach_cache_ipc_verification_reason = "cache-rebuilt-hashes-missing"
+
+    return {
+        "patch": patch_key,
+        "run_id": patch.run_id,
+        "status": "rebuilt",
+        "ipc_input_hash": patch.reach_cache_ipc_input_hash,
+        "ipc_output_hash": patch.reach_cache_ipc_output_hash,
+        "verification_status": patch.reach_cache_ipc_verification_status,
+        "verification_reason": patch.reach_cache_ipc_verification_reason,
     }
 
 
