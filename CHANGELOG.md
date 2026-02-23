@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.0...pipeworks-name-generation-v0.7.1) (2026-02-23)
+
+
+### Documentation
+
+* add semver release guardrails to AGENTS ([#117](https://github.com/pipe-works/pipeworks_name_generation/issues/117)) ([89b4573](https://github.com/pipe-works/pipeworks_name_generation/commit/89b4573732c47ad0cc239ee1e12533a018b98c19))
+* refresh walker web and corpus sqlite docs ([26287e4](https://github.com/pipe-works/pipeworks_name_generation/commit/26287e4e06429b03af494a6e3db1d57ca17c7aee))
+* refresh walker web and sqlite builder documentation ([76a87e1](https://github.com/pipe-works/pipeworks_name_generation/commit/76a87e1cff5be8136d053b0f73b352bd0e2b70ea))
+
+
+### Internal Changes
+
+* **walker-web:** extract active session lock helpers ([#119](https://github.com/pipe-works/pipeworks_name_generation/issues/119)) ([a488f37](https://github.com/pipe-works/pipeworks_name_generation/commit/a488f3787b4da634330b2e2784e7db2a36ed449a))
+* **walker-web:** extract cache and lock endpoint handlers ([#122](https://github.com/pipe-works/pipeworks_name_generation/issues/122)) ([6914ed9](https://github.com/pipe-works/pipeworks_name_generation/commit/6914ed9f62d5b56ebcae06597c42cb3cd3747358))
+* **walker-web:** extract corpus integrity and lock ui helpers ([#126](https://github.com/pipe-works/pipeworks_name_generation/issues/126)) ([2427051](https://github.com/pipe-works/pipeworks_name_generation/commit/2427051006f735eebaa30104e0db37459c6f562c))
+* **walker-web:** extract generation and packaging handlers ([#123](https://github.com/pipe-works/pipeworks_name_generation/issues/123)) ([24805ba](https://github.com/pipe-works/pipeworks_name_generation/commit/24805baeb02b48ee01ae46d4c8a74955113401ab))
+* **walker-web:** extract session load/save handlers ([#121](https://github.com/pipe-works/pipeworks_name_generation/issues/121)) ([1c6a502](https://github.com/pipe-works/pipeworks_name_generation/commit/1c6a50241278740da81b4dd2f0e975040bb6baa4))
+* **walker-web:** extract shared walker API common helpers ([#120](https://github.com/pipe-works/pipeworks_name_generation/issues/120)) ([4b0beb7](https://github.com/pipe-works/pipeworks_name_generation/commit/4b0beb79b16c6a46e0d1e3f337563df070dd4b91))
+* **walker-web:** split corpus api and in-memory state modules ([#124](https://github.com/pipe-works/pipeworks_name_generation/issues/124)) ([d948e40](https://github.com/pipe-works/pipeworks_name_generation/commit/d948e40145b1d220f8409642a864d7972b677c12))
+* **walker-web:** split corpus render and action modules ([#125](https://github.com/pipe-works/pipeworks_name_generation/issues/125)) ([b2ced1f](https://github.com/pipe-works/pipeworks_name_generation/commit/b2ced1f0f4212ec10cced7f5d187adbbb232a821))
+* **walker-web:** tighten contracts and dedupe handlers ([#127](https://github.com/pipe-works/pipeworks_name_generation/issues/127)) ([f632d59](https://github.com/pipe-works/pipeworks_name_generation/commit/f632d59234c4cf04f9cd8765a6481ba35c50b9fa))
+
 ## [0.7.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.6.0...pipeworks-name-generation-v0.7.0) (2026-02-23)
 
 
