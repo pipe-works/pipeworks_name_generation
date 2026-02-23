@@ -8,11 +8,25 @@ and walker state queries.
 from __future__ import annotations
 
 import json
-import re
 import threading
 from pathlib import Path
 from typing import Any
 
+from build_tools.syllable_walk_web.api.walker_common import (
+    coerce_optional_constraint_int as _coerce_optional_constraint_int_impl,
+)
+from build_tools.syllable_walk_web.api.walker_common import (
+    compute_patch_comparison as _compute_patch_comparison_impl,
+)
+from build_tools.syllable_walk_web.api.walker_common import (
+    is_sha256_hex as _is_sha256_hex_impl,
+)
+from build_tools.syllable_walk_web.api.walker_common import (
+    reach_cache_verification_from_read as _reach_cache_verification_from_read_impl,
+)
+from build_tools.syllable_walk_web.api.walker_common import (
+    resolve_patch_state as _resolve_patch_state_impl,
+)
 from build_tools.syllable_walk_web.api.walker_lock import (
     clear_active_session_context as _clear_active_session_context_impl,
 )
@@ -27,14 +41,11 @@ from build_tools.syllable_walk_web.api.walker_lock import (
 )
 from build_tools.syllable_walk_web.state import PatchState, ServerState
 
-_MISSING = object()
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-
 
 def _is_sha256_hex(value: Any) -> bool:
-    """Return ``True`` when value is a lowercase 64-character SHA-256 hash."""
+    """Backward-compatible wrapper for SHA-256 string validator."""
 
-    return isinstance(value, str) and _SHA256_RE.match(value) is not None
+    return _is_sha256_hex_impl(value)
 
 
 def _reach_cache_verification_from_read(
@@ -44,48 +55,23 @@ def _reach_cache_verification_from_read(
     input_hash: str | None,
     output_hash: str | None,
 ) -> tuple[str | None, str | None]:
-    """Map cache read outcome to a user-facing verification status/reason."""
+    """Backward-compatible wrapper for reach-cache verification mapping."""
 
-    if cache_status is None:
-        return None, None
-    if cache_status == "hit":
-        if _is_sha256_hex(input_hash) and _is_sha256_hex(output_hash):
-            return "verified", "cache-hit-hashes-match"
-        return "error", "cache-hit-missing-hashes"
-    if cache_status == "invalid":
-        return "mismatch", cache_message or "cache-invalid"
-    if cache_status == "error":
-        return "error", cache_message or "cache-read-error"
-    if cache_status == "none":
-        return "missing", "manifest-ipc-missing"
-    if cache_status == "miss":
-        return "missing", "cache-miss"
-    return "error", "cache-status-unknown"
+    return _reach_cache_verification_from_read_impl(
+        cache_status=cache_status,
+        cache_message=cache_message,
+        input_hash=input_hash,
+        output_hash=output_hash,
+    )
 
 
 def _resolve_patch_state(
     body: dict[str, Any],
     state: ServerState,
 ) -> tuple[str, PatchState] | None:
-    """Resolve and validate ``patch`` from request body.
+    """Backward-compatible wrapper for patch-state resolver."""
 
-    Args:
-        body: Request payload expected to include optional ``patch``.
-        state: Global server state containing patch A and B.
-
-    Returns:
-        Tuple of ``(patch_key, patch_state)`` when valid, else ``None``.
-    """
-    raw_patch = body.get("patch", "a")
-    if not isinstance(raw_patch, str):
-        return None
-
-    patch_key = raw_patch.lower()
-    if patch_key not in ("a", "b"):
-        return None
-
-    patch = state.patch_a if patch_key == "a" else state.patch_b
-    return patch_key, patch
+    return _resolve_patch_state_impl(body, state)
 
 
 def _coerce_optional_constraint_int(
@@ -94,22 +80,13 @@ def _coerce_optional_constraint_int(
     *,
     default: int,
 ) -> tuple[int | None, str | None]:
-    """Coerce one optional constraint field from request payload.
+    """Backward-compatible wrapper for optional constraint int coercion."""
 
-    Semantics:
-    - Field missing: use provided default for backward compatibility.
-    - Field set to null: disable the constraint (returns ``None``).
-    - Field set to value: coerce to integer.
-    """
-    raw = body.get(field_name, _MISSING)
-    if raw is _MISSING:
-        return default, None
-    if raw is None:
-        return None, None
-    try:
-        return int(raw), None
-    except (TypeError, ValueError):
-        return None, f"{field_name} must be an integer or null."
+    return _coerce_optional_constraint_int_impl(
+        body,
+        field_name,
+        default=default,
+    )
 
 
 def _persist_patch_artifact_sidecar(
@@ -146,29 +123,12 @@ def _compute_patch_comparison(
     patch_a_manifest_hash: str | None,
     patch_b_manifest_hash: str | None,
 ) -> dict[str, str]:
-    """Compute corpus-hash relationship and policy signal for Patch A/B.
+    """Backward-compatible wrapper for patch comparison helper."""
 
-    Returns a compact API object used by UI and automation clients to determine
-    whether Patch A and Patch B are operating on the same manifest baseline.
-    """
-
-    if not _is_sha256_hex(patch_a_manifest_hash) or not _is_sha256_hex(patch_b_manifest_hash):
-        return {
-            "corpus_hash_relation": "unknown",
-            "policy": "none",
-            "reason": "manifest-hash-unavailable",
-        }
-    if patch_a_manifest_hash == patch_b_manifest_hash:
-        return {
-            "corpus_hash_relation": "same",
-            "policy": "none",
-            "reason": "patch-manifest-hashes-match",
-        }
-    return {
-        "corpus_hash_relation": "different",
-        "policy": "warn",
-        "reason": "patch-manifest-hashes-differ",
-    }
+    return _compute_patch_comparison_impl(
+        patch_a_manifest_hash=patch_a_manifest_hash,
+        patch_b_manifest_hash=patch_b_manifest_hash,
+    )
 
 
 def _coerce_lock_holder_id(body: dict[str, Any]) -> tuple[str | None, str | None]:
