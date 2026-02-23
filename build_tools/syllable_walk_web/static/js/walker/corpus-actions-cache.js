@@ -5,14 +5,18 @@
 
 'use strict';
 
+/** @typedef {import('./corpus-contracts.js').WalkerApiErrorPayload} WalkerApiErrorPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerRebuildReachCacheResponse} WalkerRebuildReachCacheResponse */
+/** @typedef {import('./corpus-contracts.js').WalkerCorpusContext} WalkerCorpusContext */
+
 /**
  * Wire Patch A/B reach-cache rebuild controls.
  *
  * @param {{
- *   ctx: { state: Record<string, any>, setStatus: (msg: string) => void },
+ *   ctx: WalkerCorpusContext,
  *   getWalkerSessionLockHolderId: () => string,
  *   setRebuildStatus: (patch: string, model: Record<string, any>) => void,
- *   rebuildWalkerReachCache: (args: {patch: string, runId: string, lockHolderId: string}) => Promise<Record<string, any>>,
+ *   rebuildWalkerReachCache: (args: {patch: string, runId: string, lockHolderId: string}) => Promise<WalkerRebuildReachCacheResponse|WalkerApiErrorPayload>,
  *   refreshWalkerStatsMicroState: () => Promise<void>
  * }} deps - Action dependencies.
  * @returns {void}

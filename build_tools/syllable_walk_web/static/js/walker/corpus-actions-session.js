@@ -5,26 +5,34 @@
 
 'use strict';
 
+/** @typedef {import('./corpus-contracts.js').WalkerApiErrorPayload} WalkerApiErrorPayload */
+/** @typedef {import('./corpus-contracts.js').SessionIntegrityState} SessionIntegrityState */
+/** @typedef {import('./corpus-contracts.js').SessionLockState} SessionLockState */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionListEntry} WalkerSessionListEntry */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionLoadPayload} WalkerSessionLoadPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionSavePayload} WalkerSessionSavePayload */
+/** @typedef {import('./corpus-contracts.js').SessionLockStatusResponse} SessionLockStatusResponse */
+
 /**
  * Wire session save/load/takeover/release/repair controls.
  *
  * @param {{
  *   ctx: { setStatus: (msg: string) => void },
  *   getWalkerSessionLockHolderId: () => string,
- *   deriveSessionIntegrity: (payload: unknown) => Record<string, any>,
- *   setSessionIntegrity: (integrity: Record<string, any>) => void,
- *   applySessionLockFromLoadPayload: (payload: Record<string, any>, sessionId: string) => void,
- *   formatSessionLoadSummary: (payload: Record<string, any>) => string,
+ *   deriveSessionIntegrity: (payload: unknown) => SessionIntegrityState,
+ *   setSessionIntegrity: (integrity: SessionIntegrityState) => void,
+ *   applySessionLockFromLoadPayload: (payload: WalkerSessionLoadPayload, sessionId: string) => void,
+ *   formatSessionLoadSummary: (payload: WalkerSessionLoadPayload) => string,
  *   loadSessionRunIntoPatch: (patch: string, runId: string) => void,
- *   loadWalkerSession: (args: {sessionId: string, lockHolderId: string, forceLock: boolean}) => Promise<Record<string, any>>,
- *   saveWalkerSession: (body: Record<string, any>) => Promise<Record<string, any>>,
+ *   loadWalkerSession: (args: {sessionId: string, lockHolderId: string, forceLock: boolean}) => Promise<WalkerSessionLoadPayload|WalkerApiErrorPayload>,
+ *   saveWalkerSession: (body: Record<string, any>) => Promise<WalkerSessionSavePayload|WalkerApiErrorPayload>,
  *   refreshSessionList: (opts?: Record<string, any>) => Promise<void>,
  *   refreshWalkerStatsMicroState: () => Promise<void>,
- *   setSessionLockSignal: (lockState: Record<string, any>) => void,
- *   getSessionLockState: () => Record<string, any>,
- *   releaseSessionLock: (sessionId: string) => Promise<Record<string, any>>,
+ *   setSessionLockSignal: (lockState: SessionLockState) => void,
+ *   getSessionLockState: () => SessionLockState,
+ *   releaseSessionLock: (sessionId: string) => Promise<SessionLockStatusResponse>,
  *   stopSessionLockHeartbeat: () => void,
- *   getSessionEntry: (sessionId: string) => Record<string, any> | null
+ *   getSessionEntry: (sessionId: string) => WalkerSessionListEntry | null
  * }} deps - Action dependencies.
  * @returns {void}
  */
@@ -61,6 +69,7 @@ export function initSessionActions(deps) {
     });
   };
 
+  /** @param {WalkerSessionLoadPayload} payload @param {string} sessionId */
   const applySessionLoadPayload = (payload, sessionId) => {
     deps.setSessionIntegrity(deps.deriveSessionIntegrity(payload));
     deps.applySessionLockFromLoadPayload(payload, payload.session_id || sessionId);

@@ -49,11 +49,17 @@ import {
   setSessionLockHeartbeatTimer,
 } from './corpus-state.js';
 
-/** @type {{
- *   state: Record<string, any>,
- *   setStatus: (msg: string) => void,
- *   updateReachValues: (patch: string, reaches: Record<string, any>) => void
- * } | null} */
+/** @typedef {import('./corpus-contracts.js').WalkerApiErrorPayload} WalkerApiErrorPayload */
+/** @typedef {import('./corpus-contracts.js').SessionLockState} SessionLockState */
+/** @typedef {import('./corpus-contracts.js').SessionLockStatusResponse} SessionLockStatusResponse */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionLoadPayload} WalkerSessionLoadPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionListEntry} WalkerSessionListEntry */
+/** @typedef {import('./corpus-contracts.js').WalkerSessionsPayload} WalkerSessionsPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerPatchStats} WalkerPatchStats */
+/** @typedef {import('./corpus-contracts.js').WalkerStatsPayload} WalkerStatsPayload */
+/** @typedef {import('./corpus-contracts.js').WalkerCorpusContext} WalkerCorpusContext */
+
+/** @type {WalkerCorpusContext | null} */
 let _ctx = null;
 
 const SESSION_LOCK_HOLDER_STORAGE_KEY = 'pipeworks.walker.lock_holder_id';
@@ -98,7 +104,7 @@ function getRunId(run) {
 /**
  * Build a compact label for session dropdown options.
  *
- * @param {Record<string, any>} entry - One session list entry from API.
+ * @param {WalkerSessionListEntry} entry - One session list entry from API.
  * @returns {string}
  */
 function formatSessionOptionLabel(entry) {
@@ -218,7 +224,7 @@ function startSessionLockHeartbeat(sessionId) {
  * Release one session lock owned by this tab.
  *
  * @param {string} sessionId - Session id to release.
- * @returns {Promise<Record<string, any>>}
+ * @returns {Promise<SessionLockStatusResponse>}
  */
 async function releaseSessionLock(sessionId) {
   const holderId = getWalkerSessionLockHolderId();
@@ -235,7 +241,7 @@ async function releaseSessionLock(sessionId) {
 /**
  * Update lock signal + heartbeat from one load-session payload.
  *
- * @param {Record<string, any>} payload - Load-session response payload.
+ * @param {WalkerSessionLoadPayload} payload - Load-session response payload.
  * @param {string} sessionId - Requested/loaded session id.
  * @returns {void}
  */
@@ -290,6 +296,7 @@ async function refreshSessionList(opts = {}) {
   if (repairBtn) repairBtn.disabled = true;
   if (takeoverBtn) takeoverBtn.disabled = true;
 
+  /** @type {WalkerSessionsPayload|WalkerApiErrorPayload|null} */
   let payload = null;
   try {
     payload = await listWalkerSessions();
@@ -342,11 +349,48 @@ async function refreshSessionList(opts = {}) {
 }
 
 /**
+ * Apply one patch stats block to corpus hash/verification/rebuild UI state.
+ *
+ * Centralizing this mapping keeps ``refreshWalkerStatsMicroState`` and
+ * ``pollWalkerReady`` aligned to the same API-to-UI contract.
+ *
+ * @param {'a'|'b'|string} patch - Patch key.
+ * @param {WalkerPatchStats} info - Patch stats block from API.
+ * @returns {void}
+ */
+function syncPatchStatsMicroState(patch, info) {
+  setCorpusHashes(
+    patch,
+    info.manifest_ipc_input_hash,
+    info.manifest_ipc_output_hash,
+    info.reach_cache_ipc_input_hash,
+    info.reach_cache_ipc_output_hash
+  );
+  setCorpusHashVerification(
+    patch,
+    info.manifest_ipc_verification_status,
+    info.manifest_ipc_verification_reason,
+    info.reach_cache_ipc_verification_status,
+    info.reach_cache_ipc_verification_reason
+  );
+  setRebuildStatus(
+    patch,
+    {
+      state: rebuildStateFromVerification(info.reach_cache_ipc_verification_status),
+      reason: info.reach_cache_ipc_verification_reason,
+      inputHash: info.reach_cache_ipc_input_hash,
+      outputHash: info.reach_cache_ipc_output_hash,
+    }
+  );
+}
+
+/**
  * Request fresh walker stats and sync hash/compare micro-state.
  *
  * @returns {Promise<void>}
  */
 async function refreshWalkerStatsMicroState() {
+  /** @type {WalkerStatsPayload|WalkerApiErrorPayload|undefined} */
   let stats;
   try {
     stats = await getWalkerStats();
@@ -354,31 +398,10 @@ async function refreshWalkerStatsMicroState() {
     return;
   }
   ['a', 'b'].forEach(patch => {
+    /** @type {WalkerPatchStats|null} */
     const info = stats ? stats[`patch_${patch}`] : null;
     if (!info) return;
-    setCorpusHashes(
-      patch,
-      info.manifest_ipc_input_hash,
-      info.manifest_ipc_output_hash,
-      info.reach_cache_ipc_input_hash,
-      info.reach_cache_ipc_output_hash
-    );
-    setCorpusHashVerification(
-      patch,
-      info.manifest_ipc_verification_status,
-      info.manifest_ipc_verification_reason,
-      info.reach_cache_ipc_verification_status,
-      info.reach_cache_ipc_verification_reason
-    );
-    setRebuildStatus(
-      patch,
-      {
-        state: rebuildStateFromVerification(info.reach_cache_ipc_verification_status),
-        reason: info.reach_cache_ipc_verification_reason,
-        inputHash: info.reach_cache_ipc_input_hash,
-        outputHash: info.reach_cache_ipc_output_hash,
-      }
-    );
+    syncPatchStatsMicroState(patch, info);
     if (info.reaches) {
       _ctx.updateReachValues(patch, info.reaches);
     }
@@ -389,11 +412,7 @@ async function refreshWalkerStatsMicroState() {
 /**
  * Initialise corpus dropdown selectors and load initial run options.
  *
- * @param {{
- *   state: Record<string, any>,
- *   setStatus: (msg: string) => void,
- *   updateReachValues: (patch: string, reaches: Record<string, any>) => void
- * }} ctx - Shared state and reach-update callback.
+ * @param {WalkerCorpusContext} ctx - Shared state and reach-update callback.
  * @returns {void}
  */
 export function initCorpus(ctx) {
@@ -686,29 +705,7 @@ function pollWalkerReady(patch) {
         const info = data[patchKey];
         if (!info) return;
         setPatchComparison(data.patch_comparison);
-        setCorpusHashes(
-          patch,
-          info.manifest_ipc_input_hash,
-          info.manifest_ipc_output_hash,
-          info.reach_cache_ipc_input_hash,
-          info.reach_cache_ipc_output_hash
-        );
-        setCorpusHashVerification(
-          patch,
-          info.manifest_ipc_verification_status,
-          info.manifest_ipc_verification_reason,
-          info.reach_cache_ipc_verification_status,
-          info.reach_cache_ipc_verification_reason
-        );
-        setRebuildStatus(
-          patch,
-          {
-            state: rebuildStateFromVerification(info.reach_cache_ipc_verification_status),
-            reason: info.reach_cache_ipc_verification_reason,
-            inputHash: info.reach_cache_ipc_input_hash,
-            outputHash: info.reach_cache_ipc_output_hash,
-          }
-        );
+        syncPatchStatsMicroState(patch, info);
 
         if (info.loader_status === 'error' || info.loading_error) {
           const activePoller = getWalkerReadyPoller(patch);
