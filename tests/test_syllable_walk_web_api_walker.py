@@ -28,6 +28,7 @@ from build_tools.syllable_walk_web.api.walker import (
     handle_load_session,
     handle_package,
     handle_reach_syllables,
+    handle_rebuild_reach_cache,
     handle_save_session,
     handle_select,
     handle_sessions,
@@ -1270,6 +1271,111 @@ class TestSessionEndpoints:
         assert result["patch_a"]["loaded"] is True
         assert result["patch_b"]["loaded"] is True
         assert mock_load_corpus.call_count == 2
+
+
+# ============================================================
+# handle_rebuild_reach_cache
+# ============================================================
+
+
+class TestHandleRebuildReachCache:
+    """Test POST /api/walker/rebuild-reach-cache handler."""
+
+    def test_error_when_patch_invalid(self, loaded_state):
+        """Invalid patch values should return an error."""
+
+        result = handle_rebuild_reach_cache({"patch": "x"}, loaded_state)
+        assert "error" in result
+
+    def test_error_when_walker_not_ready(self, state):
+        """Rebuild requires a loaded walker."""
+
+        result = handle_rebuild_reach_cache({"patch": "a"}, state)
+        assert "error" in result
+        assert "Walker not ready" in result["error"]
+
+    def test_error_when_run_id_mismatches_loaded_patch(self, loaded_state):
+        """Explicit run_id must match current patch context when provided."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        result = handle_rebuild_reach_cache({"patch": "a", "run_id": "run_b"}, loaded_state)
+        assert "error" in result
+        assert "run_id mismatch" in result["error"]
+
+    def test_success_rebuilds_reach_cache(self, loaded_state):
+        """Rebuild should recompute reaches and refresh IPC hash fields."""
+
+        loaded_state.patch_a.run_id = "run_a"
+        loaded_state.patch_a.corpus_dir = Path("/tmp/run_a")
+        loaded_state.patch_a.walker = MagicMock()
+        loaded_state.patch_a.walker_ready = True
+
+        mock_reaches = {
+            "clerical": ReachResult(
+                profile_name="clerical",
+                reach=10,
+                total=100,
+                threshold=0.001,
+                max_flips=1,
+                temperature=0.3,
+                frequency_weight=1.0,
+                computation_ms=5.0,
+            ),
+            "dialect": ReachResult(
+                profile_name="dialect",
+                reach=20,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=0.7,
+                frequency_weight=0.0,
+                computation_ms=6.0,
+            ),
+            "goblin": ReachResult(
+                profile_name="goblin",
+                reach=30,
+                total=100,
+                threshold=0.001,
+                max_flips=2,
+                temperature=1.0,
+                frequency_weight=0.5,
+                computation_ms=7.0,
+            ),
+            "ritual": ReachResult(
+                profile_name="ritual",
+                reach=40,
+                total=100,
+                threshold=0.001,
+                max_flips=3,
+                temperature=2.5,
+                frequency_weight=-1.0,
+                computation_ms=8.0,
+            ),
+        }
+
+        with (
+            patch(
+                "build_tools.syllable_walk.reach.compute_all_reaches",
+                return_value=mock_reaches,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.write_cached_profile_reaches",
+                return_value=True,
+            ),
+            patch(
+                "build_tools.syllable_walk_web.services.profile_reaches_cache.read_cached_profile_reach_hashes",
+                return_value=("a" * 64, "b" * 64),
+            ),
+        ):
+            result = handle_rebuild_reach_cache({"patch": "a"}, loaded_state)
+
+        assert "error" not in result
+        assert result["status"] == "rebuilt"
+        assert result["verification_status"] == "verified"
+        assert loaded_state.patch_a.reach_cache_ipc_input_hash == "a" * 64
+        assert loaded_state.patch_a.reach_cache_ipc_output_hash == "b" * 64
+        assert loaded_state.patch_a.profile_reaches == mock_reaches
 
 
 # ============================================================

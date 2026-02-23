@@ -790,6 +790,76 @@ def handle_load_session(body: dict[str, Any], state: ServerState) -> dict[str, A
     }
 
 
+def handle_rebuild_reach_cache(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
+    """Handle POST /api/walker/rebuild-reach-cache.
+
+    Recomputes profile reach tables for one loaded patch and rewrites the
+    run-local IPC cache artifact.
+    """
+
+    resolved = _resolve_patch_state(body, state)
+    if resolved is None:
+        return {"error": "Invalid patch. Must be 'a' or 'b'."}
+    patch_key, patch = resolved
+
+    requested_run_id = body.get("run_id")
+    if requested_run_id is not None and (
+        not isinstance(requested_run_id, str) or not requested_run_id.strip()
+    ):
+        return {"error": "run_id must be a non-empty string when provided."}
+    if isinstance(requested_run_id, str) and patch.run_id and requested_run_id != patch.run_id:
+        return {"error": f"run_id mismatch for patch {patch_key.upper()}."}
+
+    if not patch.walker_ready or patch.walker is None:
+        return {"error": f"Walker not ready for patch {patch_key.upper()}. Load a corpus first."}
+    if not isinstance(patch.corpus_dir, Path):
+        return {"error": f"Run directory missing for patch {patch_key.upper()}."}
+    if not isinstance(patch.run_id, str) or not patch.run_id.strip():
+        return {"error": f"run_id missing for patch {patch_key.upper()}."}
+
+    from build_tools.syllable_walk.reach import compute_all_reaches
+    from build_tools.syllable_walk_web.services.profile_reaches_cache import (
+        read_cached_profile_reach_hashes,
+        write_cached_profile_reaches,
+    )
+
+    try:
+        profile_reaches = compute_all_reaches(patch.walker)
+    except Exception as e:
+        return {"error": f"Failed to compute profile reaches: {e}"}
+
+    wrote = write_cached_profile_reaches(
+        run_dir=patch.corpus_dir,
+        run_id=patch.run_id,
+        walker=patch.walker,
+        profile_reaches=profile_reaches,
+    )
+    if not wrote:
+        return {"error": "Failed to write reach cache artifact."}
+
+    cache_input_hash, cache_output_hash = read_cached_profile_reach_hashes(patch.corpus_dir)
+    patch.profile_reaches = profile_reaches
+    patch.reach_cache_status = "hit"
+    patch.reach_cache_ipc_input_hash = cache_input_hash
+    patch.reach_cache_ipc_output_hash = cache_output_hash
+    if _is_sha256_hex(cache_input_hash) and _is_sha256_hex(cache_output_hash):
+        patch.reach_cache_ipc_verification_status = "verified"
+        patch.reach_cache_ipc_verification_reason = "cache-rebuilt"
+    else:
+        patch.reach_cache_ipc_verification_status = "error"
+        patch.reach_cache_ipc_verification_reason = "cache-rebuilt-hashes-missing"
+
+    return {
+        "patch": patch_key,
+        "run_id": patch.run_id,
+        "status": "rebuilt",
+        "ipc_input_hash": patch.reach_cache_ipc_input_hash,
+        "ipc_output_hash": patch.reach_cache_ipc_output_hash,
+        "verification_status": patch.reach_cache_ipc_verification_status,
+        "verification_reason": patch.reach_cache_ipc_verification_reason,
+    }
+
+
 def handle_reach_syllables(body: dict[str, Any], state: ServerState) -> dict[str, Any]:
     """Handle POST /api/walker/reach-syllables.
 

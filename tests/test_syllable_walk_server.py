@@ -347,6 +347,14 @@ class TestRoutePost:
         handler._route_post("/api/walker/load-session")
         handler.send_response.assert_called_once_with(400)
 
+    def test_walker_rebuild_reach_cache_without_loaded_walker(self, handler):
+        """Test POST /api/walker/rebuild-reach-cache returns 400 when not ready."""
+        body = json.dumps({"patch": "a"}).encode()
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler._route_post("/api/walker/rebuild-reach-cache")
+        handler.send_response.assert_called_once_with(400)
+
     def test_settings_output_base_invalid(self, handler):
         """Test POST /api/settings/output-base with nonexistent dir returns 400."""
         body = json.dumps({"path": "/nonexistent/path"}).encode()

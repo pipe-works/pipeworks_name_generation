@@ -210,6 +210,7 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
             handle_load_session,
             handle_package,
             handle_reach_syllables,
+            handle_rebuild_reach_cache,
             handle_save_session,
             handle_select,
             handle_walk,
@@ -326,6 +327,15 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
                 self._send_error(400, "Invalid JSON")
                 return
             result = handle_reach_syllables(body, self.state)
+            status = 400 if "error" in result else 200
+            self._send_json(result, status=status)
+            return
+        if path == "/api/walker/rebuild-reach-cache":
+            body = self._read_json_body()
+            if body is None:
+                self._send_error(400, "Invalid JSON")
+                return
+            result = handle_rebuild_reach_cache(body, self.state)
             status = 400 if "error" in result else 200
             self._send_json(result, status=status)
             return
