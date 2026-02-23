@@ -363,3 +363,319 @@ def test_list_sessions_ignores_non_json_and_invalid_objects(tmp_path: Path) -> N
 
     entries = walker_session_store.list_sessions(output_base=output_base)
     assert entries == []
+
+
+def test_read_json_object_and_coerce_patch_ref_guard_paths(tmp_path: Path) -> None:
+    """Low-level helpers should reject malformed JSON and malformed patch refs."""
+
+    path = tmp_path / "not_object.json"
+    path.write_text(json.dumps(["not", "object"]), encoding="utf-8")
+    assert walker_session_store._read_json_object(path) is None
+
+    assert walker_session_store._coerce_patch_ref(raw="bad", expected_patch="a") is None
+
+    base = {
+        "patch": "a",
+        "run_id": "20260222_155258_nltk",
+        "manifest_ipc_output_hash": "a" * 64,
+        "run_state_relative_path": walker_session_store.SESSION_RUN_STATE_RELATIVE_PATH,
+        "run_state_ipc_output_hash": "b" * 64,
+    }
+    bad_patch = dict(base)
+    bad_patch["patch"] = "b"
+    assert walker_session_store._coerce_patch_ref(bad_patch, expected_patch="a") is None
+
+    bad_run_id = dict(base)
+    bad_run_id["run_id"] = ""
+    assert walker_session_store._coerce_patch_ref(bad_run_id, expected_patch="a") is None
+
+    bad_relative = dict(base)
+    bad_relative["run_state_relative_path"] = "ipc/other.json"
+    assert walker_session_store._coerce_patch_ref(bad_relative, expected_patch="a") is None
+
+    bad_hashes = dict(base)
+    bad_hashes["manifest_ipc_output_hash"] = "not-a-hash"
+    assert walker_session_store._coerce_patch_ref(bad_hashes, expected_patch="a") is None
+
+
+def test_build_patch_reference_guard_paths(tmp_path: Path) -> None:
+    """Patch reference builder should expose deterministic guard reasons."""
+
+    state = ServerState(output_base=tmp_path / "output")
+
+    invalid_patch = walker_session_store._build_patch_reference(
+        patch_key="z",
+        patch_state=state.patch_a,
+    )
+    assert invalid_patch.status == "error"
+    assert invalid_patch.reason == "invalid-patch:z"
+
+    state.patch_a.run_id = "run_1"
+    state.patch_a.manifest_ipc_output_hash = "a" * 64
+    run_dir_missing = walker_session_store._build_patch_reference(
+        patch_key="a",
+        patch_state=state.patch_a,
+    )
+    assert run_dir_missing.status == "skipped"
+    assert run_dir_missing.reason == "patch-a-run-dir-missing"
+
+    state.patch_a.corpus_dir = state.output_base / "run_1"
+    state.patch_a.corpus_dir.mkdir(parents=True, exist_ok=True)
+    state.patch_a.manifest_ipc_output_hash = "bad"
+    manifest_missing = walker_session_store._build_patch_reference(
+        patch_key="a",
+        patch_state=state.patch_a,
+    )
+    assert manifest_missing.status == "skipped"
+    assert manifest_missing.reason == "patch-a-manifest-hash-missing"
+
+    state.patch_a.manifest_ipc_output_hash = "a" * 64
+    with patch.object(
+        walker_session_store,
+        "verify_run_state",
+        return_value=walker_run_state_store.RunStateVerificationResult(
+            status="missing",
+            reason="run-state-missing",
+            run_state_path=state.patch_a.corpus_dir
+            / "ipc"
+            / walker_run_state_store.RUN_STATE_FILENAME,
+            run_state_ipc_input_hash=None,
+            run_state_ipc_output_hash=None,
+        ),
+    ):
+        run_state_missing = walker_session_store._build_patch_reference(
+            patch_key="a",
+            patch_state=state.patch_a,
+        )
+    assert run_state_missing.status == "missing"
+    assert run_state_missing.reason == "patch-a-run-state-run-state-missing"
+
+    with patch.object(
+        walker_session_store,
+        "verify_run_state",
+        return_value=walker_run_state_store.RunStateVerificationResult(
+            status="verified",
+            reason="verified",
+            run_state_path=state.patch_a.corpus_dir
+            / "ipc"
+            / walker_run_state_store.RUN_STATE_FILENAME,
+            run_state_ipc_input_hash="c" * 64,
+            run_state_ipc_output_hash=None,
+        ),
+    ):
+        output_hash_missing = walker_session_store._build_patch_reference(
+            patch_key="a",
+            patch_state=state.patch_a,
+        )
+    assert output_hash_missing.status == "mismatch"
+    assert output_hash_missing.reason == "patch-a-run-state-output-hash-missing"
+
+
+def test_verify_session_rejects_schema_and_session_id(tmp_path: Path) -> None:
+    """Verifier should reject schema drift and missing session identifiers."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    saved = walker_session_store.save_session(state=state, session_id="session_schema")
+    assert saved.session_path is not None
+
+    payload = json.loads(saved.session_path.read_text(encoding="utf-8"))
+    payload["schema_version"] = 99
+    saved.session_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    schema_mismatch = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert schema_mismatch.status == "mismatch"
+    assert schema_mismatch.reason == "session-schema-version-mismatch"
+
+    payload["schema_version"] = walker_session_store.SESSION_SCHEMA_VERSION
+    payload["session_id"] = ""
+    saved.session_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    session_id_missing = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert session_id_missing.status == "mismatch"
+    assert session_id_missing.reason == "session-id-missing"
+
+
+def test_verify_session_rejects_patch_b_and_ipc_shape_variants(tmp_path: Path) -> None:
+    """Verifier should reject malformed patch-b refs and malformed IPC blocks."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    saved = walker_session_store.save_session(state=state, session_id="session_shapes")
+    assert saved.session_path is not None
+
+    payload = json.loads(saved.session_path.read_text(encoding="utf-8"))
+
+    payload_patch_b = dict(payload)
+    payload_patch_b["patch_b"] = {"patch": "b"}
+    saved.session_path.write_text(json.dumps(payload_patch_b, indent=2), encoding="utf-8")
+    patch_b_invalid = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert patch_b_invalid.status == "mismatch"
+    assert patch_b_invalid.reason == "session-patch-b-invalid"
+
+    payload_ipc_missing = dict(payload)
+    payload_ipc_missing["ipc"] = None
+    saved.session_path.write_text(json.dumps(payload_ipc_missing, indent=2), encoding="utf-8")
+    ipc_missing = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert ipc_missing.status == "mismatch"
+    assert ipc_missing.reason == "session-ipc-block-missing"
+
+    payload_hash_invalid = dict(payload)
+    payload_hash_invalid["ipc"] = dict(payload["ipc"])
+    payload_hash_invalid["ipc"]["input_hash"] = "bad"
+    saved.session_path.write_text(json.dumps(payload_hash_invalid, indent=2), encoding="utf-8")
+    hash_invalid = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert hash_invalid.status == "mismatch"
+    assert hash_invalid.reason == "session-ipc-hash-invalid"
+
+    payload_block_invalid = dict(payload)
+    payload_block_invalid["ipc"] = dict(payload["ipc"])
+    payload_block_invalid["ipc"]["input_payload"] = ["bad"]
+    saved.session_path.write_text(json.dumps(payload_block_invalid, indent=2), encoding="utf-8")
+    block_invalid = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert block_invalid.status == "mismatch"
+    assert block_invalid.reason == "session-ipc-payload-invalid"
+
+
+def test_verify_session_rejects_input_output_payload_drift(tmp_path: Path) -> None:
+    """Verifier should reject IPC payload drift before hash comparisons."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    saved = walker_session_store.save_session(state=state, session_id="session_payload_drift")
+    assert saved.session_path is not None
+
+    payload = json.loads(saved.session_path.read_text(encoding="utf-8"))
+
+    payload_input = dict(payload)
+    payload_input["ipc"] = dict(payload["ipc"])
+    payload_input["ipc"]["input_payload"] = dict(payload["ipc"]["input_payload"])
+    payload_input["ipc"]["input_payload"]["session_id"] = "different"
+    saved.session_path.write_text(json.dumps(payload_input, indent=2), encoding="utf-8")
+    input_payload_mismatch = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert input_payload_mismatch.status == "mismatch"
+    assert input_payload_mismatch.reason == "session-ipc-input-payload-mismatch"
+
+    payload_output = dict(payload)
+    payload_output["ipc"] = dict(payload["ipc"])
+    payload_output["ipc"]["output_payload"] = dict(payload["ipc"]["output_payload"])
+    payload_output["ipc"]["output_payload"]["patch_a"] = None
+    saved.session_path.write_text(json.dumps(payload_output, indent=2), encoding="utf-8")
+    output_payload_mismatch = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert output_payload_mismatch.status == "mismatch"
+    assert output_payload_mismatch.reason == "session-ipc-output-payload-mismatch"
+
+
+def test_verify_session_detects_linked_run_state_missing(tmp_path: Path) -> None:
+    """Verifier should propagate linked run-state verification failures."""
+
+    output_base = tmp_path / "output"
+    state = _prepare_patch_with_run_state(
+        output_base=output_base,
+        patch_key="a",
+        run_id="20260222_155258_nltk",
+        manifest_hash="a" * 64,
+        reach_hash="b" * 64,
+        walk_label="ka·ri",
+    )
+    saved = walker_session_store.save_session(state=state, session_id="session_missing_run_state")
+    assert saved.session_path is not None
+
+    run_state_path = (
+        output_base / "20260222_155258_nltk" / "ipc" / walker_run_state_store.RUN_STATE_FILENAME
+    )
+    run_state_path.unlink()
+
+    verification = walker_session_store.verify_session(
+        session_path=saved.session_path,
+        output_base=output_base,
+    )
+    assert verification.status == "missing"
+    assert verification.reason == "session-a-run-state-run-state-missing"
+
+
+def test_load_session_handles_post_verify_parse_error(tmp_path: Path) -> None:
+    """Load should return parse error when payload cannot be read after verify."""
+
+    output_base = tmp_path / "output"
+    sessions_base = tmp_path / "sessions"
+    sessions_base.mkdir(parents=True, exist_ok=True)
+    session_path = sessions_base / "session_parse_error.json"
+    session_path.write_text("{bad", encoding="utf-8")
+
+    with patch.object(
+        walker_session_store,
+        "verify_session",
+        return_value=walker_session_store.SessionVerificationResult(
+            status="verified",
+            reason="verified",
+            session_path=session_path,
+            session_id="session_parse_error",
+            ipc_input_hash="a" * 64,
+            ipc_output_hash="b" * 64,
+        ),
+    ):
+        loaded = walker_session_store.load_session(
+            session_id="session_parse_error",
+            output_base=output_base,
+            configured_sessions_base=sessions_base,
+        )
+
+    assert loaded.status == "error"
+    assert loaded.reason == "session-parse-error"
+    assert loaded.payload is None
+
+
+def test_list_sessions_returns_empty_when_sessions_base_absent(tmp_path: Path) -> None:
+    """List should return empty results when sessions base path does not exist."""
+
+    output_base = tmp_path / "output"
+    configured_sessions_base = tmp_path / "missing_sessions"
+    entries = walker_session_store.list_sessions(
+        output_base=output_base,
+        configured_sessions_base=configured_sessions_base,
+    )
+    assert entries == []
