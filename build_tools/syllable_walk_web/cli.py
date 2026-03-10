@@ -138,7 +138,8 @@ Examples::
         default=None,
         help=(
             "Port to serve on. If not specified, automatically finds an "
-            "available port starting from 8000. Default: auto-detect"
+            "available port (checks 8000-8099 first, then 8100-8999). "
+            "Default: auto-detect"
         ),
     )
 

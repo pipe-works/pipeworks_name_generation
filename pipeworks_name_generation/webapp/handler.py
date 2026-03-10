@@ -12,6 +12,7 @@ Route-specific behavior lives in ``endpoint_adapters.py`` and ``routes/*``.
 
 from __future__ import annotations
 
+import sys
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
     favorites_db_path: Path = Path("pipeworks_name_generation/data/user_favorites.sqlite3")
     db_export_path: Path | None = None
     db_backup_path: Path | None = None
+    service_log_label: str = "name-gen-web"
     schema_ready: bool = False
     schema_initialized_paths: set[str] = set()
     favorites_schema_ready: bool = False
@@ -76,7 +78,11 @@ class WebAppHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         """Emit request logs only when verbose mode is enabled."""
         if self.verbose:
-            super().log_message(format, *args)
+            message = format % args
+            sys.stderr.write(
+                f"{self.service_log_label} INFO: {self.address_string()} - "
+                f"[{self.log_date_time_string()}] {message}\n"
+            )
 
     def _send_text(self, content: str, status: int = 200, content_type: str = "text/plain") -> None:
         """Send a UTF-8 text response."""
