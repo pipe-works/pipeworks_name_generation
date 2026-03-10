@@ -1440,6 +1440,12 @@ def test_port_discovery_and_resolution_paths(monkeypatch: pytest.MonkeyPatch) ->
         def setsockopt(self, *args: Any) -> None:
             return None
 
+        def settimeout(self, *_args: Any) -> None:
+            return None
+
+        def connect_ex(self, *_args: Any) -> int:
+            return 1
+
         def bind(self, *args: Any) -> None:
             return None
 
@@ -1463,9 +1469,10 @@ def test_port_discovery_and_resolution_paths(monkeypatch: pytest.MonkeyPatch) ->
     )
     assert find_available_port(host="127.0.0.1", start=8000, end=8001) == 8001
     assert resolve_server_port("127.0.0.1", 8001) == 8001
+    assert resolve_server_port("127.0.0.1", 8000) == 8001
 
-    with pytest.raises(OSError, match="already in use"):
-        resolve_server_port("127.0.0.1", 8000)
+    with pytest.raises(OSError, match="Configured port 9500 is already in use."):
+        resolve_server_port("127.0.0.1", 9500)
 
     with pytest.raises(OSError, match="No free ports"):
         find_available_port(host="127.0.0.1", start=8100, end=8101)

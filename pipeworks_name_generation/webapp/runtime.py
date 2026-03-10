@@ -27,9 +27,20 @@ def port_is_available(
     *,
     socket_factory: Callable[..., Any] = socket.socket,
 ) -> bool:
-    """Return ``True`` when a host/port can be bound by this process."""
+    """Return ``True`` when a host/port has no active listener and can bind."""
+    # First, treat an active listener as unavailable even if the OS allows
+    # additional binds under permissive socket reuse semantics.
+    with socket_factory(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        try:
+            probe.settimeout(0.05)
+            if probe.connect_ex((host, port)) == 0:
+                return False
+        except OSError:
+            # Connection probes can fail on some interfaces/firewalls; fall back
+            # to bind checks below.
+            pass
+
     with socket_factory(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind((host, port))
         except OSError:
@@ -95,13 +106,24 @@ def resolve_server_port(
         Concrete port to bind.
 
     Raises:
-        OSError: If a configured port is unavailable or no auto port is free.
+        OSError: If no usable port can be resolved.
     """
     finder = find_port or (lambda h, s, e: find_available_port(h, s, e, is_available=is_available))
     if configured_port is not None:
-        if not is_available(host, configured_port):
-            raise OSError(f"Configured port {configured_port} is already in use.")
-        return configured_port
+        if is_available(host, configured_port):
+            return configured_port
+        # For 8000-range local development workflows, treat configured ports in
+        # the auto-managed range as a preferred hint and fall back automatically.
+        if AUTO_PORT_PRIMARY_START <= configured_port <= AUTO_PORT_FALLBACK_END:
+            return find_preferred_auto_port(
+                host,
+                primary_start=AUTO_PORT_PRIMARY_START,
+                primary_end=AUTO_PORT_PRIMARY_END,
+                fallback_start=AUTO_PORT_FALLBACK_START,
+                fallback_end=AUTO_PORT_FALLBACK_END,
+                find_in_range=finder,
+            )
+        raise OSError(f"Configured port {configured_port} is already in use.")
     return find_preferred_auto_port(
         host,
         primary_start=AUTO_PORT_PRIMARY_START,
@@ -191,6 +213,11 @@ def run_server(
     server, port = start_server(settings)
 
     if settings.verbose:
+        if settings.port is not None and settings.port != port:
+            printer(
+                f"{SERVICE_LOG_LABEL} INFO: Configured port {settings.port} unavailable; "
+                f"using auto-selected port {port} (prefers 8000-8099)."
+            )
         label = "UI" if settings.serve_ui else "API"
         printer(
             f"{SERVICE_LOG_LABEL} INFO: Serving Pipeworks Name Generator {label} "

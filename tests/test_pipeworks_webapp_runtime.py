@@ -10,6 +10,7 @@ from pipeworks_name_generation.webapp.config import ServerSettings
 from pipeworks_name_generation.webapp.runtime import (
     create_bound_handler_class,
     find_preferred_auto_port,
+    resolve_server_port,
     run_server,
     start_http_server,
 )
@@ -156,3 +157,40 @@ def test_find_preferred_auto_port_falls_back_after_primary_exhausted() -> None:
 
     assert selected == 8123
     assert calls == [(8000, 8099), (8100, 8999)]
+
+
+def test_resolve_server_port_falls_back_when_configured_8000_port_is_busy() -> None:
+    """Configured 8000-range ports should fallback to another free auto port."""
+    availability = {8000: False, 8001: True}
+
+    def fake_is_available(_host: str, port: int) -> bool:
+        return availability.get(port, False)
+
+    def fake_find_port(host: str, start: int, end: int) -> int:
+        for candidate in range(start, end + 1):
+            if fake_is_available(host, candidate):
+                return candidate
+        raise OSError(f"No free ports available in range {start}-{end}.")
+
+    selected = resolve_server_port(
+        "127.0.0.1",
+        8000,
+        is_available=fake_is_available,
+        find_port=fake_find_port,
+    )
+
+    assert selected == 8001
+
+
+def test_resolve_server_port_raises_for_busy_out_of_range_configured_port() -> None:
+    """Configured ports outside auto range should still fail when unavailable."""
+
+    def fake_is_available(_host: str, _port: int) -> bool:
+        return False
+
+    try:
+        resolve_server_port("127.0.0.1", 9500, is_available=fake_is_available)
+    except OSError as exc:
+        assert "Configured port 9500 is already in use." in str(exc)
+    else:
+        raise AssertionError("Expected OSError for unavailable out-of-range configured port.")

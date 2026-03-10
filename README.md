@@ -94,15 +94,25 @@ names from imported data.
 # Copy the example config and adjust as needed
 cp server.example.ini server.ini
 
-# Start the web app (checks 8000-8099 first, then 8100-8999 unless configured)
-python -m pipeworks_name_generation.webapp.server --config server.ini
+# Unified launcher (recommended): Name Generator UI/API
+python -m pipeworks_name_generation.apps name-gen --config server.ini
+
+# Same unified launcher using installed console script
+pipeworks-app name-gen --config server.ini
+
+# Launch both web apps together (Name Generator + Syllable Walk)
+python -m pipeworks_name_generation.apps both --config server.ini
 
 # API-only mode (no UI/static assets)
-python -m pipeworks_name_generation.webapp.api --config server.ini
+python -m pipeworks_name_generation.apps name-gen --config server.ini --api-only
 
 # API-only mode via flag (same behavior as the dedicated entrypoint)
 python -m pipeworks_name_generation.webapp.server --config server.ini --api-only
 ```
+
+Both web apps now share the same launch pattern:
+`python -m pipeworks_name_generation.apps <app> --config server.ini`
+where `<app>` is `name-gen`, `syllable-walk`, or `both`.
 
 Open the URL printed in the console (default host `127.0.0.1`).
 
@@ -265,10 +275,10 @@ available at **[pipeworks-name-generation.readthedocs.io](https://pipeworks-name
 
 ```bash
 cp server.example.ini server.ini
-python -m pipeworks_name_generation.webapp.server --config server.ini
+python -m pipeworks_name_generation.apps name-gen --config server.ini
 
 # API-only mode (no UI/static assets)
-python -m pipeworks_name_generation.webapp.api --config server.ini
+python -m pipeworks_name_generation.apps name-gen --config server.ini --api-only
 ```
 
 ### Tests
@@ -290,9 +300,9 @@ TUI, combining both tools into a single interface.
 ### Launch
 
 ```bash
-python -m build_tools.syllable_walk_web
-python -m build_tools.syllable_walk_web --port 9000
-python -m build_tools.syllable_walk_web --output-base /path/to/corpus/output
+python -m pipeworks_name_generation.apps syllable-walk --config server.ini
+python -m pipeworks_name_generation.apps syllable-walk --config server.ini --port 9000
+python -m pipeworks_name_generation.apps syllable-walk --config server.ini --output-base /path/to/corpus/output
 ```
 
 Auto-port behavior for both web apps checks `8000-8099` first, then falls back

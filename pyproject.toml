@@ -93,6 +93,9 @@ Homepage = "https://github.com/pipe-works/pipeworks_name_generation"
 Repository = "https://github.com/pipe-works/pipeworks_name_generation"
 Issues = "https://github.com/pipe-works/pipeworks_name_generation/issues"
 
+[project.scripts]
+pipeworks-app = "pipeworks_name_generation.apps:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
