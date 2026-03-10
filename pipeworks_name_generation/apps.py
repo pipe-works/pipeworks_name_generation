@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
+import subprocess  # nosec B404 - required for local multi-process app launcher
 import sys
 import time
 from pathlib import Path
@@ -126,7 +126,7 @@ def _run_syllable_walk(argv: list[str]) -> int:
     return syllable_walk_main(argv)
 
 
-def _stop_process(process: subprocess.Popen[bytes | str]) -> None:
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
     """Terminate a subprocess and force-kill if it does not exit quickly."""
     if process.poll() is not None:
         return
@@ -153,13 +153,16 @@ def _run_both(name_gen_argv: list[str], syllable_walk_argv: list[str]) -> int:
         *syllable_walk_argv,
     ]
 
-    name_gen_proc = subprocess.Popen(name_gen_cmd)
+    name_gen_proc = subprocess.Popen(name_gen_cmd)  # nosec B603 - fixed local command list
     # Stagger process starts to avoid auto-port race conditions.
     time.sleep(0.4)
-    if name_gen_proc.poll() not in (None, 0):
-        return int(name_gen_proc.returncode or 1)
+    name_gen_start_rc = name_gen_proc.poll()
+    if name_gen_start_rc is not None and name_gen_start_rc != 0:
+        return name_gen_start_rc
 
-    syllable_walk_proc = subprocess.Popen(syllable_walk_cmd)
+    syllable_walk_proc = subprocess.Popen(
+        syllable_walk_cmd
+    )  # nosec B603 - fixed local command list
 
     try:
         while True:
@@ -168,10 +171,10 @@ def _run_both(name_gen_argv: list[str], syllable_walk_argv: list[str]) -> int:
             if name_gen_rc is not None or syllable_walk_rc is not None:
                 _stop_process(name_gen_proc)
                 _stop_process(syllable_walk_proc)
-                if name_gen_rc not in (None, 0):
-                    return int(name_gen_rc)
-                if syllable_walk_rc not in (None, 0):
-                    return int(syllable_walk_rc)
+                if name_gen_rc is not None and name_gen_rc != 0:
+                    return name_gen_rc
+                if syllable_walk_rc is not None and syllable_walk_rc != 0:
+                    return syllable_walk_rc
                 return 0
             time.sleep(0.2)
     except KeyboardInterrupt:
