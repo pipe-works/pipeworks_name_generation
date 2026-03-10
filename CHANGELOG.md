@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.1...pipeworks-name-generation-v0.7.2) (2026-03-10)
+
+
+### Fixes
+
+* **webapp:** prefix logs and prefer 8000-range auto ports ([444085d](https://github.com/pipe-works/pipeworks_name_generation/commit/444085d738d2cc5bfb8f718fe7149f08e4bb9eb2))
+* **webapp:** prefix logs and prefer 8000-range auto ports ([9e201f8](https://github.com/pipe-works/pipeworks_name_generation/commit/9e201f8eed7f092bbfce1ea904060b0c1554526c))
+
 ## [0.7.1](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.0...pipeworks-name-generation-v0.7.1) (2026-02-23)
 
 
