@@ -23,7 +23,7 @@ classifiers = [
 
 # Runtime dependencies
 dependencies = [
-    "pipeworks-ipc @ git+https://github.com/pipe-works/pipeworks_ipc.git@pipeworks-ipc-v0.1.1",
+    "pipeworks-ipc @ git+https://github.com/pipe-works/pipeworks_ipc.git@pipeworks-ipc-v0.1.2",
 ]
 
 [project.optional-dependencies]
