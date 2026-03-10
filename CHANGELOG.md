@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.3...pipeworks-name-generation-v0.8.0) (2026-03-10)
+
+
+### Features
+
+* **cli:** add combined launcher mode and improve port fallback ([c913e32](https://github.com/pipe-works/pipeworks_name_generation/commit/c913e32970b4a21793aed6e3fd4400c458e204bb))
+* **cli:** add unified launcher and dual-app mode ([6db4259](https://github.com/pipe-works/pipeworks_name_generation/commit/6db425922db0c532e7dbdf72b93081ef3cde093f))
+
+
+### Fixes
+
+* **cli:** satisfy launcher type and security checks ([070ff16](https://github.com/pipe-works/pipeworks_name_generation/commit/070ff164cdd3219cda236e748b1853b06a3a425c))
+* **webapp:** auto-fallback when configured 8000-range ports are busy ([ff0fee4](https://github.com/pipe-works/pipeworks_name_generation/commit/ff0fee4a4a19d186fd309a851bfe1c939c2b581c))
+
 ## [0.7.3](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.2...pipeworks-name-generation-v0.7.3) (2026-03-10)
 
 
