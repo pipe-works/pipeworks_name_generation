@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.2...pipeworks-name-generation-v0.7.3) (2026-03-10)
+
+
+### Fixes
+
+* **deps:** bump pipeworks-ipc pin to v0.1.2 ([6e437a6](https://github.com/pipe-works/pipeworks_name_generation/commit/6e437a64e036d3e1c2229e543e6da3b559f3f440))
+* **deps:** bump pipeworks-ipc pin to v0.1.2 ([246f8fd](https://github.com/pipe-works/pipeworks_name_generation/commit/246f8fde95bf65a3b95d2cdb8d6b24d07d343f4d))
+
 ## [0.7.2](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.1...pipeworks-name-generation-v0.7.2) (2026-03-10)
 
 
