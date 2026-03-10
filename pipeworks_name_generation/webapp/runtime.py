@@ -14,6 +14,11 @@ from typing import Any, Callable, TypeVar, cast
 from pipeworks_name_generation.webapp.config import ServerSettings
 
 HandlerT = TypeVar("HandlerT", bound=BaseHTTPRequestHandler)
+SERVICE_LOG_LABEL = "name-gen-web"
+AUTO_PORT_PRIMARY_START = 8000
+AUTO_PORT_PRIMARY_END = 8099
+AUTO_PORT_FALLBACK_START = 8100
+AUTO_PORT_FALLBACK_END = 8999
 
 
 def port_is_available(
@@ -50,6 +55,27 @@ def find_available_port(
     raise OSError(f"No free ports available in range {start}-{end}.")
 
 
+def find_preferred_auto_port(
+    host: str,
+    *,
+    primary_start: int = AUTO_PORT_PRIMARY_START,
+    primary_end: int = AUTO_PORT_PRIMARY_END,
+    fallback_start: int = AUTO_PORT_FALLBACK_START,
+    fallback_end: int = AUTO_PORT_FALLBACK_END,
+    find_in_range: Callable[[str, int, int], int] | None = None,
+) -> int:
+    """Find a free port using preferred first, fallback second ranges.
+
+    The server should check the 8000-range first for predictable local
+    development behavior, then fall back to the broader range if needed.
+    """
+    finder = find_in_range or (lambda h, s, e: find_available_port(h, s, e))
+    try:
+        return finder(host, primary_start, primary_end)
+    except OSError:
+        return finder(host, fallback_start, fallback_end)
+
+
 def resolve_server_port(
     host: str,
     configured_port: int | None,
@@ -76,7 +102,14 @@ def resolve_server_port(
         if not is_available(host, configured_port):
             raise OSError(f"Configured port {configured_port} is already in use.")
         return configured_port
-    return finder(host, 8000, 8999)
+    return find_preferred_auto_port(
+        host,
+        primary_start=AUTO_PORT_PRIMARY_START,
+        primary_end=AUTO_PORT_PRIMARY_END,
+        fallback_start=AUTO_PORT_FALLBACK_START,
+        fallback_end=AUTO_PORT_FALLBACK_END,
+        find_in_range=finder,
+    )
 
 
 def create_bound_handler_class(
@@ -159,25 +192,29 @@ def run_server(
 
     if settings.verbose:
         label = "UI" if settings.serve_ui else "API"
-        printer(f"Serving Pipeworks Name Generator {label} at http://{settings.host}:{port}")
-        printer(f"SQLite DB path: {settings.db_path}")
-        printer(f"Favorites DB path: {settings.favorites_db_path}")
+        printer(
+            f"{SERVICE_LOG_LABEL} INFO: Serving Pipeworks Name Generator {label} "
+            f"at http://{settings.host}:{port}"
+        )
+        printer(f"{SERVICE_LOG_LABEL} INFO: SQLite DB path: {settings.db_path}")
+        printer(f"{SERVICE_LOG_LABEL} INFO: Favorites DB path: {settings.favorites_db_path}")
         if settings.db_export_path is not None:
-            printer(f"DB export path: {settings.db_export_path}")
+            printer(f"{SERVICE_LOG_LABEL} INFO: DB export path: {settings.db_export_path}")
         else:
-            printer("DB export path: (not set)")
+            printer(f"{SERVICE_LOG_LABEL} INFO: DB export path: (not set)")
         if settings.db_backup_path is not None:
-            printer(f"DB backup path: {settings.db_backup_path}")
+            printer(f"{SERVICE_LOG_LABEL} INFO: DB backup path: {settings.db_backup_path}")
         else:
             printer(
-                "DB backup path: (auto) timestamped copy next to DB " f"({settings.db_path.parent})"
+                f"{SERVICE_LOG_LABEL} INFO: DB backup path: (auto) timestamped copy next to DB "
+                f"({settings.db_path.parent})"
             )
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         if settings.verbose:
-            printer("\\nStopping server...")
+            printer(f"{SERVICE_LOG_LABEL} INFO: Stopping server...")
     finally:
         server.server_close()
 
@@ -187,6 +224,7 @@ def run_server(
 __all__ = [
     "port_is_available",
     "find_available_port",
+    "find_preferred_auto_port",
     "resolve_server_port",
     "create_bound_handler_class",
     "start_http_server",

@@ -13,7 +13,6 @@ import pytest
 
 import pipeworks_name_generation.webapp.db.importer as importer_module
 import pipeworks_name_generation.webapp.endpoint_adapters as endpoint_adapters_module
-import pipeworks_name_generation.webapp.handler as handler_module
 import pipeworks_name_generation.webapp.route_registry as route_registry_module
 import pipeworks_name_generation.webapp.server as server_module
 from pipeworks_name_generation.webapp.config import ServerSettings
@@ -413,25 +412,20 @@ def test_generation_package_options_endpoint_without_imports(tmp_path: Path) -> 
     assert all(not entry["packages"] for entry in payload["name_classes"])
 
 
-def test_log_message_respects_verbose_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Handler should only delegate log messages when verbose is enabled."""
-    calls: list[tuple[str, tuple[Any, ...]]] = []
-
-    def fake_super_log_message(self: Any, fmt: str, *args: Any) -> None:
-        calls.append((fmt, args))
-
-    monkeypatch.setattr(
-        handler_module.BaseHTTPRequestHandler, "log_message", fake_super_log_message
-    )
-
+def test_log_message_respects_verbose_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    """Handler should only emit prefixed log messages when verbose is enabled."""
     handler = WebAppHandler.__new__(WebAppHandler)
+    handler.client_address = ("127.0.0.1", 9001)
     handler.verbose = False
     WebAppHandler.log_message(handler, "x%s", "1")
-    assert not calls
+    suppressed = capsys.readouterr()
+    assert suppressed.err == ""
 
     handler.verbose = True
     WebAppHandler.log_message(handler, "y%s", "2")
-    assert calls == [("y%s", ("2",))]
+    emitted = capsys.readouterr()
+    assert "name-gen-web INFO:" in emitted.err
+    assert "y2" in emitted.err
 
 
 def test_read_json_body_validation_errors(tmp_path: Path) -> None:

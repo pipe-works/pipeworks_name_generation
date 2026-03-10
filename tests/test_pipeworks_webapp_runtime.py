@@ -9,6 +9,7 @@ from typing import Any, cast
 from pipeworks_name_generation.webapp.config import ServerSettings
 from pipeworks_name_generation.webapp.runtime import (
     create_bound_handler_class,
+    find_preferred_auto_port,
     run_server,
     start_http_server,
 )
@@ -121,3 +122,37 @@ def test_run_server_prints_api_label_when_ui_disabled() -> None:
     assert result == 0
     assert runtime.closed is True
     assert any("Serving Pipeworks Name Generator API" in line for line in messages)
+
+
+def test_find_preferred_auto_port_uses_primary_range_first() -> None:
+    """Auto-port selection should return from the primary 8000-range when available."""
+    calls: list[tuple[int, int]] = []
+
+    def fake_find_in_range(_host: str, start: int, end: int) -> int:
+        calls.append((start, end))
+        if (start, end) == (8000, 8099):
+            return 8005
+        raise OSError("unexpected fallback call")
+
+    selected = find_preferred_auto_port("127.0.0.1", find_in_range=fake_find_in_range)
+
+    assert selected == 8005
+    assert calls == [(8000, 8099)]
+
+
+def test_find_preferred_auto_port_falls_back_after_primary_exhausted() -> None:
+    """Auto-port selection should check 8100-8999 only after 8000-8099 fails."""
+    calls: list[tuple[int, int]] = []
+
+    def fake_find_in_range(_host: str, start: int, end: int) -> int:
+        calls.append((start, end))
+        if (start, end) == (8000, 8099):
+            raise OSError("primary full")
+        if (start, end) == (8100, 8999):
+            return 8123
+        raise OSError("unexpected range")
+
+    selected = find_preferred_auto_port("127.0.0.1", find_in_range=fake_find_in_range)
+
+    assert selected == 8123
+    assert calls == [(8000, 8099), (8100, 8999)]

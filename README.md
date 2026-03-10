@@ -94,7 +94,7 @@ names from imported data.
 # Copy the example config and adjust as needed
 cp server.example.ini server.ini
 
-# Start the web app (port auto-selected in the 8000-8999 range unless configured)
+# Start the web app (checks 8000-8099 first, then 8100-8999 unless configured)
 python -m pipeworks_name_generation.webapp.server --config server.ini
 
 # API-only mode (no UI/static assets)
@@ -294,6 +294,9 @@ python -m build_tools.syllable_walk_web
 python -m build_tools.syllable_walk_web --port 9000
 python -m build_tools.syllable_walk_web --output-base /path/to/corpus/output
 ```
+
+Auto-port behavior for both web apps checks `8000-8099` first, then falls back
+to `8100-8999` only if needed.
 
 ### Features
 

@@ -12,7 +12,7 @@ import mimetypes
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from build_tools.syllable_walk_web.state import ServerState
@@ -24,6 +24,10 @@ mimetypes.add_type("font/woff2", ".woff2")
 # ── Paths ────────────────────────────────────────────────────────────────────
 
 STATIC_DIR = Path(__file__).parent / "static"
+AUTO_PORT_PRIMARY_START = 8000
+AUTO_PORT_PRIMARY_TRIES = 100  # 8000-8099
+AUTO_PORT_FALLBACK_START = 8100
+AUTO_PORT_FALLBACK_TRIES = 900  # 8100-8999
 
 
 # ── Request Handler ──────────────────────────────────────────────────────────
@@ -38,6 +42,7 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
 
     server_version = "PipeWorksCorpusBuilder/0.1"
     verbose: bool = True
+    service_log_label: str = "syllable-walk-web"
     state: ServerState = ServerState()
 
     # ── HTTP method dispatch ─────────────────────────────────────────────
@@ -432,7 +437,11 @@ class CorpusBuilderHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         """Override to respect verbose flag."""
         if self.verbose:
-            super().log_message(format, *args)  # type: ignore[no-any-return]
+            message = format % args
+            sys.stderr.write(
+                f"{self.service_log_label} INFO: {self.address_string()} - "
+                f"[{self.log_date_time_string()}] {message}\n"
+            )
 
 
 # ── Server lifecycle ─────────────────────────────────────────────────────────
@@ -456,6 +465,20 @@ def find_available_port(start: int = 8000, max_tries: int = 100) -> int | None:
     return None
 
 
+def select_auto_port(
+    *,
+    find_port: Callable[[int, int], int | None] = find_available_port,
+) -> int | None:
+    """Select an auto port by preferring the 8000-range first.
+
+    Checks 8000-8099 first, then falls back to 8100-8999.
+    """
+    port = find_port(AUTO_PORT_PRIMARY_START, AUTO_PORT_PRIMARY_TRIES)
+    if port is not None:
+        return port
+    return find_port(AUTO_PORT_FALLBACK_START, AUTO_PORT_FALLBACK_TRIES)
+
+
 def run_server(
     port: int | None = None,
     verbose: bool = True,
@@ -467,7 +490,7 @@ def run_server(
     """Start the HTTP server.
 
     Args:
-        port: Port to listen on. If ``None``, auto-discovers from 8000.
+        port: Port to listen on. If ``None``, checks 8000-8099 first, then 8100-8999.
         verbose: If ``True``, log HTTP requests to stderr.
         output_base: Base path for pipeline run discovery.
             Defaults to ``_working/output``.
@@ -480,9 +503,13 @@ def run_server(
         Exit code: 0 for clean shutdown, 1 for error.
     """
     if port is None:
-        port = find_available_port()
+        port = select_auto_port()
         if port is None:
-            print("Error: could not find an available port (tried 8000-8099)", file=sys.stderr)
+            print(
+                "syllable-walk-web INFO: Error: could not find an available port "
+                "(tried 8000-8999; prefers 8000-8099 first)",
+                file=sys.stderr,
+            )
             return 1
 
     # State is stored as class attributes (not instance attributes) because
@@ -508,13 +535,13 @@ def run_server(
     server = ThreadingHTTPServer(("", port), CorpusBuilderHandler)
 
     if verbose:
-        print(f"Pipe-Works Build Tools — serving on http://localhost:{port}")
-        print("Press Ctrl+C to stop.")
+        print(f"syllable-walk-web INFO: Pipe-Works Build Tools serving on http://localhost:{port}")
+        print("syllable-walk-web INFO: Press Ctrl+C to stop.")
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         if verbose:
-            print("\nShutting down.")
+            print("syllable-walk-web INFO: Shutting down.")
         server.shutdown()
     return 0

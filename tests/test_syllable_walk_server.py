@@ -20,6 +20,7 @@ from build_tools.syllable_walk_web.server import (
     CorpusBuilderHandler,
     find_available_port,
     run_server,
+    select_auto_port,
 )
 from build_tools.syllable_walk_web.state import ServerState
 
@@ -462,6 +463,14 @@ class TestLogMessage:
         captured = capsys.readouterr()
         assert captured.err == ""
 
+    def test_verbose_emits_prefixed_logs(self, handler, capsys):
+        """Test verbose=True emits service-prefixed output."""
+        handler.verbose = True
+        handler.log_message("test %s", "msg")
+        captured = capsys.readouterr()
+        assert "syllable-walk-web INFO:" in captured.err
+        assert "test msg" in captured.err
+
 
 # ============================================================
 # find_available_port
@@ -515,6 +524,43 @@ class TestFindAvailablePort:
 
 
 # ============================================================
+# select_auto_port
+# ============================================================
+
+
+class TestSelectAutoPort:
+    """Test preferred 8000-range selection with fallback behavior."""
+
+    def test_returns_from_primary_8000_range(self):
+        """Should return a primary-range port without checking fallback."""
+        calls: list[tuple[int, int]] = []
+
+        def fake_find_port(start: int, max_tries: int) -> int | None:
+            calls.append((start, max_tries))
+            if start == 8000:
+                return 8004
+            return 8120
+
+        assert select_auto_port(find_port=fake_find_port) == 8004
+        assert calls == [(8000, 100)]
+
+    def test_uses_fallback_when_primary_exhausted(self):
+        """Should check 8100-8999 only after 8000-8099 has no free ports."""
+        calls: list[tuple[int, int]] = []
+
+        def fake_find_port(start: int, max_tries: int) -> int | None:
+            calls.append((start, max_tries))
+            if start == 8000:
+                return None
+            if start == 8100:
+                return 8120
+            return None
+
+        assert select_auto_port(find_port=fake_find_port) == 8120
+        assert calls == [(8000, 100), (8100, 900)]
+
+
+# ============================================================
 # run_server
 # ============================================================
 
@@ -525,7 +571,7 @@ class TestRunServer:
     def test_returns_1_when_no_port(self):
         """Test returns exit code 1 when no port available."""
         with patch(
-            "build_tools.syllable_walk_web.server.find_available_port",
+            "build_tools.syllable_walk_web.server.select_auto_port",
             return_value=None,
         ):
             code = run_server(port=None, verbose=False)
