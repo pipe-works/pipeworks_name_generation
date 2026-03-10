@@ -465,6 +465,18 @@ def find_available_port(start: int = 8000, max_tries: int = 100) -> int | None:
     return None
 
 
+def is_port_available(port: int) -> bool:
+    """Return ``True`` when a specific TCP port can be bound."""
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", port))
+            return True
+    except OSError:
+        return False
+
+
 def select_auto_port(
     *,
     find_port: Callable[[int, int], int | None] = find_available_port,
@@ -508,6 +520,29 @@ def run_server(
             print(
                 "syllable-walk-web INFO: Error: could not find an available port "
                 "(tried 8000-8999; prefers 8000-8099 first)",
+                file=sys.stderr,
+            )
+            return 1
+    elif not is_port_available(port):
+        if AUTO_PORT_PRIMARY_START <= port < (AUTO_PORT_FALLBACK_START + AUTO_PORT_FALLBACK_TRIES):
+            configured_port = port
+            port = select_auto_port()
+            if port is None:
+                print(
+                    "syllable-walk-web INFO: Error: configured port unavailable and no "
+                    "fallback port found (tried 8000-8999; prefers 8000-8099 first)",
+                    file=sys.stderr,
+                )
+                return 1
+            if verbose:
+                print(
+                    "syllable-walk-web INFO: "
+                    f"Configured port {configured_port} unavailable; using auto-selected "
+                    f"port {port} (prefers 8000-8099)."
+                )
+        else:
+            print(
+                f"syllable-walk-web INFO: Error: configured port {port} is already in use.",
                 file=sys.stderr,
             )
             return 1

@@ -580,6 +580,7 @@ class TestRunServer:
     def test_starts_and_shuts_down(self):
         """Test server starts and shuts down on KeyboardInterrupt."""
         with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
             patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_server_cls,
         ):
             mock_server = MagicMock()
@@ -594,6 +595,7 @@ class TestRunServer:
     def test_sets_class_state(self):
         """Test run_server configures handler class attributes."""
         with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
             patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_server_cls,
         ):
             mock_server = MagicMock()
@@ -607,6 +609,31 @@ class TestRunServer:
             assert CorpusBuilderHandler.verbose is False
             assert CorpusBuilderHandler.state.output_base == output_base
 
+    def test_falls_back_when_configured_8000_range_port_is_busy(self):
+        """Busy configured 8000-range ports should fallback to auto-selected ports."""
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=False),
+            patch("build_tools.syllable_walk_web.server.select_auto_port", return_value=8004),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_server_cls,
+        ):
+            mock_server = MagicMock()
+            mock_server.serve_forever.side_effect = KeyboardInterrupt()
+            mock_server_cls.return_value = mock_server
+
+            code = run_server(port=8000, verbose=False)
+            assert code == 0
+            assert mock_server_cls.call_args[0][0] == ("", 8004)
+
+    def test_returns_1_for_busy_configured_out_of_range_port(self):
+        """Busy configured ports outside 8000-8999 should fail fast."""
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=False),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_server_cls,
+        ):
+            code = run_server(port=9500, verbose=False)
+            assert code == 1
+            mock_server_cls.assert_not_called()
+
 
 # ============================================================
 # run_server corpus_dir
@@ -618,7 +645,10 @@ class TestRunServerCorpusDirs:
 
     def test_stores_corpus_dir_a(self, tmp_path):
         """Test corpus_dir_a is stored in state."""
-        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,
+        ):
             mock_server = MagicMock()
             mock_server.serve_forever.side_effect = KeyboardInterrupt()
             mock_cls.return_value = mock_server
@@ -629,7 +659,10 @@ class TestRunServerCorpusDirs:
 
     def test_stores_corpus_dir_b(self, tmp_path):
         """Test corpus_dir_b is stored in state."""
-        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,
+        ):
             mock_server = MagicMock()
             mock_server.serve_forever.side_effect = KeyboardInterrupt()
             mock_cls.return_value = mock_server
@@ -640,7 +673,10 @@ class TestRunServerCorpusDirs:
 
     def test_corpus_dirs_default_to_none(self):
         """Test corpus_dirs are None when not configured."""
-        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,
+        ):
             mock_server = MagicMock()
             mock_server.serve_forever.side_effect = KeyboardInterrupt()
             mock_cls.return_value = mock_server
@@ -652,7 +688,10 @@ class TestRunServerCorpusDirs:
 
     def test_stores_sessions_dir_override(self, tmp_path):
         """Test sessions_dir override is stored in state as an absolute path."""
-        with (patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,):
+        with (
+            patch("build_tools.syllable_walk_web.server.is_port_available", return_value=True),
+            patch("build_tools.syllable_walk_web.server.ThreadingHTTPServer") as mock_cls,
+        ):
             mock_server = MagicMock()
             mock_server.serve_forever.side_effect = KeyboardInterrupt()
             mock_cls.return_value = mock_server
