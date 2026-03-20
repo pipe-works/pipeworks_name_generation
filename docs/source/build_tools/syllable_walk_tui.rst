@@ -105,7 +105,7 @@ The TUI takes no command-line arguments and launches directly into the interacti
 **Requirements:**
 
 - Python 3.12+
-- Textual library (install via ``pip install -r requirements-dev.txt``)
+- Textual library (install via ``pip install -e ".[dev]"``)
 - Annotated syllable corpus (from ``syllable_feature_annotator``)
 
 Output Format
@@ -695,7 +695,7 @@ Requires Textual library for TUI functionality. Install with:
 
 .. code-block:: bash
 
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
 
 **Python Version:**
 
@@ -714,7 +714,7 @@ in configuration management.
 
 .. code-block:: bash
 
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
 
 **Terminal Too Small:**
 

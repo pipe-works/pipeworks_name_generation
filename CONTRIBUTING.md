@@ -28,8 +28,7 @@ Be respectful, constructive, and professional in all interactions.
 
    ```bash
    pip install --upgrade pip
-   pip install -r requirements-dev.txt
-   pip install -e .
+   pip install -e ".[dev]"
    ```
 
 4. **Install pre-commit hooks**:

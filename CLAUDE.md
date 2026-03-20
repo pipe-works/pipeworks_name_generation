@@ -19,7 +19,7 @@ across sessions.
 ```bash
 # Setup
 python3.12 -m venv venv && source venv/bin/activate
-pip install -r requirements-dev.txt && pip install -e .
+pip install -e ".[dev]"
 
 # Run tests
 pytest
