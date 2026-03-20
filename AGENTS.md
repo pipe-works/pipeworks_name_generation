@@ -15,8 +15,7 @@
 
 - Python 3.12+
 - Install deps:
-  - `pip install -r requirements-dev.txt`
-  - `pip install -e .`
+  - `pip install -e ".[dev]"`
 - Pre-commit hooks:
   - `pre-commit install`
   - `pre-commit run --all-files`

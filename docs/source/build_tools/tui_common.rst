@@ -308,7 +308,7 @@ Requires Textual library:
 
 .. code-block:: bash
 
-    pip install -r requirements-dev.txt
+    pip install -e ".[dev]"
 
 **Python Version:**
 

@@ -1,4 +1,0 @@
-# Runtime dependencies for pipeworks_name_generation
-# Keep this minimal - only what's needed at runtime
-
-# No runtime dependencies in Phase 1 (uses only stdlib)

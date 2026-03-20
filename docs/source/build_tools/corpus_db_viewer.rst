@@ -246,7 +246,7 @@ Requires Textual library for TUI functionality. Install with:
 
 .. code-block:: bash
 
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
 
 **Troubleshooting:**
 
@@ -272,7 +272,7 @@ Requires Textual library for TUI functionality. Install with:
 
 .. code-block:: bash
 
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
 
 **Terminal Too Small:**
 

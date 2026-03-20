@@ -29,7 +29,7 @@ framework.
 The viewer is installed as part of the development dependencies:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
 This installs the `textual` library (>=0.50.0) and all other build tool dependencies.
@@ -399,7 +399,7 @@ Error: Textual library not found. Please install dependencies:
 **Solution:** Install development dependencies:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
 ### Export Directory Permission Error
