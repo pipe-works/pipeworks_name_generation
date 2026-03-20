@@ -18,4 +18,4 @@ __all__ = [
     "render_name",
     "render_names",
 ]
-__version__ = "0.8.0"
+__version__ = "0.8.1"
