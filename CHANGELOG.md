@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.8.0...pipeworks-name-generation-v0.8.1) (2026-03-20)
+
+
+### Fixes
+
+* consolidate dependency installs into pyproject extras ([60a1146](https://github.com/pipe-works/pipeworks_name_generation/commit/60a11468b475fbb8d71cdbde2cbd8eb707ad6bb8))
+* consolidate dependency installs into pyproject extras ([c781e2c](https://github.com/pipe-works/pipeworks_name_generation/commit/c781e2c1709de212e994d13c9ac78f55f00e80b8))
+
 ## [0.8.0](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.7.3...pipeworks-name-generation-v0.8.0) (2026-03-10)
 
 
