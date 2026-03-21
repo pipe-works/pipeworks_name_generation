@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.8.1...pipeworks-name-generation-v0.8.2) (2026-03-21)
+
+
+### Documentation
+
+* add phase 8 closeout and archive governance ([#141](https://github.com/pipe-works/pipeworks_name_generation/issues/141)) ([416eaf7](https://github.com/pipe-works/pipeworks_name_generation/commit/416eaf798103038e6f69fe217ca287ff95ca39ec))
+* **deploy:** point legacy runtime docs to api repo ownership ([#138](https://github.com/pipe-works/pipeworks_name_generation/issues/138)) ([21c1d6b](https://github.com/pipe-works/pipeworks_name_generation/commit/21c1d6b081c6c44b368d5486de44273dd72eb061))
+* transition legacy repo to meta-only ownership ([#140](https://github.com/pipe-works/pipeworks_name_generation/issues/140)) ([a3db4e4](https://github.com/pipe-works/pipeworks_name_generation/commit/a3db4e4e5acd9c167a09028d7b0b57e7df684c5f))
+
 ## [0.8.1](https://github.com/pipe-works/pipeworks_name_generation/compare/pipeworks-name-generation-v0.8.0...pipeworks-name-generation-v0.8.1) (2026-03-20)
 
 
