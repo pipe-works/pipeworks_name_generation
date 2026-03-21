@@ -116,10 +116,9 @@ where `<app>` is `name-gen`, `syllable-walk`, or `both`.
 
 Open the URL printed in the console (default host `127.0.0.1`).
 
-**Production note:** For reverse-proxy setup, systemd, and CORS allowlists, see the
-deployment guide in the docs. CORS only applies to browser JavaScript and is **not**
-authentication.
-**[Deployment guide →](https://pipeworks-name-generation.readthedocs.io/en/latest/webapp/deployment.html)**
+**Production note:** Runtime deployment ownership has moved to
+`pipeworks-namegen-api`. For reverse-proxy and systemd service templates, use:
+**[`pipeworks-namegen-api/deploy/`](https://github.com/pipe-works/pipeworks-namegen-api/tree/main/deploy)**.
 
 ### What It Does
 
@@ -255,8 +254,8 @@ available at **[pipeworks-name-generation.readthedocs.io](https://pipeworks-name
 
 - **[Build Tools Guide](https://pipeworks-name-generation.readthedocs.io/en/latest/build_tools/index.html)**
   \- Detailed usage for all command-line tools.
-- **[Web App Deployment](https://pipeworks-name-generation.readthedocs.io/en/latest/webapp/deployment.html)**
-  \- Production-style setup notes (systemd, nginx, CORS allowlists).
+- **[Canonical Runtime Deployment (`pipeworks-namegen-api`)](https://github.com/pipe-works/pipeworks-namegen-api/tree/main/deploy)**
+  \- Production service templates and runtime ownership baseline.
 - **[API Reference](https://pipeworks-name-generation.readthedocs.io/en/latest/autoapi/index.html)**
   \- Complete API documentation for all modules.
 - **[Changelog](https://pipeworks-name-generation.readthedocs.io/en/latest/changelog.html)**
