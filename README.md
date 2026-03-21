@@ -35,6 +35,9 @@ Phase 7 migration policy is a hard cutover:
 See [`TRANSITION.md`](TRANSITION.md) for migration mapping, ownership boundaries,
 and archive-readiness context.
 
+For Phase 8 closeout governance and archive execution steps, see
+[`CLOSEOUT.md`](CLOSEOUT.md).
+
 ## Repository Status
 
 This repository is retained only for:

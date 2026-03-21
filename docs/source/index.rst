@@ -14,6 +14,7 @@ Canonical ownership has moved to:
    :caption: Transition
 
    transition
+   closeout
 
 .. toctree::
    :maxdepth: 2
